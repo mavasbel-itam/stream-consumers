@@ -1,0 +1,26 @@
+{
+ "source": "okx",
+ "captured_at": "2026-10-13T07:13:44+00:00",
+ "messages": [
+  {
+   "body_text": "{\"event\":\"subscribe\",\"arg\":{\"channel\":\"tickers\",\"instId\":\"BTC-USDT\"},\"connId\":\"cbf56068\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"arg\":{\"channel\":\"tickers\",\"instId\":\"BTC-USDT\"},\"data\":[{\"instType\":\"SPOT\",\"instId\":\"BTC-USDT\",\"last\":\"83741.9\",\"lastSz\":\"0.00030315\",\"askPx\":\"83742\",\"askSz\":\"0.48999738\",\"bidPx\":\"83741.9\",\"bidSz\":\"1.02866019\",\"open24h\":\"84264.4\",\"high24h\":\"84361.6\",\"low24h\":\"81032.8\",\"sodUtc0\":\"81853.2\",\"sodUtc8\":\"82721.2\",\"volCcy24h\":\"588859678.671683895\",\"vol24h\":\"7100.50192338\",\"ts\":\"1791875623867\"}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"arg\":{\"channel\":\"tickers\",\"instId\":\"ETH-USDT\"},\"data\":[{\"instType\":\"SPOT\",\"instId\":\"ETH-USDT\",\"last\":\"2529.66\",\"lastSz\":\"0.098729\",\"askPx\":\"2529.67\",\"askSz\":\"6.181973\",\"bidPx\":\"2529.66\",\"bidSz\":\"13.797494\",\"open24h\":\"2577.15\",\"high24h\":\"2579.98\",\"low24h\":\"2409.11\",\"sodUtc0\":\"2447.18\",\"sodUtc8\":\"2530\",\"volCcy24h\":\"488705654.57261838\",\"vol24h\":\"194230.038781\",\"ts\":\"1791875623764\"}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"arg\":{\"channel\":\"tickers\",\"instId\":\"SOL-USDT\"},\"data\":[{\"instType\":\"SPOT\",\"instId\":\"SOL-USDT\",\"last\":\"108.28\",\"lastSz\":\"7.526593\",\"askPx\":\"108.29\",\"askSz\":\"1.468949\",\"bidPx\":\"108.28\",\"bidSz\":\"116.048125\",\"open24h\":\"112.93\",\"high24h\":\"113.12\",\"low24h\":\"101.63\",\"sodUtc0\":\"105.76\",\"sodUtc8\":\"108.91\",\"volCcy24h\":\"101021380.67567132\",\"vol24h\":\"940998.037629\",\"ts\":\"1791875623773\"}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"arg\":{\"channel\":\"tickers\",\"instId\":\"XRP-USDT\"},\"data\":[{\"instType\":\"SPOT\",\"instId\":\"XRP-USDT\",\"last\":\"1.3759\",\"lastSz\":\"1.5\",\"askPx\":\"1.3759\",\"askSz\":\"2675.8\",\"bidPx\":\"1.3758\",\"bidSz\":\"6784.195791\",\"open24h\":\"1.4168\",\"high24h\":\"1.418\",\"low24h\":\"1.3111\",\"sodUtc0\":\"1.3421\",\"sodUtc8\":\"1.3773\",\"volCcy24h\":\"40544120.788692455\",\"vol24h\":\"29674000.292663\",\"ts\":\"1791875623761\"}]}",
+   "attributes": {}
+  }
+ ]
+}

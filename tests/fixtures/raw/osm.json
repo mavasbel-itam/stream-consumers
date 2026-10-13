@@ -1,0 +1,20 @@
+{
+ "source": "osm",
+ "captured_at": "2026-10-13T07:14:09+00:00",
+ "note": "state.txt and the first two elements of each action of one minute diff (user and uid masked)",
+ "messages": [
+  {
+   "body_text": "#Tue Oct 13 07:13:06 UTC 2026\nsequenceNumber=7326851\ntimestamp=2026-10-13T07\\:12\\:38Z\n",
+   "bytes": true,
+   "attributes": {
+    "url": "state.txt"
+   }
+  },
+  {
+   "body_b64": "H4sIAIPizWoC/8WTTU/jMBCG7/0VkQ/0FMcz/hqXpBxW4hewl71lGzeNaBKUmN3l3+OQKhuEhJCQwDe/mo/nnbHzm3/tOfnjh7Hpu2ILXGwT3x36qunqYvvz7jal7c1+k/dj++NUdrVfYpnghiW17/xQhn4oWAypfof0MPgy+LRqjsdMcMf2myTJZzHW6frKJ01VMFBoHaAiKdn/msCS0LR+DGX7UDAUaFIQKcg7YXeAO0m/WPI4pV+dw3Vbjve+uqrDdRRHP7xVDy/Iow+xshNKaouxw7mMd+k4OQ3CuShMrR3XYJScgaeTh7JO7gt2aurT3/IpUhZsDP0Dy+aIPJvMvPGEBjXRRz3BTsPnPBnQ8uLJCK5IKEK6eELkgkAp7SboPFvW0MYFH5/W7GjJgXECVuTq/W2g/iy51RdyZTmhM47wQg7IndDOGHwhf4VJQgq1wpRfiimFQFxjAhBYMw94mWvlz/71g5cERMaa7yQHMm49YAtS00y+AGfLV99vngGhlib0HgQAAA==",
+   "attributes": {
+    "url": "007326851.osc.gz"
+   }
+  }
+ ]
+}

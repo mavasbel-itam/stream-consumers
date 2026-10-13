@@ -1,0 +1,13 @@
+{
+ "source": "bicing",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_text": "{\"last_updated\": 1791875619, \"ttl\": 0, \"data\": {\"stations\": [{\"station_id\": \"1\", \"num_bikes_available\": 2, \"num_bikes_disabled\": 5, \"is_charging_station\": true, \"status\": \"IN_SERVICE\", \"traffic\": null, \"num_docks_available\": 38, \"num_docks_disabled\": 0, \"last_reported\": 1791875569, \"is_installed\": true, \"is_renting\": true, \"is_returning\": true, \"vehicle_docks_available\": [{\"vehicle_type_ids\": [\"ICONIC\", \"BOOST\", \"FIT\"], \"count\": 38}], \"vehicle_types_available\": [{\"vehicle_type_id\": \"FIT\", \"count\": 0}, {\"vehicle_type_id\": \"BOOST\", \"count\": 1}, {\"vehicle_type_id\": \"ICONIC\", \"count\": 1}]}, {\"station_id\": \"2\", \"num_bikes_available\": 1, \"num_bikes_disabled\": 2, \"is_charging_station\": true, \"status\": \"IN_SERVICE\", \"traffic\": null, \"num_docks_available\": 26, \"num_docks_disabled\": 0, \"last_reported\": 1791875459, \"is_installed\": true, \"is_renting\": true, \"is_returning\": true, \"vehicle_docks_available\": [{\"vehicle_type_ids\": [\"ICONIC\", \"BOOST\", \"FIT\"], \"count\": 26}], \"vehicle_types_available\": [{\"vehicle_type_id\": \"FIT\", \"count\": 0}, {\"vehicle_type_id\": \"BOOST\", \"count\": 0}, {\"vehicle_type_id\": \"ICONIC\", \"count\": 1}]}, {\"station_id\": \"3\", \"num_bikes_available\": 1, \"num_bikes_disabled\": 2, \"is_charging_station\": true, \"status\": \"IN_SERVICE\", \"traffic\": null, \"num_docks_available\": 24, \"num_docks_disabled\": 0, \"last_reported\": 1791875518, \"is_installed\": true, \"is_renting\": true, \"is_returning\": true, \"vehicle_docks_available\": [{\"vehicle_type_ids\": [\"ICONIC\", \"BOOST\", \"FIT\"], \"count\": 24}], \"vehicle_types_available\": [{\"vehicle_type_id\": \"FIT\", \"count\": 0}, {\"vehicle_type_id\": \"BOOST\", \"count\": 0}, {\"vehicle_type_id\": \"ICONIC\", \"count\": 1}]}]}, \"version\": \"2.3\"}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://barcelona.publicbikesystem.net/customer/gbfs/v2/en/station_status"
+   }
+  }
+ ]
+}

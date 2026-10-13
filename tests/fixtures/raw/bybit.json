@@ -1,0 +1,26 @@
+{
+ "source": "bybit",
+ "captured_at": "2026-10-13T07:13:44+00:00",
+ "messages": [
+  {
+   "body_text": "{\"success\":true,\"ret_msg\":\"subscribe\",\"conn_id\":\"d9avsoul79dcum19autg-hfpjt\",\"op\":\"subscribe\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"topic\":\"tickers.BTCUSDT\",\"ts\":1791875623126,\"type\":\"snapshot\",\"cs\":115351328160,\"data\":{\"symbol\":\"BTCUSDT\",\"lastPrice\":\"83743.9\",\"highPrice24h\":\"84350.9\",\"lowPrice24h\":\"81031.2\",\"prevPrice24h\":\"84233.9\",\"volume24h\":\"9851.521666\",\"turnover24h\":\"815129223.1507315\",\"price24hPcnt\":\"-0.0058\",\"usdIndexPrice\":\"83636.527794\"}}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"topic\":\"tickers.ETHUSDT\",\"ts\":1791875623416,\"type\":\"snapshot\",\"cs\":183982839032,\"data\":{\"symbol\":\"ETHUSDT\",\"lastPrice\":\"2529.63\",\"highPrice24h\":\"2579.5\",\"lowPrice24h\":\"2409\",\"prevPrice24h\":\"2575.18\",\"volume24h\":\"105770.76899\",\"turnover24h\":\"265391608.363842\",\"price24hPcnt\":\"-0.0177\",\"usdIndexPrice\":\"2526.437464\"}}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"topic\":\"tickers.SOLUSDT\",\"ts\":1791875623666,\"type\":\"snapshot\",\"cs\":164563276983,\"data\":{\"symbol\":\"SOLUSDT\",\"lastPrice\":\"108.3\",\"highPrice24h\":\"113.11\",\"lowPrice24h\":\"101.66\",\"prevPrice24h\":\"112.89\",\"volume24h\":\"591097.1917\",\"turnover24h\":\"63450940.085857\",\"price24hPcnt\":\"-0.0407\",\"usdIndexPrice\":\"108.151988\"}}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"topic\":\"tickers.XRPUSDT\",\"ts\":1791875623161,\"type\":\"snapshot\",\"cs\":194499099572,\"data\":{\"symbol\":\"XRPUSDT\",\"lastPrice\":\"1.376\",\"highPrice24h\":\"1.4184\",\"lowPrice24h\":\"1.3112\",\"prevPrice24h\":\"1.4161\",\"volume24h\":\"22916845.57\",\"turnover24h\":\"31374115.197858\",\"price24hPcnt\":\"-0.0283\",\"usdIndexPrice\":\"1.374292\"}}",
+   "attributes": {}
+  }
+ ]
+}

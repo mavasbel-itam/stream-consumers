@@ -1,0 +1,13 @@
+{
+ "source": "ecobici",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_text": "{\"last_updated\": 1791875617, \"ttl\": 10, \"data\": {\"stations\": [{\"station_id\": \"1\", \"num_bikes_available\": 0, \"num_bikes_disabled\": 12, \"num_docks_available\": 27, \"num_docks_disabled\": 0, \"is_installed\": 1, \"is_renting\": 0, \"is_returning\": 1, \"last_reported\": 1791866439, \"eightd_has_available_keys\": false, \"is_charging\": false}, {\"station_id\": \"5\", \"num_bikes_available\": 0, \"num_bikes_disabled\": 3, \"num_docks_available\": 16, \"num_docks_disabled\": 0, \"is_installed\": 1, \"is_renting\": 0, \"is_returning\": 1, \"last_reported\": 1791867508, \"eightd_has_available_keys\": false, \"is_charging\": false}, {\"station_id\": \"6\", \"num_bikes_available\": 0, \"num_bikes_disabled\": 3, \"num_docks_available\": 24, \"num_docks_disabled\": 0, \"is_installed\": 1, \"is_renting\": 0, \"is_returning\": 1, \"last_reported\": 1791872818, \"eightd_has_available_keys\": false, \"is_charging\": false}]}}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://gbfs.mex.lyftbikes.com/gbfs/en/station_status.json"
+   }
+  }
+ ]
+}

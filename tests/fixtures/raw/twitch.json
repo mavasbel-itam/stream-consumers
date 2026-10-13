@@ -1,0 +1,26 @@
+{
+ "source": "twitch",
+ "captured_at": "2026-10-13T07:13:47+00:00",
+ "messages": [
+  {
+   "body_text": ":tmi.twitch.tv CAP * ACK :twitch.tv/tags",
+   "attributes": {}
+  },
+  {
+   "body_text": "@badge-info=subscriber/23;badges=subscriber/18,seeks-eye/1;color=#FF69B4;display-name=<masked>;emotes=;first-msg=0;flags=;id=<masked>;mod=0;returning-chatter=0;room-id=<masked>;subscriber=1;tmi-sent-ts=1791875624986;turbo=0;user-id=<masked>;user-type= :masked!masked@masked.tmi.twitch.tv PRIVMSG #xqc :<masked>",
+   "attributes": {}
+  },
+  {
+   "body_text": "@badge-info=;badges=you-got-this/1;client-nonce=<masked>;color=#000000;display-name=<masked>;emotes=;first-msg=0;flags=;id=<masked>;mod=0;returning-chatter=0;room-id=<masked>;subscriber=0;tmi-sent-ts=1791875625622;turbo=0;user-id=<masked>;user-type= :masked!masked@masked.tmi.twitch.tv PRIVMSG #xqc :<masked>",
+   "attributes": {}
+  },
+  {
+   "body_text": "@badge-info=subscriber/15;badges=subscriber/12,premium/1;client-nonce=<masked>;color=#FF0000;display-name=<masked>;emotes=;first-msg=0;flags=;id=<masked>;mod=0;returning-chatter=0;room-id=<masked>;subscriber=1;tmi-sent-ts=1791875626144;turbo=0;user-id=<masked>;user-type= :masked!masked@masked.tmi.twitch.tv PRIVMSG #xqc :<masked>",
+   "attributes": {}
+  },
+  {
+   "body_text": "@badge-info=;badges=wardog/1;client-nonce=<masked>;color=#8A2BE2;display-name=<masked>;emotes=;first-msg=0;flags=;id=<masked>;mod=0;returning-chatter=0;room-id=<masked>;subscriber=0;tmi-sent-ts=1791875626853;turbo=0;user-id=<masked>;user-type= :masked!masked@masked.tmi.twitch.tv PRIVMSG #xqc :<masked>",
+   "attributes": {}
+  }
+ ]
+}

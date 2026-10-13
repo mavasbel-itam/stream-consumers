@@ -1,0 +1,26 @@
+{
+ "source": "coinbase",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_text": "{\"type\":\"subscriptions\",\"channels\":[{\"name\":\"ticker\",\"product_ids\":[\"BTC-USD\",\"ETH-USD\",\"SOL-USD\",\"XRP-USD\",\"DOGE-USD\"],\"account_ids\":null}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"type\":\"ticker\",\"sequence\":24431856473,\"product_id\":\"DOGE-USD\",\"price\":\"0.08469\",\"open_24h\":\"0.08772\",\"volume_24h\":\"128201456.40000000\",\"low_24h\":\"0.07992\",\"high_24h\":\"0.08774\",\"volume_30d\":\"6023984726.80000000\",\"best_bid\":\"0.08467\",\"best_bid_size\":\"53610.1\",\"best_ask\":\"0.08471\",\"best_ask_size\":\"46376.3\",\"side\":\"sell\",\"time\":\"2026-10-13T07:12:56.289683Z\",\"trade_id\":175522764,\"last_size\":\"5903.6\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"type\":\"ticker\",\"sequence\":33068197032,\"product_id\":\"SOL-USD\",\"price\":\"108.16\",\"open_24h\":\"112.46\",\"volume_24h\":\"1037283.53785695\",\"low_24h\":\"101.55\",\"high_24h\":\"112.51\",\"volume_30d\":\"26426002.88787742\",\"best_bid\":\"108.140\",\"best_bid_size\":\"131.72592851\",\"best_ask\":\"108.160\",\"best_ask_size\":\"39.95427984\",\"side\":\"buy\",\"time\":\"2026-10-13T07:13:34.909571Z\",\"trade_id\":357569383,\"last_size\":\"0.07960535\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"type\":\"ticker\",\"sequence\":22968796130,\"product_id\":\"XRP-USD\",\"price\":\"1.3744\",\"open_24h\":\"1.4112\",\"volume_24h\":\"61380570.13198100\",\"low_24h\":\"1.3094\",\"high_24h\":\"1.4114\",\"volume_30d\":\"3051222787.31134500\",\"best_bid\":\"1.3742\",\"best_bid_size\":\"14118.762518\",\"best_ask\":\"1.3744\",\"best_ask_size\":\"5949.254395\",\"side\":\"buy\",\"time\":\"2026-10-13T07:13:42.072605Z\",\"trade_id\":254263801,\"last_size\":\"0.000001\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"type\":\"ticker\",\"sequence\":137629231260,\"product_id\":\"BTC-USD\",\"price\":\"83641.33\",\"open_24h\":\"83903.69\",\"volume_24h\":\"5073.92439831\",\"low_24h\":\"80927.48\",\"high_24h\":\"83903.69\",\"volume_30d\":\"177670.32234687\",\"best_bid\":\"83641.33\",\"best_bid_size\":\"0.37428729\",\"best_ask\":\"83641.34\",\"best_ask_size\":\"0.04184509\",\"side\":\"sell\",\"time\":\"2026-10-13T07:13:42.734725Z\",\"trade_id\":1105356353,\"last_size\":\"0.00000018\"}",
+   "attributes": {}
+  }
+ ]
+}

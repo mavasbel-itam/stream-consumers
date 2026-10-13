@@ -1,0 +1,26 @@
+{
+ "source": "kraken",
+ "captured_at": "2026-10-13T07:13:47+00:00",
+ "messages": [
+  {
+   "body_text": "{\"channel\":\"status\",\"type\":\"update\",\"data\":[{\"version\":\"2.0.10\",\"system\":\"online\",\"api_version\":\"v2\",\"connection_id\":18001073433471920361,\"upcoming_maintenance\":[],\"emergency\":[]}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"channel\":\"trade\",\"type\":\"update\",\"data\":[{\"symbol\":\"SOL/USD\",\"side\":\"buy\",\"price\":108.16,\"qty\":0.06000000,\"ord_type\":\"limit\",\"trade_id\":34402860,\"timestamp\":\"2026-10-13T07:13:45.308680Z\"},{\"symbol\":\"SOL/USD\",\"side\":\"buy\",\"price\":108.16,\"qty\":0.00283376,\"ord_type\":\"limit\",\"trade_id\":34402861,\"timestamp\":\"2026-10-13T07:13:45.308680Z\"}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"channel\":\"ticker\",\"type\":\"update\",\"data\":[{\"symbol\":\"SOL/USD\",\"bid\":108.15,\"bid_qty\":132.72019328,\"ask\":108.16,\"ask_qty\":92.51562130,\"last\":108.16,\"volume\":367232.56518676,\"vwap\":107.16,\"low\":101.58,\"high\":113.00,\"change\":-4.70,\"change_pct\":-4.16,\"trades\":44961,\"timestamp\":\"2026-10-13T07:13:45.308680Z\"}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"channel\":\"trade\",\"type\":\"update\",\"data\":[{\"symbol\":\"ETH/USD\",\"side\":\"buy\",\"price\":2526.55,\"qty\":0.00100000,\"ord_type\":\"market\",\"trade_id\":67659361,\"timestamp\":\"2026-10-13T07:13:47.235339Z\"},{\"symbol\":\"ETH/USD\",\"side\":\"buy\",\"price\":2526.55,\"qty\":0.03857966,\"ord_type\":\"market\",\"trade_id\":67659362,\"timestamp\":\"2026-10-13T07:13:47.235339Z\"}]}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"channel\":\"ticker\",\"type\":\"update\",\"data\":[{\"symbol\":\"ETH/USD\",\"bid\":2526.54,\"bid_qty\":7.82796529,\"ask\":2526.55,\"ask_qty\":3.78050994,\"last\":2526.55,\"volume\":30284.01697676,\"vwap\":2494.16,\"low\":2406.71,\"high\":2576.94,\"change\":-46.45,\"change_pct\":-1.81,\"trades\":61880,\"timestamp\":\"2026-10-13T07:13:47.235339Z\"}]}",
+   "attributes": {}
+  }
+ ]
+}

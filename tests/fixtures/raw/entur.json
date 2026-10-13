@@ -1,0 +1,13 @@
+{
+ "source": "entur",
+ "captured_at": "2026-10-13T07:13:44+00:00",
+ "messages": [
+  {
+   "body_text": "{\"data\": {\"vehicles\": [{\"vehicleId\": \"3350470146\", \"lastUpdated\": \"2026-10-13T06:36:43Z\", \"codespace\": {\"codespaceId\": \"SKY\"}, \"line\": {\"lineRef\": \"SKY:Line:922\", \"publicCode\": \"922\", \"lineName\": \"Eksingedalen - Dale\"}, \"location\": {\"latitude\": 60.7895201537758, \"longitude\": 6.11438169144094}, \"bearing\": 244.47999572753906, \"speed\": null, \"delay\": 96.0, \"occupancyStatus\": \"noData\", \"vehicleStatus\": \"COMPLETED\", \"inCongestion\": false, \"originName\": \"Gullbr\\u00e5 snuplass\", \"destinationName\": \"Bergo\", \"serviceJourney\": {\"id\": \"SKY:ServiceJourney:922-208760-21965657\"}, \"operator\": null, \"mode\": \"BUS\"}, {\"vehicleId\": \"3360110140\", \"lastUpdated\": \"2026-10-13T07:12:55Z\", \"codespace\": {\"codespaceId\": \"AKT\"}, \"line\": {\"lineRef\": \"AKT:Line:1973\", \"publicCode\": \"1973\", \"lineName\": \"Skulebussar Iveland kommune\"}, \"location\": {\"latitude\": 58.2934562768787, \"longitude\": 7.85566449165344}, \"bearing\": 138.39999389648438, \"speed\": null, \"delay\": -18966.0, \"occupancyStatus\": \"seatsAvailable\", \"vehicleStatus\": \"ASSIGNED\", \"inCongestion\": false, \"originName\": \"Leeslandsveien\", \"destinationName\": \"Skolebuss\", \"serviceJourney\": {\"id\": \"AKT:ServiceJourney:70398_272_4_104280_106440_3950004\"}, \"operator\": {\"operatorRef\": \"AKT:Operator:391\"}, \"mode\": \"BUS\"}, {\"vehicleId\": \"3390123744\", \"lastUpdated\": \"2026-10-13T06:12:41Z\", \"codespace\": {\"codespaceId\": \"AKT\"}, \"line\": {\"lineRef\": \"AKT:Line:1962\", \"publicCode\": \"1962\", \"lineName\": \"Skolebusser Ris\\u00f8r\"}, \"location\": {\"latitude\": 58.6898890323937, \"longitude\": 9.14782681502402}, \"bearing\": 67.69999694824219, \"speed\": null, \"delay\": -157.0, \"occupancyStatus\": \"seatsAvailable\", \"vehicleStatus\": \"COMPLETED\", \"inCongestion\": false, \"originName\": \"Kilen \\u00f8st\", \"destinationName\": \"Hope skole\", \"serviceJourney\": {\"id\": \"AKT:ServiceJourney:74319_71_53_54360_56880_40001645\"}, \"operator\": {\"operatorRef\": \"AKT:Operator:923\"}, \"mode\": \"BUS\"}]}}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://api.entur.io/realtime/v2/vehicles/graphql"
+   }
+  }
+ ]
+}
