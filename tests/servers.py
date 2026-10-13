@@ -196,3 +196,80 @@ async def zmq_publisher(frames: Sequence[bytes], every_s: float = 0.02) -> Async
         await asyncio.gather(task, return_exceptions=True)
         socket.close(linger=0)
         context.term()
+
+
+KAFKA_IMAGE = "apache/kafka:3.9.1"
+
+
+def _free_port() -> int:
+    import socket
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+
+
+@asynccontextmanager
+async def kafka_broker(start_timeout_s: float = 90.0) -> AsyncIterator[str]:
+    """A single-node KRaft Kafka broker in Docker (the official apache/kafka image), published on
+    127.0.0.1 only. Yields its bootstrap address. Requires Docker; there is no fallback, because a
+    Kafka transport tested without a broker would prove nothing."""
+    from aiokafka import AIOKafkaProducer
+    from aiokafka.errors import KafkaConnectionError
+
+    port = _free_port()
+    env = {
+        "KAFKA_NODE_ID": "1",
+        "KAFKA_PROCESS_ROLES": "broker,controller",
+        "KAFKA_LISTENERS": f"PLAINTEXT://:{port},CONTROLLER://:9093",
+        "KAFKA_ADVERTISED_LISTENERS": f"PLAINTEXT://127.0.0.1:{port}",
+        "KAFKA_CONTROLLER_LISTENER_NAMES": "CONTROLLER",
+        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT",
+        "KAFKA_CONTROLLER_QUORUM_VOTERS": "1@localhost:9093",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": "1",
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": "1",
+        "KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS": "0",
+        "KAFKA_NUM_PARTITIONS": "1",
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "true",
+    }
+    args = ["docker", "run", "-d", "--rm", "-p", f"127.0.0.1:{port}:{port}"]
+    for name, value in env.items():
+        args += ["-e", f"{name}={value}"]
+    process = await asyncio.create_subprocess_exec(*args, KAFKA_IMAGE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    out, err = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"docker run {KAFKA_IMAGE} failed: {err.decode()}")
+    container = out.decode().strip()
+    bootstrap = f"127.0.0.1:{port}"
+    try:
+        deadline = asyncio.get_running_loop().time() + start_timeout_s
+        while True:
+            producer = AIOKafkaProducer(bootstrap_servers=bootstrap)
+            try:
+                await producer.start()
+                break
+            except KafkaConnectionError:
+                if asyncio.get_running_loop().time() > deadline:
+                    raise
+                await asyncio.sleep(1)
+            finally:
+                await producer.stop()
+        yield bootstrap
+    finally:
+        stop = await asyncio.create_subprocess_exec(
+            "docker", "rm", "-f", container, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+        )
+        await stop.wait()
+
+
+async def kafka_produce(bootstrap: str, topic: str, messages: Sequence[tuple[bytes | None, bytes]]) -> None:
+    from aiokafka import AIOKafkaProducer
+
+    producer = AIOKafkaProducer(bootstrap_servers=bootstrap)
+    await producer.start()
+    try:
+        for key, value in messages:
+            await producer.send_and_wait(topic, value, key=key)
+    finally:
+        await producer.stop()

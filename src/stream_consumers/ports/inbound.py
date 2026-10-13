@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
-from stream_consumers.domain.models import RunReport, SamplingRound, SourceDescriptor, SourceProfile
+from stream_consumers.domain.models import ConfigStatus, RunReport, SamplingRound, SourceDescriptor, SourceProfile
 from stream_consumers.ports.outbound import EventSinkPort
 
 
@@ -43,3 +43,13 @@ class ProfileSourcesUseCase(ABC):
     @abstractmethod
     async def profile(self, source_ids: Sequence[str], max_events: int, seconds: float) -> Sequence[SourceProfile]:
         """Keep up to `max_events` masked events per source and describe their fields."""
+
+
+class DescribeConfigurationUseCase(ABC):
+    @abstractmethod
+    def status(self) -> Sequence[ConfigStatus]:
+        """Every credential and setting the sources read, and whether it is set (values are never returned)."""
+
+    @abstractmethod
+    def env_template(self) -> str:
+        """A `.env` template naming every credential and setting, with how to obtain each credential."""

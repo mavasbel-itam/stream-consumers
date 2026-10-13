@@ -8,7 +8,7 @@ from stream_consumers.adapters.outbound.decoders import JsonDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.mqtt import MqttSource
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class HslDecoder(JsonDecoder):
@@ -36,7 +36,7 @@ class HslFactory(BaseSourceFactory):
         terms_url="https://raw.githubusercontent.com/HSLdevcom/digitransit-site/master/src/pages/en/developers/apis/7-terms-of-use/index.md",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return MqttSource(self.DESCRIPTOR, HslDecoder(), deps.clock, "mqtt.hsl.fi", 443, ["/hfp/v2/journey/ongoing/vp/#"], path="/")
 
 

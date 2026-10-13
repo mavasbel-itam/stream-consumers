@@ -13,10 +13,12 @@ import time
 from collections.abc import AsyncGenerator, Callable, Mapping
 from dataclasses import replace
 
-from stream_consumers.adapters.outbound.decoders import CsvDecoder, JsonDecoder, LineDecoder
+from stream_consumers.adapters.outbound.auth import OAuthClientCredentials
+from stream_consumers.adapters.outbound.decoders import AvroSchemaInKeyDecoder, CsvDecoder, JsonDecoder, LineDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.base import BaseEventSource, FileDropSource, FileLocation, MergedEventSource
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
+from stream_consumers.adapters.outbound.transports.kafka import KafkaSource
 from stream_consumers.adapters.outbound.transports.mqtt import MqttSource
 from stream_consumers.adapters.outbound.transports.nats import NatsSource
 from stream_consumers.adapters.outbound.transports.sse import SseSource
@@ -24,9 +26,17 @@ from stream_consumers.adapters.outbound.transports.tcp import TcpLineSource, Tcp
 from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
 from stream_consumers.adapters.outbound.transports.zeromq import ZmqSubSource
 from stream_consumers.domain.errors import TransportError
-from stream_consumers.domain.models import Credential, Delivery, Group, PublishedVolume, RawMessage, SourceDescriptor, Transport
+from stream_consumers.domain.models import Credential, Delivery, Group, PublishedVolume, RawMessage, Setting, SourceDescriptor, Transport
 from stream_consumers.domain.policy import Backoff, ChangeDetector
-from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies, SourceFactoryPort
+from stream_consumers.ports.outbound import (
+    ClockPort,
+    Credentials,
+    DecoderPort,
+    EventSourcePort,
+    HttpClientPort,
+    SourceDependencies,
+    SourceFactoryPort,
+)
 
 FAST = Backoff(initial_s=0.05, factor=1, max_s=0.05, max_attempts=2)
 
@@ -131,7 +141,31 @@ class Stalling(BaseEventSource):
             yield {"n": n}
 
 
+class DisguisedCancellation(BaseEventSource):
+    """Yields one record, then waits; when cancelled it raises AssertionError the way websockets
+    15–17 does mid fragmented message. The retry loop must stop instead of reconnecting forever."""
+
+    def __init__(self, descriptor: SourceDescriptor, clock: ClockPort) -> None:
+        super().__init__(descriptor, clock, FAST)
+
+    async def _once(self) -> Mapping[str, object]:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            raise AssertionError("cannot reset() while queue isn't empty") from None
+        return {}  # pragma: no cover - the wait above never ends on its own
+
+    async def events(self) -> AsyncGenerator[Mapping[str, object]]:
+        yield {"n": 0}
+        yield await self._retrying(self._once)
+
+
 Builder = Callable[[SourceDescriptor, SourceDependencies], EventSourcePort]
+
+
+def _oauth(d: SourceDescriptor, deps: SourceDependencies, token_path: str) -> EventSourcePort:
+    auth = OAuthClientCredentials(deps.http, deps.clock, f"{endpoint('http')}{token_path}", "e2e-id", "e2e-secret")
+    return HttpPollSource(d, JsonDecoder(), deps.clock, deps.http, [f"{endpoint('http')}/protected"], 0.2, auth=auth, backoff=FAST)
 
 
 def _ws(path: str, **kw: object) -> Builder:
@@ -395,6 +429,40 @@ BUILDERS: dict[str, tuple[Transport, Delivery, Builder]] = {
     "merged_empty": (Transport.HTTP, Delivery.PUSH, lambda d, deps: MergedEventSource(d, [], deps.clock)),
     "keyed": (Transport.HTTP, Delivery.PUSH, lambda d, deps: Replay(d, deps.clock, [{"key": "used"}])),
     "stalling": (Transport.HTTP, Delivery.PUSH, lambda d, deps: Stalling(d, deps.clock, 0.3)),
+    "disguised_cancel": (Transport.HTTP, Delivery.PUSH, lambda d, deps: DisguisedCancellation(d, deps.clock)),
+    "kafka_json": (
+        Transport.KAFKA,
+        Delivery.PUSH,
+        lambda d, deps: KafkaSource(d, JsonDecoder(), deps.clock, str(endpoint("kafka")), ["e2e_json"], "e2e", start_at="earliest"),
+    ),
+    "kafka_avro": (
+        Transport.KAFKA,
+        Delivery.PUSH,
+        lambda d, deps: KafkaSource(
+            d, AvroSchemaInKeyDecoder(), deps.clock, str(endpoint("kafka")), ["e2e_avro"], "e2e", start_at="earliest"
+        ),
+    ),
+    "kafka_refused": (
+        Transport.KAFKA,
+        Delivery.PUSH,
+        lambda d, deps: KafkaSource(d, JsonDecoder(), deps.clock, "127.0.0.1:9", ["t"], "e2e", backoff=FAST),
+    ),
+    "kafka_no_topics": (
+        Transport.KAFKA,
+        Delivery.PUSH,
+        lambda d, deps: KafkaSource(d, JsonDecoder(), deps.clock, "127.0.0.1:9", [], "e2e"),
+    ),
+    "kafka_bad_start": (
+        Transport.KAFKA,
+        Delivery.PUSH,
+        lambda d, deps: KafkaSource(d, JsonDecoder(), deps.clock, "127.0.0.1:9", ["t"], "e2e", start_at="smallest"),
+    ),
+    "oauth_poll": (Transport.HTTP, Delivery.POLL, lambda d, deps: _oauth(d, deps, "/token")),
+    "oauth_denied": (Transport.HTTP, Delivery.POLL, lambda d, deps: _oauth(d, deps, "/token_denied")),
+    "oauth_garbage": (Transport.HTTP, Delivery.POLL, lambda d, deps: _oauth(d, deps, "/token_garbage")),
+    "oauth_empty": (Transport.HTTP, Delivery.POLL, lambda d, deps: _oauth(d, deps, "/token_empty")),
+    "configured": (Transport.HTTP, Delivery.PUSH, lambda d, deps: Replay(d, deps.clock, [{"configured": True}])),
+    "settings_only": (Transport.HTTP, Delivery.PUSH, lambda d, deps: Replay(d, deps.clock, [{"settings": True}])),
     "bad_interval": (
         Transport.HTTP,
         Delivery.POLL,
@@ -423,9 +491,17 @@ class Local(BaseSourceFactory):
         transport, delivery, self._builder = BUILDERS[source_id]
         self.DESCRIPTOR = describe(source_id, transport, delivery)  # type: ignore[misc]
         if source_id == "keyed":
-            self.DESCRIPTOR = replace(self.DESCRIPTOR, credential=Credential("E2E_KEY", "https://sign.up/e2e"))  # type: ignore[misc]
+            self.DESCRIPTOR = replace(self.DESCRIPTOR, credential=Credential(("E2E_KEY",), "https://sign.up/e2e"))  # type: ignore[misc]
+        if source_id == "configured":
+            self.DESCRIPTOR = replace(  # type: ignore[misc]
+                self.DESCRIPTOR,
+                credential=Credential(("E2E_ID", "E2E_SECRET"), "https://sign.up/pair", required=False, how_to_get="Form; e-mailed."),
+                settings=(Setting("E2E_REGION", "eu", "Region to read."),),
+            )
+        if source_id == "settings_only":
+            self.DESCRIPTOR = replace(self.DESCRIPTOR, settings=(Setting("E2E_CONTACT", "", "Contact e-mail."),))  # type: ignore[misc]
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return self._builder(self.DESCRIPTOR, deps)
 
 

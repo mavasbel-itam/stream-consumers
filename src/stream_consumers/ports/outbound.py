@@ -34,9 +34,15 @@ class ClockPort(ABC):
 
 
 class SecretProviderPort(ABC):
+    """Environment values: API credentials and non-secret settings."""
+
     @abstractmethod
     def get(self, name: str) -> str | None:
-        """The secret called `name`, or None when it is not configured."""
+        """The value called `name`, or None when it is not configured."""
+
+
+Credentials = Mapping[str, str]
+"""Credential values by environment variable name, handed to a source factory."""
 
 
 @dataclass(frozen=True)
@@ -54,11 +60,26 @@ class HttpClientPort(ABC):
     async def post_json(self, url: str, body: object, headers: Mapping[str, str] | None = None) -> HttpResponse: ...
 
     @abstractmethod
+    async def post_form(self, url: str, fields: Mapping[str, str], headers: Mapping[str, str] | None = None) -> HttpResponse:
+        """POST `fields` as application/x-www-form-urlencoded."""
+
+    @abstractmethod
     def stream(self, url: str, headers: Mapping[str, str] | None = None) -> AsyncIterator[bytes]:
         """Body chunks of a GET; raises TransportError on a non-200 status."""
 
     @abstractmethod
     async def close(self) -> None: ...
+
+
+class RequestAuthPort(ABC):
+    """Headers that authenticate a request, obtained (and renewed) by the adapter."""
+
+    @abstractmethod
+    async def headers(self) -> Mapping[str, str]: ...
+
+    @abstractmethod
+    def invalidate(self) -> None:
+        """Forget the current credential so the next `headers()` obtains a new one (e.g. after HTTP 401)."""
 
 
 class DecoderPort(ABC):

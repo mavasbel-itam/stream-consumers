@@ -9,7 +9,7 @@ from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
 from stream_consumers.domain.models import Delivery, Group, PublishedVolume, RawMessage, SourceDescriptor, Transport
 from stream_consumers.domain.policy import ChangeDetector
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class WaterMlDecoder(JsonDecoder):
@@ -51,7 +51,7 @@ class UsgsWaterFactory(BaseSourceFactory):
     )
     URL = "https://waterservices.usgs.gov/nwis/iv/?format=json&stateCd=tx&period=PT1H&siteStatus=active"
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return UsgsSource(
             self.DESCRIPTOR,
             WaterMlDecoder(),

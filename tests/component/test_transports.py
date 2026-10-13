@@ -496,3 +496,138 @@ class TestMerged:
 
     async def test_requires_children(self) -> None:
         assert "no child sources" in str(await failure(MergedEventSource(D, [], FakeClock())))
+
+
+# ------------------------------------------------------------------ cancellation that a library disguises
+class ConvertsCancellation(PushEventSource):
+    """Yields one message, then waits; a cancellation surfaces as AssertionError, as
+    websockets 15–17 does when recv() is cancelled while reassembling a fragmented message."""
+
+    def __init__(self) -> None:
+        super().__init__(D, JsonDecoder(), FakeClock(), FAST)
+        self.connections = 0
+
+    async def _connect(self) -> AsyncGenerator[RawMessage]:
+        self.connections += 1
+        yield RawMessage('{"n": 1}')
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            raise AssertionError("cannot reset() while queue isn't empty") from None
+
+
+async def consume_until_cancelled(stream: AsyncGenerator[Mapping[str, object]], first: asyncio.Event) -> None:
+    async for _ in stream:
+        first.set()
+
+
+class TestCancellationIsNeverRetried:
+    async def test_push_reconnect_loop_stops_when_its_task_is_cancelled(self) -> None:
+        source, first = ConvertsCancellation(), asyncio.Event()
+        task = asyncio.create_task(consume_until_cancelled(source.events(), first))
+        await first.wait()
+        task.cancel()
+        done, _ = await asyncio.wait([task], timeout=2)
+        assert task in done and task.cancelled() and source.connections == 1
+
+    async def test_poll_retry_loop_stops_when_its_task_is_cancelled(self) -> None:
+        class Poll(HttpPollSource):
+            fetches = 0
+
+            async def _fetch(self) -> Sequence[RawMessage]:
+                Poll.fetches += 1
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    raise OSError("library turned the cancellation into an I/O error") from None
+                return []  # pragma: no cover - the wait above never ends on its own
+
+        source = Poll(D, JsonDecoder(), FakeClock(), FakeHttp({}), ["http://x"], 1.0, backoff=FAST)
+        task = asyncio.create_task(consume_until_cancelled(source.events(), asyncio.Event()))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        task.cancel()
+        done, _ = await asyncio.wait([task], timeout=2)
+        assert task in done and task.cancelled() and Poll.fetches == 1
+
+    async def test_an_ordinary_failure_is_still_retried(self) -> None:
+        source = Once()
+        with pytest.raises(TransportError, match="gave up after 2 retries"):
+            async for _ in source.events():
+                pass
+        assert source.connections == 3
+
+
+class Stubborn(EventSourcePort):
+    """A child that ignores the first cancellation (as a buggy library could) and honours the second."""
+
+    def __init__(self) -> None:
+        self.cancels = 0
+
+    @property
+    def descriptor(self):  # type: ignore[no-untyped-def]
+        return D
+
+    def published_volume(self) -> PublishedVolume | None:
+        return None
+
+    async def events(self) -> AsyncGenerator[Mapping[str, object]]:
+        yield {"n": 1}
+        while True:
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                self.cancels += 1
+                if self.cancels > 1:
+                    raise
+
+
+async def test_merged_close_cancels_again_until_every_child_has_stopped(monkeypatch: pytest.MonkeyPatch) -> None:
+    import stream_consumers.adapters.outbound.transports.base as base
+
+    monkeypatch.setattr(base, "MERGED_CLOSE_GRACE_S", 0.05)
+    child = Stubborn()
+    merged = MergedEventSource(D, [child], FakeClock())
+    stream = merged.events()
+    assert await anext(stream) == {"n": 1}
+    await asyncio.wait_for(stream.aclose(), 2)
+    assert child.cancels == 2
+
+
+async def test_websocket_cancelled_mid_fragmented_message_stops_instead_of_reconnecting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reproduces the websockets race with the real library: the continuation frame of a
+    fragmented message is queued and the reading task is cancelled before it resumes, so
+    `Assembler.get` raises AssertionError("cannot reset() while queue isn't empty")."""
+    from websockets.asyncio import messages
+    from websockets.frames import Opcode
+
+    connections = 0
+
+    async def handler(ws: websockets.ServerConnection) -> None:
+        nonlocal connections
+        connections += 1
+
+        async def fragments() -> AsyncGenerator[str]:
+            yield '{"part": '
+            await asyncio.sleep(0.05)
+            yield "1}"
+
+        await ws.send('{"whole": 1}')
+        await ws.send(fragments())
+        await ws.wait_closed()
+
+    reader: asyncio.Task[None] | None = None
+    original_put = messages.Assembler.put
+
+    def put_then_cancel(self: messages.Assembler, frame: object) -> None:
+        original_put(self, frame)  # type: ignore[arg-type]
+        if getattr(frame, "opcode", None) is Opcode.CONT and reader is not None:
+            reader.cancel()
+
+    monkeypatch.setattr(messages.Assembler, "put", put_then_cancel)
+    first = asyncio.Event()
+    async with ws_server(handler) as url:
+        source = WebSocketSource(D, JsonDecoder(), SystemClock(), url, backoff=FAST)
+        reader = asyncio.create_task(consume_until_cancelled(source.events(), first))
+        done, _ = await asyncio.wait([reader], timeout=3)
+    assert reader in done and reader.cancelled() and first.is_set() and connections == 1

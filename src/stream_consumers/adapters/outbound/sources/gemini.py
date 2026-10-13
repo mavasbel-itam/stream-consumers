@@ -9,7 +9,7 @@ from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.base import MergedEventSource
 from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class GeminiDecoder(JsonDecoder):
@@ -42,7 +42,7 @@ class GeminiFactory(BaseSourceFactory):
     URL = "wss://api.gemini.com/v1/marketdata/{symbol}"
     SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD")
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         children = [
             WebSocketSource(
                 self.DESCRIPTOR, GeminiDecoder(s), deps.clock, self.URL.format(symbol=s), headers={"User-Agent": deps.user_agent}

@@ -24,7 +24,7 @@ from stream_consumers.ports.inbound import (
     ProfileSourcesUseCase,
     SampleSourcesUseCase,
 )
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 from tests.support import FakeClock, ListSink, ListSinkFactory, MemoryReports, ScriptedSource, deps, descriptor
 
 
@@ -33,7 +33,7 @@ class Scripted(BaseSourceFactory):
         self.DESCRIPTOR = descriptor(source_id, **desc)  # type: ignore[misc,arg-type]
         self._make = make
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return self._make(deps)
 
 
@@ -127,7 +127,7 @@ class TestConsume:
     async def test_missing_key_is_reported_not_raised(self) -> None:
         clock = FakeClock()
         factory, _ = scripted("k", [], clock)
-        factory.DESCRIPTOR = descriptor("k", credential=Credential("KEY", "https://sign.up"))  # type: ignore[misc]
+        factory.DESCRIPTOR = descriptor("k", credential=Credential(("KEY",), "https://sign.up"))  # type: ignore[misc]
         report = await ConsumeService(registry(clock, factory), clock).consume("k", 5, ListSink())
         assert report.status is RunStatus.KEY_PENDING and "KEY" in report.detail and report.rate is None
 

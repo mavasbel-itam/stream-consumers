@@ -14,11 +14,16 @@ second** over the sampling rounds (`stream_consumers.domain.policy.MINIMUM_RATE`
 
 - **GDELT is kept** although its measured median was 0.977 events/s, because the
   project document lists it (decision of 2026-10-13).
-- Free-key providers are included only when their keyless route was measured at
-  ≥ 1 event/s (MBTA V3, TfL, NASA FIRMS); the key is optional for all three.
-- **Pending, not built:** aisstream.io (listed in the project document; needs a key,
-  never measured) and the free-key providers that were never measured. Each joins
-  only after a measurement of at least 1 event/s.
+- Free-key providers whose keyless route was measured at ≥ 1 event/s are included
+  (MBTA V3, TfL, NASA FIRMS); the key is optional for MBTA V3 and TfL, and FIRMS
+  uses its keyless public files.
+- **Candidates** (group D, 11 sources) need a free key that is not configured yet,
+  so their rate has never been measured. They are built and tested against the
+  providers' official documentation examples so that adding the key to `.env` is
+  enough to run them. A candidate is accepted (group C, or B for aisstream.io)
+  only after its own sampling gives a median of at least 1 event/s with the key,
+  and is removed otherwise. Until then it reports `key-pending` and counts for
+  nothing.
 - Measured below 1 event/s and therefore excluded: Vélib' Paris, Nostr, Stellar,
   ENA, PyPI, Hacker News, MLB; not measurable as configured: BitMEX, APRS-IS,
   Kystverket AIS, zKillboard.
@@ -26,10 +31,11 @@ second** over the sampling rounds (`stream_consumers.domain.policy.MINIMUM_RATE`
 The rate list will be re-checked with this repository's own `sample` command
 (24 hourly rounds); a source whose median falls below the threshold is removed.
 
-## Sources (54)
+## Sources (65)
 
 Groups: **keyless** (45), **project document** (6, the sources the project
-document lists), **free key** (3, key optional).
+document lists), **free key** (3, key optional), **candidate** (11, key
+required, rate not yet measured).
 
 | id | Source | Provider | Group | Transport | Delivery |
 |---|---|---|---|---|---|
@@ -87,12 +93,24 @@ document lists), **free key** (3, key optional).
 | `mbta_v3` | [MBTA V3 API vehicles (Boston subway, bus, commuter rail, ferry)](https://www.mbta.com/developers/v3-api) | Massachusetts Bay Transportation Authority (MBTA) | free key (optional) | http | poll |
 | `tfl` | [Transport for London Unified API — Tube arrival predictions](https://api-portal.tfl.gov.uk/) | Transport for London (TfL) | free key (optional) | http | poll |
 | `firms` | [NASA FIRMS — satellite active-fire detections (VIIRS ×3, MODIS), global 24 h files](https://firms.modaps.eosdis.nasa.gov/active_fire/) | NASA Earth Science Data Systems (LANCE FIRMS) | free key (optional) | http | poll |
+| `mastodon` | [Mastodon federated public timeline (statuses, edits, deletions)](https://docs.joinmastodon.org/methods/streaming/) | Mastodon (default instance mastodon.social, Mastodon gGmbH) | candidate (key required) | sse | push |
+| `fink` | [Fink — Rubin Observatory LSST and ZTF alert livestream](https://doc.lsst.fink-broker.org/services/livestream/) | Fink broker (CNRS/IN2P3 and partners) | candidate (key required) | kafka | push |
+| `lasair` | [Lasair — Rubin Observatory LSST alerts that pass your saved filter](https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html) | Lasair (Universities of Edinburgh and Belfast) | candidate (key required) | kafka | push |
+| `aisstream` | [aisstream.io — global AIS ship positions and static data](https://aisstream.io/documentation) | aisstream.io | candidate (key required) | websocket | push |
+| `cta_bus` | [CTA Bus Tracker vehicles — every Chicago bus](https://www.transitchicago.com/developers/bustracker/) | Chicago Transit Authority (CTA) | candidate (key required) | http | poll |
+| `cta_train` | [CTA Train Tracker locations — every Chicago 'L' train](https://www.transitchicago.com/developers/traintracker/) | Chicago Transit Authority (CTA) | candidate (key required) | http | poll |
+| `gfw` | [Global Fishing Watch events API — fishing, encounter, loitering and port-visit events](https://globalfishingwatch.org/our-apis/documentation) | Global Fishing Watch | candidate (key required) | http | poll |
+| `mta_bustime` | [MTA Bus Time GTFS-Realtime vehicle positions — every New York City bus](https://bustime.mta.info/developers/gtfs-realtime/) | Metropolitan Transportation Authority (MTA) | candidate (key required) | http | poll |
+| `nta` | [NTA Ireland GTFS-Realtime vehicle positions — Dublin Bus, Bus Éireann, Go-Ahead Ireland](https://developer.nationaltransport.ie/) | National Transport Authority (NTA), Ireland | candidate (key required) | http | poll |
+| `wmata` | [WMATA GTFS-Realtime vehicle positions — Washington DC Metrobus and Metrorail](https://developer.wmata.com/) | Washington Metropolitan Area Transit Authority (WMATA) | candidate (key required) | http | poll |
+| `entsoe` | [ENTSO-E Transparency Platform — actual electricity generation per production type](https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API) | European Network of Transmission System Operators for Electricity (ENTSO-E) | candidate (key required) | http | poll |
 
-Two links cannot be checked by a script: `www.binance.com/en/terms` answers
-HTTP 202 with a JavaScript challenge, and `www.mta.info/developers` answers HTTP
-403 to scripts (its text was retrieved with a browser-like fetch on 2026-10-13).
-Every other documentation, terms and sign-up link answered HTTP 200 on
-2026-10-13.
+Three links cannot be checked by a script: `www.binance.com/en/terms` answers
+HTTP 202 with a JavaScript challenge, and `www.mta.info/developers` and
+`www.mta.info/developers/terms-and-conditions` answer HTTP 403 to scripts (their
+text was retrieved with a browser-like fetch on 2026-10-13). Every other
+documentation, terms and sign-up link in the descriptors, this README and the
+documentation fixtures (108 of 111) answered HTTP 200 on 2026-10-13.
 
 ## How rates are measured
 
@@ -121,8 +139,50 @@ Personal fields declared by each source (`personal_fields`) and any e-mail
 address are masked in everything written, unless `consume --raw` is given.
 Captured data and reports go to `data/`, which git ignores.
 
-API keys are optional and read from the environment or from a git-ignored
-`.env` file; see `.env.example`.
+## API keys and configuration
+
+Credentials and settings are read from the process environment, then from a
+git-ignored `.env` file (`--env-file` changes the path). Values are never
+printed, logged or written to a report.
+
+```bash
+cp .env.example .env                          # every variable the sources read, with how to get each key
+uv run stream-consumers keys                  # which are set, missing (required) or not set (optional)
+uv run stream-consumers check cta_train       # one source for 30 s once its key is in .env
+uv run stream-consumers keys --template       # regenerates .env.example (a unit test keeps them identical)
+```
+
+A source whose required credentials are missing reports `key-pending` in `check`,
+`sample` and `profile`; it never fails a run.
+
+| Variable(s) | Source | Needed | How to get it (sign-up page) | Where it goes | Documented limit |
+|---|---|---|---|---|---|
+| `AISSTREAM_API_KEY` | `aisstream` | required | Sign in with GitHub on the [Account page](https://aisstream.io/account) and create a key (shown once) | `APIKey` in the first WebSocket message | 3 connections per account and per IP; frames dropped for slow readers |
+| `CTA_BUS_KEY` | `cta_bus` | required | [Bus Tracker account](https://www.ctabustracker.com/bustime/login.jsp) → My Account → Developer API; e-mailed after approval | query `key` | 100,000 transactions/day |
+| `CTA_TRAIN_KEY` | `cta_train` | required | [Train Tracker application form](https://www.transitchicago.com/developers/traintrackerapply/); CTA reviews it | query `key` | 50,000 requests/day |
+| `ENTSOE_TOKEN` | `entsoe` | required | [Register](https://transparency.entsoe.eu/), then e-mail transparency@entsoe.eu for RESTful API access ("within 3 working days") | query `securityToken` | 400 requests/min |
+| `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` | `fink` | required | [Fink subscription form](https://forms.gle/2td4jysT4e9pkf889); the team e-mails server and group id | Kafka bootstrap servers and group.id | none documented |
+| `GFW_API_TOKEN` | `gfw` | required | [Global Fishing Watch account](https://globalfishingwatch.org/our-apis/), then request a token (non-commercial use) | `Authorization: Bearer` | 50,000 requests/day, 1,500,000/month |
+| `LASAIR_KAFKA_TOPIC` | `lasair` | required | [Lasair account](https://lasair.lsst.ac.uk/) (e-mail), save a filter with Kafka streaming; its topic is `lasair_<user id><filter name>` | Kafka topic (the server needs no password) | none documented for Kafka |
+| `MASTODON_ACCESS_TOKEN` | `mastodon` | required | [Account on the instance](https://mastodon.social/auth/sign_up), then a user token with scope `read:statuses` | `Authorization: Bearer` | 300 REST calls per 5 min; streaming not stated |
+| `MTA_BUSTIME_KEY` | `mta_bustime` | required | [Web form](https://register.developer.obanyc.com/); e-mailed "within half an hour" | query `key` | no number; all-vehicle requests not under 30 s apart |
+| `NTA_API_KEY` | `nta` | required | [Developer portal](https://developer.nationaltransport.ie/signup), subscribe to "GTFS Realtime" | header `x-api-key` | one call every 60 s |
+| `WMATA_API_KEY` | `wmata` | required | [Developer account](https://developer.wmata.com/signup), subscribe to a Transit Data tier | header `api_key` | not published on an official page |
+| `MBTA_API_KEY` | `mbta_v3` | optional | [V3 API portal](https://api-v3.mbta.com/register), one key per application ("might take a day") | header `x-api-key`; enables streaming | 1,000 requests/min (20 without a key) |
+| `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET` | `opensky` | optional | [OpenSky account](https://opensky-network.org/my-opensky/account) → create an API client | OAuth 2 client credentials → `Authorization: Bearer` | 4,000 credits/day (400 anonymous) |
+| `TFL_APP_KEY` | `tfl` | optional | [API portal](https://api-portal.tfl.gov.uk/signup), subscribe to the "500 requests" data plan | query `app_key` | "500 requests" plan (time unit not stated) |
+
+Settings with defaults: `AISSTREAM_BOUNDING_BOXES`, `CROSSREF_MAILTO`,
+`ENTSOE_AREAS`, `FINK_TOPICS`, `GFW_DATASET`, `GFW_LOOKBACK_DAYS`, `GFW_PAGES`,
+`LASAIR_KAFKA_SERVER`, `LASAIR_GROUP_ID`, `MASTODON_INSTANCE`,
+`OPENSKY_POLL_SECONDS` (described in `.env.example`). NASA FIRMS needs no key:
+it reads the public 24 h files.
+
+Terms worth reading before use: OpenSky requires a written agreement for
+"operational" REST API use, including automated systems, even non-profit ones;
+Global Fishing Watch data is CC BY-NC 4.0 and tokens must not be shared;
+aisstream.io and Lasair publish no terms of use (only privacy statements);
+Mastodon statuses are personal data and are masked in stored samples.
 
 ## Architecture
 
@@ -132,17 +192,26 @@ Hexagonal (ports and adapters) with split inbound and outbound ports:
 src/stream_consumers/
   domain/        models, pure rules (rates, change detection, back-off, masking, field profiles), errors
   ports/
-    inbound.py   use cases: ListSources, ConsumeStream, CheckSources, SampleSources, ProfileSources
-    outbound.py  Clock, SecretProvider, HttpClient, Decoder, EventSource, SourceFactory, SourceRegistry,
-                 EventSink, EventSinkFactory, ReportSink
+    inbound.py   use cases: ListSources, ConsumeStream, CheckSources, SampleSources, ProfileSources,
+                 DescribeConfiguration
+    outbound.py  Clock, SecretProvider, HttpClient, RequestAuth, Decoder, EventSource, SourceFactory,
+                 SourceRegistry, EventSink, EventSinkFactory, ReportSink
   application/   one service per inbound port; depends on ports and domain only
   adapters/
     inbound/cli.py            the composition root: the only module that names concrete classes
     outbound/transports/      EventSourcePort → BaseEventSource → DecodingEventSource → Push / Poll / FileDrop,
                               and MergedEventSource; one module per transport
-    outbound/decoders.py      DecoderPort → BaseDecoder → Json / Line / Csv / GtfsRealtime
+    outbound/decoders.py      DecoderPort → BaseDecoder → Json / Line / Csv / GtfsRealtime / AvroSchemaInKey
+    outbound/auth.py          RequestAuthPort → OAuthClientCredentials
     outbound/sources/         one module per source (descriptor + decoder + factory), families in _families.py
     outbound/{http,sinks,system,registry}.py
+
+Transports: WebSocket, SSE, MQTT, NATS, ZeroMQ, TCP, HTTP polling, file drops and
+Kafka (aiokafka). `raise_if_cancelling` in `transports/base.py` stops every retry
+loop when its task is being cancelled, even if a client library turns the
+CancelledError into another exception (websockets 15–17 raises AssertionError
+when `recv()` is cancelled while reassembling a fragmented message and another
+frame is already queued; without the check a merged source never stopped).
 ```
 
 `tests/unit/test_architecture.py` checks these rules on the code: the domain
@@ -155,8 +224,8 @@ the services.
 | Tier | What | Command | Coverage |
 |---|---|---|---|
 | unit | domain, decoders against real captured messages (`tests/fixtures/raw`), factories, sinks, CLI in-process, architecture rules | `uv run pytest --cov` (with component) | 100 % gated |
-| component | services with scripted sources; every transport against a local server; sources with their own fetching logic against captured answers | (same run) | (same gate) |
-| e2e | the CLI as a subprocess against local servers for every transport, working and failing | see below | 100 % gated on the CLI, services, ports and infrastructure adapters (`.coveragerc.e2e`) |
+| component | services with scripted sources; every transport against a local server, Kafka against a real broker; sources with their own fetching logic against captured answers | (same run) | (same gate) |
+| e2e | the CLI as a subprocess against local servers for every transport (Kafka included), working and failing | see below | 100 % gated on the CLI, services, ports and infrastructure adapters (`.coveragerc.e2e`) |
 | live | every source against its real provider, 60 s | see below | reported only (`.coveragerc.live`) |
 
 ```bash
@@ -168,9 +237,15 @@ uv run coverage run --rcfile=.coveragerc.live -m pytest tests/live -m live   # n
 uv run ruff check src tests && uv run ruff format --check src tests
 ```
 
+The component and e2e tiers start a single-node Kafka broker with Docker
+(`apache/kafka:3.9.1`, published on 127.0.0.1 only); Docker is required.
+
 Fixtures are real messages captured on 2026-10-13, trimmed, with personal values
 replaced by `<masked>`; a test checks that no fixture leaks a personal value or an
-e-mail address.
+e-mail address. Candidates have no key yet, so their fixtures are the providers'
+official documentation examples, marked with `origin`, `documentation_url` and the
+`corrections` applied (PDF page footers, a typographic quote, a trailing comma);
+they are replaced by captured messages once the key works.
 
 ## Known behaviour
 

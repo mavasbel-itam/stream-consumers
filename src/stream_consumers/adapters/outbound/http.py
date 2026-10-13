@@ -34,6 +34,10 @@ class AiohttpClient(HttpClientPort):
         async with self._client().post(url, json=body, headers=dict(headers or {}), timeout=self._timeout) as r:
             return HttpResponse(r.status, await r.read(), dict(r.headers))
 
+    async def post_form(self, url: str, fields: Mapping[str, str], headers: Mapping[str, str] | None = None) -> HttpResponse:
+        async with self._client().post(url, data=dict(fields), headers=dict(headers or {}), timeout=self._timeout) as r:
+            return HttpResponse(r.status, await r.read(), dict(r.headers))
+
     async def stream(self, url: str, headers: Mapping[str, str] | None = None) -> AsyncIterator[bytes]:
         async with self._client().get(url, headers=dict(headers or {}), timeout=self._stream_timeout) as r:
             if r.status != 200:

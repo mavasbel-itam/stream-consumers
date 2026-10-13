@@ -21,6 +21,7 @@ class Transport(Enum):
     ZMQ = "zeromq"
     TCP = "tcp"
     HTTP = "http"
+    KAFKA = "kafka"
 
 
 class Group(Enum):
@@ -29,6 +30,7 @@ class Group(Enum):
     KEYLESS = "A"
     PROJECT_DOCUMENT = "B"
     FREE_KEY = "C"
+    CANDIDATE = "D"  # needs a free key that is not configured yet; rate not measured, so not yet accepted
 
 
 class RunStatus(Enum):
@@ -48,15 +50,50 @@ class RateBasis(Enum):
 
 @dataclass(frozen=True)
 class Credential:
-    """An API key read from the environment; never stored in the repository.
+    """API credentials read from the environment; never stored in the repository.
 
-    `required` False means the provider also serves a keyless route and the key
-    only raises its limits.
+    `env_vars` are needed together (one key, or for example a username and a
+    password). `required` False means the provider also serves a keyless route:
+    the credentials only raise its limits and are used only when all are set.
+    `how_to_get` says how the provider hands them out (form, e-mail, waiting time).
     """
 
-    env_var: str
+    env_vars: tuple[str, ...]
     sign_up_url: str
     required: bool = True
+    how_to_get: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.env_vars:
+            raise ValueError("a credential names at least one environment variable")
+
+
+@dataclass(frozen=True)
+class Setting:
+    """A non-secret configuration value read from the environment, with a default."""
+
+    env_var: str
+    default: str
+    description: str
+
+
+class ConfigKind(Enum):
+    SECRET = "secret"
+    SETTING = "setting"
+
+
+@dataclass(frozen=True)
+class ConfigStatus:
+    """Whether one environment variable a source reads is set (never its value)."""
+
+    source_id: str
+    env_var: str
+    kind: ConfigKind
+    required: bool
+    configured: bool
+    sign_up_url: str = ""
+    default: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)
@@ -72,6 +109,7 @@ class SourceDescriptor:
     docs_url: str
     terms_url: str
     credential: Credential | None = None
+    settings: tuple[Setting, ...] = ()
     min_interval_s: float = 0.0
     personal_fields: tuple[str, ...] = ()
     notes: str = ""
