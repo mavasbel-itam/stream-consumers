@@ -1,0 +1,26 @@
+{
+ "source": "bitso",
+ "captured_at": "2026-10-13T07:13:46+00:00",
+ "messages": [
+  {
+   "body_text": "{\"action\":\"subscribe\",\"response\":\"ok\",\"time\":1791875623367,\"type\":\"trades\",\"book\":\"btc_mxn\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"book\":\"btc_mxn\",\"sequence\":4548560193,\"type\":\"diff-orders\",\"payload\":[{\"a\":\"0.00317269\",\"d\":1791875571738,\"o\":\"RWZLGypACkPmAbQz\",\"r\":\"1524970\",\"s\":\"cancelled\",\"t\":0,\"v\":\"4838.25706930\",\"z\":1791875600119}],\"sent\":1791875623796}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"book\":\"btc_mxn\",\"sequence\":4548560194,\"type\":\"diff-orders\",\"payload\":[{\"a\":\"0.00317307\",\"d\":1791875571738,\"o\":\"RWZLGypACkPmAbQz\",\"r\":\"1523000\",\"s\":\"open\",\"t\":0,\"v\":\"4832.58561000\",\"z\":1791875623792}],\"sent\":1791875623799}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"book\":\"btc_mxn\",\"sequence\":4548560195,\"type\":\"diff-orders\",\"payload\":[{\"a\":\"0.00019459\",\"d\":1791875599866,\"o\":\"lYLhZMbmtyvL9u0D\",\"r\":\"1527000\",\"s\":\"cancelled\",\"t\":1,\"v\":\"297.13893000\",\"z\":0}],\"sent\":1791875624386}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"book\":\"btc_mxn\",\"sequence\":4548560196,\"type\":\"diff-orders\",\"payload\":[{\"a\":\"0.00019451\",\"d\":1791875599866,\"o\":\"lYLhZMbmtyvL9u0D\",\"r\":\"1526090\",\"s\":\"open\",\"t\":1,\"v\":\"296.83976590\",\"z\":1791875624383}],\"sent\":1791875624390}",
+   "attributes": {}
+  }
+ ]
+}

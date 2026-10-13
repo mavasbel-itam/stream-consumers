@@ -1,0 +1,26 @@
+{
+ "source": "rbn",
+ "captured_at": "2026-10-13T07:13:44+00:00",
+ "messages": [
+  {
+   "body_text": "Please enter your call: Hello, N0CALL! Connected.",
+   "attributes": {}
+  },
+  {
+   "body_text": "DX de <masked>: 21034.80  <masked>         CW    27 dB  29 WPM  CQ      0713Z",
+   "attributes": {}
+  },
+  {
+   "body_text": "DX de <masked>: 14005.50  <masked>         CW    13 dB  28 WPM  CQ      0713Z",
+   "attributes": {}
+  },
+  {
+   "body_text": "DX de <masked>:  21034.80  <masked>         CW    25 dB  30 WPM  CQ      0713Z",
+   "attributes": {}
+  },
+  {
+   "body_text": "DX de <masked>: 21034.80  <masked>         CW    18 dB  30 WPM  CQ      0713Z",
+   "attributes": {}
+  }
+ ]
+}

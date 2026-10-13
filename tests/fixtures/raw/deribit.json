@@ -1,0 +1,26 @@
+{
+ "source": "deribit",
+ "captured_at": "2026-10-13T07:13:44+00:00",
+ "messages": [
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":[\"ticker.ETH-PERPETUAL.100ms\",\"ticker.BTC-PERPETUAL.100ms\"],\"usIn\":1791875623656179,\"usOut\":1791875623656385,\"usDiff\":206,\"testnet\":false}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"subscription\",\"params\":{\"channel\":\"ticker.ETH-PERPETUAL.100ms\",\"data\":{\"timestamp\":1791875623625,\"state\":\"open\",\"stats\":{\"high\":2577.15,\"low\":2406.15,\"price_change\":-1.757,\"volume\":70563.04804,\"volume_usd\":176122391.0,\"volume_notional\":176122391.0},\"index_price\":2526.68,\"instrument_name\":\"ETH-PERPETUAL\",\"last_price\":2527.4,\"settlement_price\":2561.16,\"min_price\":2489.35,\"max_price\":2565.25,\"open_interest\":237683727,\"mark_price\":2527.3,\"interest_value\":1.051377208351996,\"current_funding\":0.0,\"estimated_delivery_price\":2526.68,\"funding_8h\":2.8e-5,\"best_ask_price\":2527.35,\"best_bid_price\":2527.3,\"best_ask_amount\":37506.0,\"best_bid_amount\":10061.0}}}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"subscription\",\"params\":{\"channel\":\"ticker.BTC-PERPETUAL.100ms\",\"data\":{\"timestamp\":1791875623625,\"state\":\"open\",\"stats\":{\"high\":84280.0,\"low\":80967.0,\"price_change\":-0.5775,\"volume\":25605.80929926,\"volume_usd\":2117134370.0,\"volume_notional\":2117134370.0},\"index_price\":83641.69,\"instrument_name\":\"BTC-PERPETUAL\",\"last_price\":83667.5,\"settlement_price\":83941.21,\"min_price\":82415.5,\"max_price\":84926.0,\"open_interest\":843655710,\"mark_price\":83670.86,\"interest_value\":0.07729052687236276,\"current_funding\":9.875e-5,\"estimated_delivery_price\":83641.69,\"funding_8h\":7.75e-5,\"best_ask_price\":83671.0,\"best_bid_price\":83670.5,\"best_ask_amount\":810.0,\"best_bid_amount\":37240.0}}}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"subscription\",\"params\":{\"channel\":\"ticker.ETH-PERPETUAL.100ms\",\"data\":{\"timestamp\":1791875623839,\"state\":\"open\",\"stats\":{\"high\":2577.15,\"low\":2406.15,\"price_change\":-1.757,\"volume\":70563.04804,\"volume_usd\":176122391.0,\"volume_notional\":176122391.0},\"index_price\":2526.68,\"instrument_name\":\"ETH-PERPETUAL\",\"last_price\":2527.4,\"settlement_price\":2561.16,\"min_price\":2489.35,\"max_price\":2565.25,\"open_interest\":237683727,\"mark_price\":2527.3,\"interest_value\":1.051377208351996,\"current_funding\":0.0,\"estimated_delivery_price\":2526.68,\"funding_8h\":2.8e-5,\"best_ask_price\":2527.35,\"best_bid_price\":2527.3,\"best_ask_amount\":37506.0,\"best_bid_amount\":10227.0}}}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"subscription\",\"params\":{\"channel\":\"ticker.BTC-PERPETUAL.100ms\",\"data\":{\"timestamp\":1791875623891,\"state\":\"open\",\"stats\":{\"high\":84280.0,\"low\":80967.0,\"price_change\":-0.5775,\"volume\":25605.80929926,\"volume_usd\":2117134370.0,\"volume_notional\":2117134370.0},\"index_price\":83641.69,\"instrument_name\":\"BTC-PERPETUAL\",\"last_price\":83667.5,\"settlement_price\":83941.21,\"min_price\":82415.5,\"max_price\":84926.0,\"open_interest\":843655710,\"mark_price\":83670.87,\"interest_value\":0.07729143941890419,\"current_funding\":9.887e-5,\"estimated_delivery_price\":83641.69,\"funding_8h\":7.751e-5,\"best_ask_price\":83671.0,\"best_bid_price\":83670.5,\"best_ask_amount\":810.0,\"best_bid_amount\":37140.0}}}",
+   "attributes": {}
+  }
+ ]
+}

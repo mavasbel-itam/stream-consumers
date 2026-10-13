@@ -1,0 +1,13 @@
+{
+ "source": "adsb_lol",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_text": "{\"ac\": [{\"hex\": \"0c4182\", \"type\": \"adsb_icao\", \"r\": \"HI1026\", \"t\": \"B38M\", \"alt_baro\": 19600, \"alt_geom\": 20875, \"gs\": 377.2, \"track\": 106.32, \"baro_rate\": 960, \"squawk\": \"4217\", \"emergency\": \"none\", \"category\": \"A3\", \"lat\": 19.671021, \"lon\": -98.256525, \"nic\": 8, \"rc\": 186, \"seen_pos\": 15.372, \"version\": 0, \"nac_p\": 8, \"nac_v\": 2, \"sil\": 2, \"sil_type\": \"perhour\", \"alert\": 0, \"spi\": 0, \"mlat\": [], \"tisb\": [], \"messages\": 767, \"seen\": 13.5, \"rssi\": -16.0, \"dst\": 48.153, \"dir\": 72.9}, {\"hex\": \"0d112d\", \"type\": \"adsb_icao\", \"flight\": \"AMX717  \", \"r\": \"XA-GOS\", \"t\": \"B38M\", \"alt_baro\": 37000, \"alt_geom\": 39475, \"gs\": 438.5, \"tas\": 454, \"track\": 119.66, \"track_rate\": 0.03, \"roll\": 0.18, \"baro_rate\": 0, \"squawk\": \"2672\", \"emergency\": \"none\", \"category\": \"A3\", \"nav_qnh\": 1013.6, \"nav_altitude_mcp\": 36992, \"nav_heading\": 115.31, \"lat\": 17.158951, \"lon\": -96.571993, \"nic\": 8, \"rc\": 186, \"seen_pos\": 8.672, \"version\": 2, \"nic_baro\": 1, \"nac_p\": 10, \"nac_v\": 2, \"sil\": 3, \"sil_type\": \"perhour\", \"gva\": 2, \"sda\": 2, \"alert\": 0, \"spi\": 0, \"mlat\": [], \"tisb\": [], \"messages\": 11290, \"seen\": 8.2, \"rssi\": -24.2, \"dst\": 197.362, \"dir\": 133.4}, {\"hex\": \"0acaaa\", \"type\": \"adsb_icao\", \"flight\": \"AVA234  \", \"r\": \"HK-5409\", \"t\": \"A20N\", \"alt_baro\": 36000, \"alt_geom\": 38400, \"gs\": 471.0, \"ias\": 257, \"tas\": 460, \"mach\": 0.776, \"wd\": 153, \"ws\": 21, \"oat\": -46, \"tat\": -18, \"track\": 282.38, \"track_rate\": 0.0, \"roll\": 0.18, \"mag_heading\": 277.73, \"true_heading\": 279.97, \"baro_rate\": 0, \"geom_rate\": 32, \"squawk\": \"6655\", \"emergency\": \"none\", \"category\": \"A3\", \"nav_qnh\": 1012.8, \"nav_altitude_mcp\": 36000, \"lat\": 18.156583, \"lon\": -95.510428, \"nic\": 8, \"rc\": 186, \"seen_pos\": 0.26, \"version\": 2, \"nic_baro\": 1, \"nac_p\": 9, \"nac_v\": 1, \"sil\": 3, \"sil_type\": \"perhour\", \"gva\": 2, \"sda\": 3, \"alert\": 0, \"spi\": 0, \"mlat\": [], \"tisb\": [], \"messages\": 6727, \"seen\": 0.3, \"rssi\": -15.9, \"dst\": 216.508, \"dir\": 110.2}], \"msg\": \"No error\", \"now\": 1791875623001, \"total\": 3, \"ctime\": 1791875623001, \"ptime\": 0}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://api.adsb.lol/v2/point/19.436/-99.072/250"
+   }
+  }
+ ]
+}

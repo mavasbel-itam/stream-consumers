@@ -1,0 +1,13 @@
+{
+ "source": "adsb_fi",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_text": "{\"now\": 1791875622.001, \"aircraft\": [{\"hex\": \"0c2018\", \"type\": \"adsb_icao\", \"flight\": \"CMP723  \", \"r\": \"HP-1526CMP\", \"t\": \"B738\", \"desc\": \"BOEING 737-800\", \"alt_baro\": 35000, \"alt_geom\": 37325, \"gs\": 450.0, \"track\": 108.39, \"baro_rate\": 64, \"squawk\": \"4253\", \"emergency\": \"none\", \"category\": \"A3\", \"nav_qnh\": 1013.6, \"nav_altitude_mcp\": 35008, \"nav_heading\": 101.25, \"lat\": 17.168465, \"lon\": -99.361872, \"nic\": 8, \"rc\": 186, \"seen_pos\": 0.53, \"version\": 2, \"nic_baro\": 1, \"nac_p\": 9, \"nac_v\": 1, \"sil\": 3, \"sil_type\": \"perhour\", \"gva\": 2, \"sda\": 2, \"alert\": 0, \"spi\": 0, \"mlat\": [], \"tisb\": [], \"messages\": 7063, \"seen\": 0.5, \"rssi\": -14.0, \"dst\": 137.29, \"dir\": 187.0}, {\"hex\": \"0d0e9c\", \"type\": \"adsb_icao\", \"flight\": \"VOI700  \", \"r\": \"XA-VSY\", \"t\": \"A21N\", \"desc\": \"AIRBUS A-321neo\", \"alt_baro\": 26925, \"alt_geom\": 28750, \"gs\": 404.0, \"track\": 16.69, \"baro_rate\": 1152, \"squawk\": \"4221\", \"emergency\": \"none\", \"category\": \"A3\", \"nav_qnh\": 1013.6, \"nav_altitude_mcp\": 36992, \"nav_heading\": 0.0, \"lat\": 20.559423, \"lon\": -98.837552, \"nic\": 8, \"rc\": 186, \"seen_pos\": 1.084, \"version\": 2, \"nic_baro\": 1, \"nac_p\": 10, \"nac_v\": 2, \"sil\": 3, \"sil_type\": \"perhour\", \"gva\": 2, \"sda\": 2, \"alert\": 0, \"spi\": 0, \"mlat\": [], \"tisb\": [], \"messages\": 1900, \"seen\": 0.5, \"rssi\": -16.7, \"dst\": 68.804, \"dir\": 11.1}, {\"hex\": \"0c4182\", \"type\": \"adsb_icao\", \"flight\": \"DWI4163 \", \"r\": \"HI1026\", \"t\": \"B38M\", \"desc\": \"BOEING 737 MAX 8\", \"alt_baro\": 19775, \"alt_geom\": 21025, \"gs\": 381.7, \"track\": 105.97, \"baro_rate\": 1024, \"squawk\": \"4217\", \"emergency\": \"none\", \"category\": \"A3\", \"nav_qnh\": 1013.6, \"nav_altitude_mcp\": 35008, \"nav_heading\": 73.12, \"lat\": 19.66441, \"lon\": -98.232355, \"nic\": 8, \"rc\": 186, \"seen_pos\": 0.53, \"version\": 2, \"nic_baro\": 1, \"nac_p\": 10, \"nac_v\": 2, \"sil\": 3, \"sil_type\": \"perhour\", \"gva\": 2, \"sda\": 2, \"alert\": 0, \"spi\": 0, \"mlat\": [], \"tisb\": [], \"messages\": 1737, \"seen\": 0.5, \"rssi\": -4.4, \"dst\": 49.348, \"dir\": 73.8}], \"resultCount\": 5, \"ptime\": 0.011}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://opendata.adsb.fi/api/v2/lat/19.436/lon/-99.072/dist/250"
+   }
+  }
+ ]
+}

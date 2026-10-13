@@ -1,0 +1,26 @@
+{
+ "source": "base_logs",
+ "captured_at": "2026-10-13T07:13:55+00:00",
+ "messages": [
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"result\":\"0x46f2cdccb92d295e05eb19296cbca720\",\"id\":1}\n",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscription\",\"params\":{\"result\":{\"address\":\"0xe844701934d9c6085b292e428f41b911cc0b3872\",\"blockHash\":\"0xd86947062339ecc04b9f4f049386bfbe72dcfb9783c17d36e028d29e4badcc0e\",\"blockNumber\":\"0x321bea3\",\"blockTimestamp\":\"0x6acdda29\",\"data\":\"0x\",\"logIndex\":\"0x0\",\"removed\":false,\"topics\":[\"0x29e088dffd7bf6815d088137a59f364d6747163baa7ff4bc47f316a1ad1b9586\",\"0x8dfdc825dd0453e7c80b1c1d32ae910e35d6efe9000000000000000021050000\"],\"transactionHash\":\"0x33241d072e0a28e811a098c837d7494a25a47e4e5ab848326223c53d6749a130\",\"transactionIndex\":\"0x2\"},\"subscription\":\"0x46f2cdccb92d295e05eb19296cbca720\"}}\n",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscription\",\"params\":{\"result\":{\"address\":\"0xe844701934d9c6085b292e428f41b911cc0b3872\",\"blockHash\":\"0xd86947062339ecc04b9f4f049386bfbe72dcfb9783c17d36e028d29e4badcc0e\",\"blockNumber\":\"0x321bea3\",\"blockTimestamp\":\"0x6acdda29\",\"data\":\"0x\",\"logIndex\":\"0x1\",\"removed\":false,\"topics\":[\"0x29e088dffd7bf6815d088137a59f364d6747163baa7ff4bc47f316a1ad1b9586\",\"0x8dfdc825dd0453e7c80b1c1d32ae910e35d6efe9000000000000000021050001\"],\"transactionHash\":\"0x33241d072e0a28e811a098c837d7494a25a47e4e5ab848326223c53d6749a130\",\"transactionIndex\":\"0x2\"},\"subscription\":\"0x46f2cdccb92d295e05eb19296cbca720\"}}\n",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscription\",\"params\":{\"result\":{\"address\":\"0xe844701934d9c6085b292e428f41b911cc0b3872\",\"blockHash\":\"0xd86947062339ecc04b9f4f049386bfbe72dcfb9783c17d36e028d29e4badcc0e\",\"blockNumber\":\"0x321bea3\",\"blockTimestamp\":\"0x6acdda29\",\"data\":\"0x\",\"logIndex\":\"0x2\",\"removed\":false,\"topics\":[\"0x29e088dffd7bf6815d088137a59f364d6747163baa7ff4bc47f316a1ad1b9586\",\"0x8dfdc825dd0453e7c80b1c1d32ae910e35d6efe9000000000000000021050002\"],\"transactionHash\":\"0x33241d072e0a28e811a098c837d7494a25a47e4e5ab848326223c53d6749a130\",\"transactionIndex\":\"0x2\"},\"subscription\":\"0x46f2cdccb92d295e05eb19296cbca720\"}}\n",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscription\",\"params\":{\"result\":{\"address\":\"0xe844701934d9c6085b292e428f41b911cc0b3872\",\"blockHash\":\"0xd86947062339ecc04b9f4f049386bfbe72dcfb9783c17d36e028d29e4badcc0e\",\"blockNumber\":\"0x321bea3\",\"blockTimestamp\":\"0x6acdda29\",\"data\":\"0x\",\"logIndex\":\"0x3\",\"removed\":false,\"topics\":[\"0x29e088dffd7bf6815d088137a59f364d6747163baa7ff4bc47f316a1ad1b9586\",\"0x8dfdc825dd0453e7c80b1c1d32ae910e35d6efe9000000000000000021050003\"],\"transactionHash\":\"0x33241d072e0a28e811a098c837d7494a25a47e4e5ab848326223c53d6749a130\",\"transactionIndex\":\"0x2\"},\"subscription\":\"0x46f2cdccb92d295e05eb19296cbca720\"}}\n",
+   "attributes": {}
+  }
+ ]
+}

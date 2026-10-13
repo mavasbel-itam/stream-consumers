@@ -1,0 +1,13 @@
+{
+ "source": "opensky",
+ "captured_at": "2026-10-13T07:13:44+00:00",
+ "messages": [
+  {
+   "body_text": "{\"time\": 1791875612, \"states\": [[\"a47597\", \"DAL2686 \", \"United States\"], [\"ac101f\", \"SWA4563 \", \"United States\"], [\"e8020f\", \"LAN535  \", \"Chile\"]]}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://opensky-network.org/api/states/all?lamin=14&lomin=-118&lamax=33&lomax=-86"
+   }
+  }
+ ]
+}

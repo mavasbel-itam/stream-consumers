@@ -1,0 +1,26 @@
+{
+ "source": "atlas",
+ "captured_at": "2026-10-13T07:13:53+00:00",
+ "messages": [
+  {
+   "body_text": "[\"atlas_subscribed\",{\"streamType\":\"result\",\"type\":\"ping\"}]",
+   "attributes": {}
+  },
+  {
+   "body_text": "[\"atlas_result\",{\"fw\":5080,\"mver\":\"2.6.2\",\"lts\":22,\"dst_name\":\"193.0.14.129\",\"af\":4,\"dst_addr\":\"193.0.14.129\",\"src_addr\":\"192.168.179.4\",\"proto\":\"ICMP\",\"ttl\":60,\"size\":20,\"result\":[{\"rtt\":31.051692},{\"rtt\":30.23927},{\"rtt\":29.099949}],\"dup\":0,\"rcvd\":3,\"sent\":3,\"min\":29.099949,\"max\":31.051692,\"avg\":30.130303666666666,\"msm_id\":1001,\"prb_id\":34483,\"timestamp\":1791875525,\"msm_name\":\"Ping\",\"from\":\"87.168.9.122\",\"type\":\"ping\",\"step\":240}]",
+   "attributes": {}
+  },
+  {
+   "body_text": "[\"atlas_result\",{\"fw\":5080,\"mver\":\"2.6.2\",\"lts\":22,\"dst_name\":\"2801:1b8:10::b\",\"af\":6,\"dst_addr\":\"2801:1b8:10::b\",\"src_addr\":\"2003:e3:a72e:8a01:c225:e9ff:fea8:47be\",\"proto\":\"ICMP\",\"ttl\":57,\"size\":20,\"result\":[{\"rtt\":24.571183},{\"rtt\":23.5646},{\"rtt\":23.012782}],\"dup\":0,\"rcvd\":3,\"sent\":3,\"min\":23.012782,\"max\":24.571183,\"avg\":23.716188333333335,\"msm_id\":2010,\"prb_id\":34483,\"timestamp\":1791875525,\"msm_name\":\"Ping\",\"from\":\"2003:e3:a72e:8a01:c225:e9ff:fea8:47be\",\"type\":\"ping\",\"step\":240}]",
+   "attributes": {}
+  },
+  {
+   "body_text": "[\"atlas_result\",{\"fw\":5080,\"mver\":\"2.6.2\",\"lts\":22,\"dst_name\":\"2001:500:2::c\",\"af\":6,\"dst_addr\":\"2001:500:2::c\",\"src_addr\":\"2003:e3:a72e:8a01:c225:e9ff:fea8:47be\",\"proto\":\"ICMP\",\"ttl\":57,\"size\":20,\"result\":[{\"rtt\":24.546058},{\"rtt\":23.394859},{\"rtt\":23.157409}],\"dup\":0,\"rcvd\":3,\"sent\":3,\"min\":23.157409,\"max\":24.546058,\"avg\":23.699442,\"msm_id\":2011,\"prb_id\":34483,\"timestamp\":1791875525,\"msm_name\":\"Ping\",\"from\":\"2003:e3:a72e:8a01:c225:e9ff:fea8:47be\",\"type\":\"ping\",\"step\":240}]",
+   "attributes": {}
+  },
+  {
+   "body_text": "[\"atlas_result\",{\"fw\":5080,\"mver\":\"2.6.2\",\"lts\":31,\"dst_name\":\"2001:500:2d::d\",\"af\":6,\"dst_addr\":\"2001:500:2d::d\",\"src_addr\":\"2003:e3:a72e:8a01:c225:e9ff:fea8:47be\",\"proto\":\"ICMP\",\"ttl\":60,\"size\":20,\"result\":[{\"rtt\":24.777683},{\"rtt\":23.71505},{\"rtt\":23.166198}],\"dup\":0,\"rcvd\":3,\"sent\":3,\"min\":23.166198,\"max\":24.777683,\"avg\":23.88631033333333,\"msm_id\":2012,\"prb_id\":34483,\"timestamp\":1791875534,\"msm_name\":\"Ping\",\"from\":\"2003:e3:a72e:8a01:c225:e9ff:fea8:47be\",\"type\":\"ping\",\"step\":240}]",
+   "attributes": {}
+  }
+ ]
+}

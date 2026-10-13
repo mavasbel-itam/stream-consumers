@@ -1,0 +1,13 @@
+{
+ "source": "mbta_v3",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_text": "{\"data\": [{\"attributes\": {\"bearing\": null, \"carriages\": [], \"current_status\": \"IN_TRANSIT_TO\", \"current_stop_sequence\": null, \"direction_id\": null, \"label\": \"225\", \"latitude\": 42.201926, \"longitude\": -71.064987, \"occupancy_status\": null, \"revenue\": \"REVENUE\", \"speed\": null, \"updated_at\": \"2026-10-13T02:51:03-04:00\"}, \"id\": \"ynk225\", \"links\": {\"self\": \"/vehicles/ynk225\"}, \"relationships\": {\"route\": {\"data\": {\"id\": \"Shuttle-Generic\", \"type\": \"route\"}}, \"stop\": {\"data\": null}, \"trip\": {\"data\": {\"id\": \"BL-3517646\", \"type\": \"trip\"}}}, \"type\": \"vehicle\"}, {\"attributes\": {\"bearing\": 145, \"carriages\": [{\"label\": \"3869\", \"occupancy_status\": \"NO_DATA_AVAILABLE\", \"occupancy_percentage\": null}, {\"label\": \"3600\", \"occupancy_status\": \"NO_DATA_AVAILABLE\", \"occupancy_percentage\": null}], \"current_status\": \"IN_TRANSIT_TO\", \"current_stop_sequence\": null, \"direction_id\": 0, \"label\": \"3869-3600\", \"latitude\": 42.37604, \"longitude\": -71.08343, \"occupancy_status\": null, \"revenue\": \"REVENUE\", \"speed\": null, \"updated_at\": \"2026-10-13T03:03:54-04:00\"}, \"id\": \"G-10106\", \"links\": {\"self\": \"/vehicles/G-10106\"}, \"relationships\": {\"route\": {\"data\": {\"id\": \"Green-E\", \"type\": \"route\"}}, \"stop\": {\"data\": null}, \"trip\": {\"data\": {\"id\": \"ADDED-1584993730\", \"type\": \"trip\"}}}, \"type\": \"vehicle\"}, {\"attributes\": {\"bearing\": 10, \"carriages\": [{\"label\": \"1885\", \"occupancy_status\": \"NO_DATA_AVAILABLE\", \"occupancy_percentage\": null}, {\"label\": \"1884\", \"occupancy_status\": \"NO_DATA_AVAILABLE\", \"occupancy_percentage\": null}, {\"label\": \"1814\", \"occupancy_status\": \"NO_DATA_AVAILABLE\", \"occupancy_percentage\": null}], \"current_status\": \"STOPPED_AT\", \"current_stop_sequence\": 1, \"direction_id\": 1, \"label\": \"1806\", \"latitude\": 42.20749, \"longitude\": -71.00173, \"occupancy_status\": null, \"revenue\": \"REVENUE\", \"speed\": null, \"updated_at\": \"2026-10-13T01:31:40-04:00\"}, \"id\": \"R-548C26DF\", \"links\": {\"self\": \"/vehicles/R-548C26DF\"}, \"relationships\": {\"route\": {\"data\": {\"id\": \"Red\", \"type\": \"route\"}}, \"stop\": {\"data\": {\"id\": \"Braintree-02\", \"type\": \"stop\"}}, \"trip\": {\"data\": {\"id\": \"ADDED-1584993740\", \"type\": \"trip\"}}}, \"type\": \"vehicle\"}], \"jsonapi\": {\"version\": \"1.0\"}}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://api-v3.mbta.com/vehicles"
+   }
+  }
+ ]
+}

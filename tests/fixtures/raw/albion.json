@@ -1,0 +1,28 @@
+{
+ "source": "albion",
+ "captured_at": "2026-10-13T07:14:09+00:00",
+ "note": "",
+ "messages": [
+  {
+   "body_text": "{\"Id\":15455222466,\"ItemTypeId\":\"T4_HEAD_CLOTH_MORGANA@2\",\"ItemGroupTypeId\":\"T4_HEAD_CLOTH_MORGANA\",\"LocationId\":4002,\"QualityLevel\":1,\"EnchantmentLevel\":2,\"UnitPriceSilver\":83491,\"Amount\":1,\"AuctionType\":\"offer\",\"Expires\":\"2026-11-12T03:17:44.846728\"}",
+   "bytes": true,
+   "attributes": {
+    "subject": "marketorders.deduped"
+   }
+  },
+  {
+   "body_text": "{\"Id\":15446109690,\"ItemTypeId\":\"T4_HEAD_CLOTH_MORGANA@2\",\"ItemGroupTypeId\":\"T4_HEAD_CLOTH_MORGANA\",\"LocationId\":4002,\"QualityLevel\":1,\"EnchantmentLevel\":2,\"UnitPriceSilver\":83495,\"Amount\":1,\"AuctionType\":\"offer\",\"Expires\":\"2026-11-09T16:38:40.884734\"}",
+   "bytes": true,
+   "attributes": {
+    "subject": "marketorders.deduped"
+   }
+  },
+  {
+   "body_text": "{\"Id\":15448427135,\"ItemTypeId\":\"T4_HEAD_CLOTH_MORGANA@2\",\"ItemGroupTypeId\":\"T4_HEAD_CLOTH_MORGANA\",\"LocationId\":4002,\"QualityLevel\":1,\"EnchantmentLevel\":2,\"UnitPriceSilver\":83495,\"Amount\":1,\"AuctionType\":\"offer\",\"Expires\":\"2026-11-10T05:38:01.551011\"}",
+   "bytes": true,
+   "attributes": {
+    "subject": "marketorders.deduped"
+   }
+  }
+ ]
+}

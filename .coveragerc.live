@@ -1,0 +1,8 @@
+# Live tier: every source against its real provider. Reported, never gated.
+[run]
+source = stream_consumers
+branch = true
+data_file = .coverage.live
+
+[report]
+show_missing = true

@@ -1,0 +1,12 @@
+{
+ "source": "metar",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_b64": "H4sIACfazWoC/7WSTU/jMBCG7/wKi/M0jJ20abi1FbCIbYGmgJaLlSZuapEvOW5L99fvuKHAohW3taLk9cx4Zh5PTLKTVr1aaG1idV1JnUG9bJXZdlurSwUFabvJSNRV3imrykamkKldU+vKktzpKpOZNjJTuVGq7Qxto1QmX2y3yzetdZutbvVSF9rupau7sUqWGpKCqkldyXUOrUpkobaqkI1RbbsxFLGEtDZGpVZlkGxsfXjJt8ahTKgPVSVVqihHptPE1kaSo6IYnVdJAYXO17bSVS5bVbXOu1rBipr97WyGEnx2uMKK0HYqsWtlPrt2r1TW0CFoX/YyrbfKQFrUm0wuk1bJlZVJXvwX3+rAIAlO5bXZg11T+3JtPq6J7iBTVbp391UmrwsaTamrw4d2IqDYzvIm6WCqG7oyaNLGJ1OnBu/qEEeyreqd+1JjVtIEqSUolU2MtPtGgaJxdf9MeXIa311Mrtnk190Pxn0MuXhmo4fFLRN95MEVj24WLIqnrDcfsXiyQOGz28cJ+gOG/GyKgo18RJ/Npzcs/nnHQ3EKLhcIFIMexx73Fxiec3GO6CHiM/SHXhAiQi8cejgkwaEngKoBD4BHEIFPkT5w5KEnABbzhwvoFvUA1AMIKgnUBfgDEm49Xs7h0zowgQg+6Mb3X+g4YnhEi2fs8uIJeb9DEw4NkY1ENIiOZBgGjmx8/y1ZiCGRRUOvz7kjQ6BCEAJRicgbRODKesHfVPEMqDzw/pFKfEsViiNWfDO+7bD4M3OnAiKiLMhcrtkTG88PM8MOjJOdn3HO7jkhsNltfH11Ci7JVyb+zhQQ0sANK/B43yFx91AtIAjfcxo9v2v3HWo8P4zpyEPMXcD030D9IDz5AxMUOk7dBAAA",
+   "attributes": {
+    "url": "https://aviationweather.gov/data/cache/metars.cache.csv.gz"
+   }
+  }
+ ]
+}

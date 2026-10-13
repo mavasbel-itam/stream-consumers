@@ -1,0 +1,23 @@
+{
+ "source": "gemini",
+ "captured_at": "2026-10-13T07:14:09+00:00",
+ "note": "messages of the BTCUSD connection Lists trimmed to 5 items.",
+ "messages": [
+  {
+   "body_text": "{\"eventId\": 1764561333431743, \"events\": [{\"delta\": \"0.27602428\", \"price\": \"83658.08\", \"reason\": \"initial\", \"remaining\": \"0.27602428\", \"side\": \"bid\", \"type\": \"change\"}, {\"delta\": \"3.0\", \"price\": \"83650.0\", \"reason\": \"initial\", \"remaining\": \"3.0\", \"side\": \"bid\", \"type\": \"change\"}, {\"delta\": \"0.0079\", \"price\": \"83648.82\", \"reason\": \"initial\", \"remaining\": \"0.0079\", \"side\": \"bid\", \"type\": \"change\"}, {\"delta\": \"0.03138195\", \"price\": \"83643.06\", \"reason\": \"initial\", \"remaining\": \"0.03138195\", \"side\": \"bid\", \"type\": \"change\"}, {\"delta\": \"0.0034\", \"price\": \"83640.45\", \"reason\": \"initial\", \"remaining\": \"0.0034\", \"side\": \"bid\", \"type\": \"change\"}], \"socket_sequence\": 0, \"type\": \"update\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"eventId\": 1764561333431956, \"events\": [{\"delta\": \"-0.03138195\", \"price\": \"83643.06\", \"reason\": \"cancel\", \"remaining\": \"0.0\", \"side\": \"bid\", \"type\": \"change\"}], \"socket_sequence\": 1, \"timestamp\": 1791875648, \"timestampms\": 1791875648536, \"type\": \"update\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"eventId\": 1764561333431970, \"events\": [{\"delta\": \"0.03138195\", \"price\": \"83645.66\", \"reason\": \"place\", \"remaining\": \"0.03138195\", \"side\": \"bid\", \"type\": \"change\"}], \"socket_sequence\": 2, \"timestamp\": 1791875648, \"timestampms\": 1791875648568, \"type\": \"update\"}",
+   "attributes": {}
+  },
+  {
+   "body_text": "{\"eventId\": 1764561333432241, \"events\": [{\"delta\": \"-0.03138195\", \"price\": \"83645.66\", \"reason\": \"cancel\", \"remaining\": \"0.0\", \"side\": \"bid\", \"type\": \"change\"}], \"socket_sequence\": 3, \"timestamp\": 1791875648, \"timestampms\": 1791875648743, \"type\": \"update\"}",
+   "attributes": {}
+  }
+ ]
+}

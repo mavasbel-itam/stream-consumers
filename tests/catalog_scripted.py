@@ -1,0 +1,33 @@
+"""A catalog of scripted sources (no network) for exercising the CLI in-process: `--catalog tests.catalog_scripted`."""
+
+from __future__ import annotations
+
+from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
+from stream_consumers.domain.errors import TransportError
+from stream_consumers.domain.models import Credential
+from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies, SourceFactoryPort
+from tests.support import ScriptedSource, descriptor
+
+
+class Alpha(BaseSourceFactory):
+    DESCRIPTOR = descriptor("alpha", personal=("user",))
+
+    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+        return ScriptedSource(self.DESCRIPTOR, [{"user": "ana", "n": 1}, {"user": "beto", "n": 2}], deps.clock, hang=True)  # type: ignore[arg-type]
+
+
+class Keyed(BaseSourceFactory):
+    DESCRIPTOR = descriptor("keyed", credential=Credential("SCRIPTED_KEY", "https://sign.up/here"))
+
+    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+        return ScriptedSource(self.DESCRIPTOR, [{"key_used": key is not None}], deps.clock, hang=True)  # type: ignore[arg-type]
+
+
+class Broken(BaseSourceFactory):
+    DESCRIPTOR = descriptor("broken")
+
+    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+        return ScriptedSource(self.DESCRIPTOR, [TransportError("refused")], deps.clock)  # type: ignore[arg-type]
+
+
+FACTORIES: tuple[SourceFactoryPort, ...] = (Alpha(), Keyed(), Broken())

@@ -1,0 +1,22 @@
+# End-to-end tier: the CLI runs as a subprocess against local servers for every transport
+# (tests/e2e). Gated scope: the composition root, the application services, the ports and every
+# infrastructure adapter. Pure domain rules and decoders are gated by the unit tier; the source
+# modules target real providers and are covered by the unit tier (captured messages) and the live tier.
+[run]
+branch = true
+parallel = true
+data_file = .coverage.e2e
+include =
+    */stream_consumers/__main__.py
+    */stream_consumers/adapters/inbound/*
+    */stream_consumers/application/*
+    */stream_consumers/ports/*
+    */stream_consumers/adapters/outbound/registry.py
+    */stream_consumers/adapters/outbound/sinks.py
+    */stream_consumers/adapters/outbound/system.py
+    */stream_consumers/adapters/outbound/http.py
+    */stream_consumers/adapters/outbound/transports/*
+
+[report]
+fail_under = 100
+show_missing = true

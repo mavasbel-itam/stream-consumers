@@ -1,0 +1,30 @@
+{
+ "source": "pskreporter",
+ "captured_at": "2026-10-13T07:13:46+00:00",
+ "messages": [
+  {
+   "body_text": "{\"sq\": 73667358293, \"f\": 10137441, \"md\": \"FT8\", \"rp\": -9, \"t\": 1791875595, \"t_tx\": 1791875595, \"sc\": \"<masked>\", \"sl\": \"<masked>\", \"rc\": \"<masked>\", \"rl\": \"<masked>\", \"sa\": 54, \"ra\": 45, \"b\": \"30m\"}",
+   "attributes": {
+    "topic": "pskr/filter/v2/30m/FT8/RO6K/SV5BYP/KN75/KM46/54/45"
+   }
+  },
+  {
+   "body_text": "{\"sq\": 73667358294, \"f\": 10137796, \"md\": \"FT8\", \"rp\": -15, \"t\": 1791875595, \"t_tx\": 1791875595, \"sc\": \"<masked>\", \"sl\": \"<masked>\", \"rc\": \"<masked>\", \"rl\": \"<masked>\", \"sa\": 287, \"ra\": 45, \"b\": \"30m\"}",
+   "attributes": {
+    "topic": "pskr/filter/v2/30m/FT8/HB9CQL/SV5BYP/JN37/KM46/287/45"
+   }
+  },
+  {
+   "body_text": "{\"sq\": 73667358295, \"f\": 14074701, \"md\": \"FT8\", \"rp\": -3, \"t\": 1791875323, \"t_tx\": 1791875310, \"sc\": \"<masked>\", \"sl\": \"<masked>\", \"rc\": \"<masked>\", \"rl\": \"<masked>\", \"sa\": 339, \"ra\": 339, \"b\": \"20m\"}",
+   "attributes": {
+    "topic": "pskr/filter/v2/20m/FT8/JH3SIF/JA3IWB/PM74/PM74/339/339"
+   }
+  },
+  {
+   "body_text": "{\"sq\": 73667358296, \"f\": 14074488, \"md\": \"FT8\", \"rp\": -5, \"t\": 1791875323, \"t_tx\": 1791875310, \"sc\": \"<masked>\", \"sl\": \"<masked>\", \"rc\": \"<masked>\", \"rl\": \"<masked>\", \"sa\": 339, \"ra\": 339, \"b\": \"20m\"}",
+   "attributes": {
+    "topic": "pskr/filter/v2/20m/FT8/JA1XPQ/JA3IWB/QM05/PM74/339/339"
+   }
+  }
+ ]
+}

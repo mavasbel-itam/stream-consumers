@@ -1,0 +1,20 @@
+{
+ "source": "gdelt",
+ "captured_at": "2026-10-13T07:14:08+00:00",
+ "note": "lastupdate.txt and the first 3 rows of the newest export, re-zipped",
+ "messages": [
+  {
+   "body_text": "75374 d20cf8456bb304ceb1b80331a975b4ea http://data.gdeltproject.org/gdeltv2/20261013071500.export.CSV.zip\n77846 e95f5ddd35eb3cc907ef9c38bbead64e http://data.gdeltproject.org/gdeltv2/20261013071500.mentions.CSV.zip\n3341236 87b238c834150552d3528dda97e8e282 http://data.gdeltproject.org/gdeltv2/20261013071500.gkg.csv.zip\n",
+   "bytes": true,
+   "attributes": {
+    "url": "lastupdate.txt"
+   }
+  },
+  {
+   "body_b64": "UEsDBBQAAAAIAMQJTV3tavAQuAEAAP0EAAAZAAAAMjAyNjEwMTMwNzE1MDAuZXhwb3J0LkNTVtVT23KbMBB9Vr/CH9AFXcwtb23NBOrE9jh1MtOXjgCNwQZEkaibv6+EY7szSSbTp7aMVnskZpfdcxbCaOB7Po18RDH1CCbsCYxu3Jwg8BiaxRuUfFgs7+P1iJ89BNngo9mDM0UmC7EbeE7EKMWMhVHIsGfenqKeA/NJ39aBA+JhjEqtO3Xlujve8CrnsK0Fb0Xv5LJxea+rvBZuKw7KPcW5GS+gl7xQUIq6g1x2ClqegRpUJ3ItCujkXvSQyZ+gy0r8EOodOfEQvMXD5/jh0/2NdeldYus1CCF7hdD1xzXaLNIv8WwyTxfXs+XteHXucOx8NMMLMwRR4ymC0KE4vCyCpuiWt3kplBb9+8nveNNWpoPJvGq3hWzQZm5WStEUExIijzkeAupQ4vuBAb7tgP7T2V5R+3A4OHWWG5WdYX/WuZSNACXyXmjeP0I3ZHWVQ9V+HypzbM6lgHps+VZuBwHm1MseuNY834OX7Ipd9/UbdS+Kh28pvo5v0MNyfZekq1V8VtMqa1V/Re/jQJj5j9iTGeKAYAdf/ooXZE8E17KdrHi//0NuGWMjvf6RXi8Kp+T/yPjXRuAXUEsBAhQDFAAAAAgAxAlNXe1q8BC4AQAA/QQAABkAAAAAAAAAAAAAAIABAAAAADIwMjYxMDEzMDcxNTAwLmV4cG9ydC5DU1ZQSwUGAAAAAAEAAQBHAAAA7wEAAAAA",
+   "attributes": {
+    "url": "http://data.gdeltproject.org/gdeltv2/20261013071500.export.CSV.zip"
+   }
+  }
+ ]
+}
