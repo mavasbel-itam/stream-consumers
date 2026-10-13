@@ -1,0 +1,34 @@
+{
+ "source": "dt_marine",
+ "captured_at": "2026-10-13T07:13:43+00:00",
+ "messages": [
+  {
+   "body_text": "{\n  \"cog\" : 321.9,\n  \"heading\" : 243,\n  \"lat\" : 60.170145,\n  \"lon\" : 24.974407,\n  \"navStat\" : 0,\n  \"posAcc\" : true,\n  \"raim\" : false,\n  \"rot\" : -5,\n  \"sog\" : 0.0,\n  \"time\" : 1791875623\n}",
+   "bytes": true,
+   "attributes": {
+    "topic": "vessels-v2/230252000/location"
+   }
+  },
+  {
+   "body_text": "{\n  \"cog\" : 281.9,\n  \"heading\" : 3,\n  \"lat\" : 59.462728,\n  \"lon\" : 24.64755,\n  \"navStat\" : 5,\n  \"posAcc\" : true,\n  \"raim\" : false,\n  \"rot\" : 0,\n  \"sog\" : 0.0,\n  \"time\" : 1791875623\n}",
+   "bytes": true,
+   "attributes": {
+    "topic": "vessels-v2/246263000/location"
+   }
+  },
+  {
+   "body_text": "{\n  \"cog\" : 50.0,\n  \"heading\" : 49,\n  \"lat\" : 59.35245,\n  \"lon\" : 22.434067,\n  \"navStat\" : 0,\n  \"posAcc\" : true,\n  \"raim\" : false,\n  \"rot\" : 0,\n  \"sog\" : 11.9,\n  \"time\" : 1791875623\n}",
+   "bytes": true,
+   "attributes": {
+    "topic": "vessels-v2/305061300/location"
+   }
+  },
+  {
+   "body_text": "{\n  \"cog\" : 289.4,\n  \"heading\" : 511,\n  \"lat\" : 61.063673,\n  \"lon\" : 28.18641,\n  \"navStat\" : 0,\n  \"posAcc\" : false,\n  \"raim\" : true,\n  \"rot\" : -128,\n  \"sog\" : 0.0,\n  \"time\" : 1791875623\n}",
+   "bytes": true,
+   "attributes": {
+    "topic": "vessels-v2/230937940/location"
+   }
+  }
+ ]
+}

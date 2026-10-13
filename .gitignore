@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Secrets: API keys live only in .env (see .env.example)
+.env
+.env.*
+!.env.example
+
+# Captured data and reports (may contain personal data)
+data/

@@ -1,0 +1,13 @@
+{
+ "source": "npm",
+ "captured_at": "2026-10-13T07:13:54+00:00",
+ "messages": [
+  {
+   "body_text": "{\"results\": [{\"seq\": 136503541, \"id\": \"@adobe/helix-md2docx\", \"changes\": [{\"rev\": \"311-f583487d4a770841a78fa53e1aea22ac\"}]}, {\"seq\": 136503543, \"id\": \"@central-icons-react-native/round-filled-radius-3-stroke-1.5\", \"changes\": [{\"rev\": \"351-ac9b9f369ec02573ef752118c4195f06\"}]}, {\"seq\": 136503545, \"id\": \"@gjsify/devtools-cdp\", \"changes\": [{\"rev\": \"71-a1c28552674b3a2a17e46e2cb5c7e0da\"}]}], \"last_seq\": 136503579}",
+   "bytes": true,
+   "attributes": {
+    "url": "https://replicate.npmjs.com/registry/_changes?since=136503539&limit=10000"
+   }
+  }
+ ]
+}

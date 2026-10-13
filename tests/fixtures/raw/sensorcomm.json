@@ -1,0 +1,13 @@
+{
+ "source": "sensorcomm",
+ "captured_at": "2026-10-13T07:13:46+00:00",
+ "messages": [
+  {
+   "body_text": "[{\"id\": 31018570829, \"sampling_rate\": null, \"timestamp\": \"2026-10-13 07:13:04\", \"location\": {\"id\": 49, \"latitude\": \"48.53\", \"longitude\": \"9.2\", \"altitude\": \"373.1\", \"country\": \"DE\", \"exact_location\": 0, \"indoor\": 0}, \"sensor\": {\"id\": 107, \"pin\": \"5\", \"sensor_type\": {\"id\": 1, \"name\": \"PPD42NS\", \"manufacturer\": \"Shinyei\"}}, \"sensordatavalues\": [{\"id\": 72574956274, \"value\": \"11307.50\", \"value_type\": \"durP1\"}, {\"id\": 72574956277, \"value\": \"0.00\", \"value_type\": \"durP2\"}, {\"id\": 72574956276, \"value\": \"20.21\", \"value_type\": \"P1\"}]}, {\"id\": 31018570875, \"sampling_rate\": null, \"timestamp\": \"2026-10-13 07:13:05\", \"location\": {\"id\": 49, \"latitude\": \"48.53\", \"longitude\": \"9.2\", \"altitude\": \"373.1\", \"country\": \"DE\", \"exact_location\": 0, \"indoor\": 0}, \"sensor\": {\"id\": 108, \"pin\": \"7\", \"sensor_type\": {\"id\": 9, \"name\": \"DHT22\", \"manufacturer\": \"various\"}}, \"sensordatavalues\": [{\"id\": 72574956380, \"value\": \"1.00\", \"value_type\": \"humidity\"}, {\"id\": 72574956378, \"value\": \"10.90\", \"value_type\": \"temperature\"}]}, {\"id\": 31018567764, \"sampling_rate\": null, \"timestamp\": \"2026-10-13 07:12:39\", \"location\": {\"id\": 65, \"latitude\": \"48.778\", \"longitude\": \"9.16\", \"altitude\": \"282.5\", \"country\": \"DE\", \"exact_location\": 0, \"indoor\": 0}, \"sensor\": {\"id\": 140, \"pin\": \"1\", \"sensor_type\": {\"id\": 14, \"name\": \"SDS011\", \"manufacturer\": \"Nova Fitness\"}}, \"sensordatavalues\": [{\"id\": 72574948406, \"value\": \"0.00\", \"value_type\": \"P1\"}, {\"id\": 72574948407, \"value\": \"0.00\", \"value_type\": \"P2\"}]}]",
+   "bytes": true,
+   "attributes": {
+    "url": "https://data.sensor.community/static/v2/data.json"
+   }
+  }
+ ]
+}
