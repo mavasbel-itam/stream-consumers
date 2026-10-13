@@ -6,7 +6,7 @@ from stream_consumers.adapters.outbound.decoders import JsonDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.sse import SseSource
 from stream_consumers.domain.models import Delivery, Group, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class WikimediaFactory(BaseSourceFactory):
@@ -25,7 +25,7 @@ class WikimediaFactory(BaseSourceFactory):
     )
     URL = "https://stream.wikimedia.org/v2/stream/recentchange"
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return SseSource(self.DESCRIPTOR, JsonDecoder(), deps.clock, deps.http, self.URL)
 
 

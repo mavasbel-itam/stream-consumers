@@ -1,0 +1,25 @@
+{
+ "source": "cta_bus",
+ "origin": "official documentation example (no key yet to capture live messages)",
+ "documentation_url": "https://www.transitchicago.com/assets/1/6/cta_Bus_Tracker_API_Developer_Guide_and_Documentation_2025-04-21.pdf",
+ "fetched_at": "2026-10-13",
+ "corrections": [
+  "PDF page footer lines and form-feed characters removed from inside the JSON",
+  "getvehicles: a typographic closing quote (U+201D) after a value replaced by '\"'",
+  "getroutes: the missing closing quote and comma after \"Pontiac – Dhu Varren\" added; the '...' elision removed"
+ ],
+ "messages": [
+  {
+   "body_text": "{\"bustime-response\": {\"routes\": [{\"rt\": \"1\", \"rtnm\": \"Pontiac – Dhu Varren\", \"rtdd\": \"1\", \"rtclr\": \"#ffffff\"}, {\"rt\": \"2\", \"rtnm\": \"Pontiac - University\", \"rtdd\": \"1\", \"rtclr\": \"#dc78af\"}]}}",
+   "attributes": {
+    "url": "getroutes"
+   }
+  },
+  {
+   "body_text": "{\"bustime-response\": {\"vehicle\": [{\"vid\": \"1\", \"tmstmp\": \"20200307 13:14\", \"lat\": \"37.54381\", \"lon\": \"-77.43878166666667\", \"hdg\": \"308\", \"pid\": 1689, \"rt\": \"6\", \"des\": \"BROAD WILLOW LAWN\", \"pdist\": 3481, \"dly\": false, \"spd\": 3, \"tatripid\": \"12\", \"tablockid\": \"6-05\", \"origtatripno\": \"ME_ME403_V1_AA\", \"zone\": \"\", \"mode\": 1, \"psgld\": \"EMPTY\", \"stst\": 47520, \"stsd\": \"2020-03-07\"}, {\"vid\": \"2\", \"tmstmp\": \"20200307 13:14\", \"lat\": \"37.55896532837857\", \"lon\": \"-77.48567781754004\", \"hdg\": \"294\", \"pid\": 1559, \"rt\": \"16\", \"des\": \"GROVE BF\", \"pdist\": 20156, \"dly\": false, \"spd\": 5, \"tatripid\": \"12\", \"tablockid\": \"16-02\", \"origtatripno\": \"ME_ME403_V1_AA\", \"zone\": \"\", \"mode\": 1, \"psgld\": \"FULL\", \"stst\": 46140, \"stsd\": \"2020-03-07\"}]}}",
+   "attributes": {
+    "url": "getvehicles"
+   }
+  }
+ ]
+}

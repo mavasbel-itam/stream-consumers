@@ -10,7 +10,7 @@ from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
 from stream_consumers.domain.errors import DecodeError
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class NpmChangesDecoder(JsonDecoder):
@@ -59,7 +59,7 @@ class NpmFactory(BaseSourceFactory):
         notes="Changes feed followed every 5 s. The feed returns each changed package once per request, so several updates of one package between polls count once.",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return NpmChangesSource(self.DESCRIPTOR, NpmChangesDecoder(), deps.clock, deps.http, [NpmChangesSource.ROOT], 5.0)
 
 

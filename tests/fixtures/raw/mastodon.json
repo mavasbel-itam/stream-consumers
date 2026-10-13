@@ -1,0 +1,23 @@
+{
+ "source": "mastodon",
+ "origin": "official documentation example (no key yet to capture live messages)",
+ "documentation_url": "https://docs.joinmastodon.org/methods/streaming/#public",
+ "fetched_at": "2026-10-13",
+ "corrections": [
+  "personal values masked with the repository's PersonalDataMasker and the source's personal_fields"
+ ],
+ "messages": [
+  {
+   "body_text": "{\"id\": \"108914354907984653\", \"created_at\": \"2022-08-30T23:12:47.000Z\", \"in_reply_to_id\": null, \"in_reply_to_account_id\": null, \"sensitive\": false, \"spoiler_text\": \"\", \"visibility\": \"public\", \"language\": \"en\", \"uri\": \"<masked>\", \"url\": \"<masked>\", \"replies_count\": 0, \"reblogs_count\": 0, \"favourites_count\": 0, \"edited_at\": null, \"content\": \"<masked>\", \"reblog\": null, \"account.id\": \"<masked>\", \"account.username\": \"<masked>\", \"account.acct\": \"<masked>\", \"account.display_name\": \"<masked>\", \"account.locked\": \"<masked>\", \"account.bot\": \"<masked>\", \"account.discoverable\": \"<masked>\", \"account.group\": \"<masked>\", \"account.created_at\": \"<masked>\", \"account.note\": \"<masked>\", \"account.url\": \"<masked>\", \"account.avatar\": \"<masked>\", \"account.avatar_static\": \"<masked>\", \"account.header\": \"<masked>\", \"account.header_static\": \"<masked>\", \"account.followers_count\": \"<masked>\", \"account.following_count\": \"<masked>\", \"account.statuses_count\": \"<masked>\", \"account.last_status_at\": \"<masked>\", \"account.emojis\": \"<masked>\", \"account.fields\": \"<masked>\", \"media_attachments\": [], \"mentions\": [], \"tags\": [], \"emojis\": [], \"card\": null, \"poll\": null, \"filter_results\": []}",
+   "attributes": {
+    "event": "update"
+   }
+  },
+  {
+   "body_text": "107214471804101576",
+   "attributes": {
+    "event": "delete"
+   }
+  }
+ ]
+}

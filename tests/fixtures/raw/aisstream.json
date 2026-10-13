@@ -1,0 +1,17 @@
+{
+ "source": "aisstream",
+ "origin": "official documentation example (no key yet to capture live messages)",
+ "documentation_url": "https://aisstream.io/documentation#messages",
+ "fetched_at": "2026-10-13",
+ "corrections": [
+  "delivered as binary frames in the service; stored here as UTF-8 text"
+ ],
+ "messages": [
+  {
+   "body_text": "{\"MessageType\": \"SubscriptionConfirmation\", \"Message\": {\"CompressionEnabled\": true}}"
+  },
+  {
+   "body_text": "{\"MessageType\": \"PositionReport\", \"MetaData\": {\"MMSI\": 368207620, \"ShipName\": \"EXAMPLE VESSEL\", \"Latitude\": 25.7617, \"Longitude\": -80.1918}, \"Message\": {\"PositionReport\": {\"MessageID\": 1, \"UserID\": 368207620, \"Sog\": 12.4, \"Cog\": 86.7, \"TrueHeading\": 87, \"Valid\": true}}}"
+  }
+ ]
+}

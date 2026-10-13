@@ -8,7 +8,7 @@ from stream_consumers.adapters.outbound.decoders import JsonDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class SolanaDecoder(JsonDecoder):
@@ -37,7 +37,7 @@ class SolanaFactory(BaseSourceFactory):
         {"jsonrpc": "2.0", "id": 1, "method": "logsSubscribe", "params": ["all", {"commitment": "confirmed"}]},
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return WebSocketSource(
             self.DESCRIPTOR, SolanaDecoder(), deps.clock, self.URL, self.SUBSCRIPTIONS, headers={"User-Agent": deps.user_agent}
         )

@@ -9,7 +9,7 @@ from stream_consumers.adapters.outbound.decoders import BaseDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.zeromq import ZmqSubSource
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class Kv6Decoder(BaseDecoder):
@@ -40,7 +40,7 @@ class NdovFactory(BaseSourceFactory):
     )
     ENDPOINT = "tcp://pubsub.besteffort.ndovloket.nl:7658"
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return ZmqSubSource(self.DESCRIPTOR, Kv6Decoder(), deps.clock, self.ENDPOINT)
 
 

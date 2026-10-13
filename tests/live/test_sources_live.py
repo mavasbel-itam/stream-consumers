@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -32,7 +33,7 @@ SECONDS = float(os.environ.get("LIVE_SECONDS", "60"))
 async def results() -> Mapping[str, RunReport]:
     clock = SystemClock()
     http = AiohttpClient(USER_AGENT)
-    deps = SourceDependencies(http, EnvSecretProvider(os.environ, None), clock, USER_AGENT)
+    deps = SourceDependencies(http, EnvSecretProvider(os.environ, Path(".env")), clock, USER_AGENT)
     try:
         registry = FactoryRegistry(FACTORIES, deps)
         service = CheckService(ConsumeService(registry, clock), NullEventSink(), MemoryReports(), concurrency=len(FACTORIES))

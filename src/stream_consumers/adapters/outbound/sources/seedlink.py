@@ -12,7 +12,7 @@ from stream_consumers.adapters.outbound.transports.tcp import TcpRecordSource
 from stream_consumers.domain.errors import TransportError
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
 from stream_consumers.domain.policy import Backoff
-from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import ClockPort, Credentials, DecoderPort, EventSourcePort, SourceDependencies
 
 
 class MiniSeedHeaderDecoder(BaseDecoder):
@@ -98,7 +98,7 @@ class SeedlinkFactory(BaseSourceFactory):
     HOST = "rtserve.iris.washington.edu"
     STATIONS = tuple(("IU", s) for s in ("ANMO", "TEIG", "HRV", "COLA", "KONO", "MAJO", "PET", "SNZO", "CTAO", "TATO", "PAB", "RSSD"))
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return SeedLinkSource(self.DESCRIPTOR, MiniSeedHeaderDecoder(), deps.clock, self.HOST, 18000, self.STATIONS, "BHZ")
 
 

@@ -9,7 +9,7 @@ from stream_consumers.adapters.outbound.decoders import LineDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.tcp import TcpLineSource
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class RbnSpotDecoder(LineDecoder):
@@ -39,7 +39,7 @@ class RbnFactory(BaseSourceFactory):
         notes="Telnet login asks for a callsign; N0CALL (the conventional placeholder) is sent.",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return TcpLineSource(self.DESCRIPTOR, RbnSpotDecoder(), deps.clock, "telnet.reversebeacon.net", 7000, greeting=["N0CALL"])
 
 

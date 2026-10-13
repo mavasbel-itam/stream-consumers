@@ -8,7 +8,7 @@ from stream_consumers.adapters.outbound.decoders import LineDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class TwitchChatDecoder(LineDecoder):
@@ -55,7 +55,7 @@ class TwitchFactory(BaseSourceFactory):
         "juansguarnizo",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         login = ["CAP REQ :twitch.tv/tags", "PASS SCHMOOPIIE", "NICK justinfan48213", "JOIN " + ",".join("#" + c for c in self.CHANNELS)]
         return WebSocketSource(
             self.DESCRIPTOR,

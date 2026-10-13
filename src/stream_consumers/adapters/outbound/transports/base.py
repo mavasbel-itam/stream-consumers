@@ -25,6 +25,22 @@ from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourceP
 Record = Mapping[str, object]
 T = TypeVar("T")
 
+MERGED_CLOSE_GRACE_S = 5.0
+
+
+def raise_if_cancelling(error: BaseException) -> None:
+    """Re-raise as cancellation when the current task has been asked to stop.
+
+    Some client libraries turn a CancelledError into another exception (websockets
+    15–17 raises AssertionError when recv() is cancelled while reassembling a
+    fragmented message and another frame is already queued). Without this check a
+    retry loop would take that error for a provider failure, reconnect, and the
+    task would never stop.
+    """
+    task = asyncio.current_task()
+    if task is not None and task.cancelling():
+        raise asyncio.CancelledError() from error
+
 
 class BaseEventSource(EventSourcePort):
     def __init__(self, descriptor: SourceDescriptor, clock: ClockPort, backoff: Backoff | None = None) -> None:
@@ -51,6 +67,7 @@ class BaseEventSource(EventSourcePort):
             try:
                 return await operation()
             except Exception as exc:
+                raise_if_cancelling(exc)
                 attempt += 1
                 await self._pause_before_retry(attempt, exc)
 
@@ -83,6 +100,7 @@ class PushEventSource(DecodingEventSource):
                     for record in self._decoder.decode(message):
                         yield record
             except Exception as exc:
+                raise_if_cancelling(exc)
                 error = exc
             finally:
                 await stream.aclose()
@@ -277,6 +295,8 @@ class MergedEventSource(BaseEventSource):
             if failed == len(tasks):
                 raise TransportError(f"{self._descriptor.id}: every child source failed; last: {last_error}") from last_error
         finally:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            pending: set[asyncio.Task[None]] = set(tasks)
+            while pending:
+                for task in pending:
+                    task.cancel()
+                _, pending = await asyncio.wait(pending, timeout=MERGED_CLOSE_GRACE_S)

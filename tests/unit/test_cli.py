@@ -29,10 +29,10 @@ def test_list_prints_one_json_line_per_source_sorted() -> None:
     assert rows[0]["group"] == "A" and rows[0]["personal_fields"] == ["user"]
 
 
-def test_default_catalog_lists_the_54_sources() -> None:
+def test_default_catalog_lists_the_65_sources() -> None:
     out = io.StringIO()
     assert main(["list"], out, io.StringIO()) == 0
-    assert len(out.getvalue().splitlines()) == 54 and DEFAULT_CATALOG.endswith(".sources")
+    assert len(out.getvalue().splitlines()) == 65 and DEFAULT_CATALOG.endswith(".sources")
 
 
 class TestConsume:
@@ -101,6 +101,26 @@ def test_profile_writes_masked_events_and_field_statistics(tmp_path: Path) -> No
     (report,) = tmp_path.glob("profiles-*.json")
     fields = {f["name"]: f for f in json.loads(report.read_text())[0]["fields"]}
     assert fields["user"]["distinct"] == 2 and fields["user"]["example"] == "<masked>"
+
+
+def test_keys_shows_status_and_template_without_values(tmp_path: Path) -> None:
+    env = tmp_path / ".env"
+    env.write_text("SCRIPTED_KEY=very-secret\n")
+    code, out, _ = run("keys", env_file=env)
+    assert code == 0 and "very-secret" not in out
+    assert out.split() == ["keyed", "SCRIPTED_KEY", "secret", "required", "set", "https://sign.up/here"]
+    code, out, _ = run("keys")
+    assert code == 0 and out.split()[4] == "MISSING"
+    code, out, _ = run("keys", "--template", env_file=env)
+    assert code == 0 and "SCRIPTED_KEY=\n" in out and "very-secret" not in out
+
+
+def test_keys_shows_settings_with_their_default() -> None:
+    out = io.StringIO()
+    assert main(["keys"], out, io.StringIO()) == 0
+    assert any(
+        line.split()[:5] == ["crossref", "CROSSREF_MAILTO", "setting", "optional", "default"] for line in out.getvalue().splitlines()
+    )
 
 
 def test_unknown_command_is_an_argparse_error() -> None:

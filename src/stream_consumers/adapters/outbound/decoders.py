@@ -5,6 +5,7 @@ Source modules subclass these to pick the events out of a provider's envelope.
 
 from __future__ import annotations
 
+import base64
 import csv
 import gzip
 import io
@@ -12,7 +13,8 @@ import json
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
 
-from google.protobuf.json_format import MessageToDict
+import fastavro
+from google.protobuf.json_format import MessageToDict, Parse, ParseError
 from google.transit import gtfs_realtime_pb2
 
 from stream_consumers.domain.errors import DecodeError
@@ -113,13 +115,63 @@ class CsvDecoder(BaseDecoder):
 
 
 class GtfsRealtimeDecoder(BaseDecoder):
-    """GTFS-Realtime FeedMessage (protobuf): one event per entity, header timestamp attached."""
+    """GTFS-Realtime FeedMessage: one event per entity, header timestamp attached.
+
+    Protobuf is the GTFS-Realtime wire format. A body that starts with ``{`` is read as the
+    JSON mapping of the same message (field names in either lowerCamelCase or the .proto's
+    snake_case, as protobuf's JSON parser accepts both), for feeds that answer JSON.
+    """
 
     def decode(self, message: RawMessage) -> Sequence[Record]:
         feed = gtfs_realtime_pb2.FeedMessage()
+        raw = self.raw(message)
         try:
-            feed.ParseFromString(self.raw(message))
+            if raw.lstrip()[:1] == b"{":
+                Parse(raw.decode("utf-8"), feed, ignore_unknown_fields=True)
+            else:
+                feed.ParseFromString(raw)
+        except (ParseError, UnicodeDecodeError) as exc:
+            raise DecodeError(f"invalid GTFS-Realtime JSON feed: {exc}") from exc
         except Exception as exc:  # protobuf raises its own DecodeError type
             raise DecodeError(f"invalid GTFS-Realtime feed: {exc}") from exc
         stamp = feed.header.timestamp
         return [dict(MessageToDict(entity), feedTimestamp=stamp) for entity in feed.entity]
+
+
+class AvroSchemaInKeyDecoder(BaseDecoder):
+    """Schemaless Avro values whose writer schema travels as JSON in the Kafka message key
+    (the `key` attribute), as the Fink broker publishes them. Parsed schemas are cached by key
+    text. Binary fields (image cutouts) become base64 text so every event is JSON-serialisable.
+    """
+
+    def __init__(self) -> None:
+        self._schemas: dict[str, object] = {}
+
+    def _schema(self, key: str) -> object:
+        if key not in self._schemas:
+            try:
+                self._schemas[key] = fastavro.parse_schema(json.loads(key))
+            except (ValueError, TypeError, fastavro.schema.SchemaParseException) as exc:
+                raise DecodeError(f"message key is not an Avro schema: {exc}") from exc
+        return self._schemas[key]
+
+    @classmethod
+    def jsonable(cls, value: object) -> object:
+        if isinstance(value, bytes):
+            return base64.b64encode(value).decode("ascii")
+        if isinstance(value, Mapping):
+            return {k: cls.jsonable(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [cls.jsonable(v) for v in value]
+        return value
+
+    def decode(self, message: RawMessage) -> Sequence[Record]:
+        key = message.attributes.get("key")
+        if not key:
+            raise DecodeError("Avro message without a schema in its key")
+        try:
+            record = fastavro.schemaless_reader(io.BytesIO(self.raw(message)), self._schema(key), None)
+        except (EOFError, ValueError, TypeError, IndexError) as exc:
+            raise DecodeError(f"value does not match its Avro schema: {exc}") from exc
+        out = self.jsonable(record)
+        return [out] if isinstance(out, Mapping) else []

@@ -24,12 +24,13 @@ from stream_consumers.adapters.outbound.sinks import (
 )
 from stream_consumers.adapters.outbound.system import EnvSecretProvider, SystemClock
 from stream_consumers.application.check_service import CheckService
+from stream_consumers.application.configuration_service import ConfigurationService
 from stream_consumers.application.consume_service import ConsumeService
 from stream_consumers.application.list_service import ListService
 from stream_consumers.application.profile_service import ProfileService
 from stream_consumers.application.sample_service import SampleService
 from stream_consumers.domain.errors import StreamConsumersError
-from stream_consumers.domain.models import RunReport, RunStatus
+from stream_consumers.domain.models import ConfigKind, RunReport, RunStatus
 from stream_consumers.ports.outbound import (
     ClockPort,
     EventSinkPort,
@@ -50,6 +51,9 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("list", help="list the sources as JSON lines")
+
+    keys = commands.add_parser("keys", help="show which API credentials and settings are set (never their values)")
+    keys.add_argument("--template", action="store_true", help="print a .env template instead")
 
     consume = commands.add_parser("consume", help="write the events of one source as JSON lines")
     consume.add_argument("source")
@@ -137,6 +141,22 @@ def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: Text
         if args.command == "list":
             for descriptor in ListService(registry).list_sources():
                 out.write(json.dumps(asdict(descriptor), default=lambda v: getattr(v, "value", str(v)), ensure_ascii=False) + "\n")
+            return 0
+        if args.command == "keys":
+            configuration = ConfigurationService(registry, deps.secrets)
+            if args.template:
+                out.write(configuration.env_template())
+                return 0
+            for row in configuration.status():
+                need = "required" if row.required else "optional"
+                if row.configured:
+                    state = "set"
+                elif row.kind is ConfigKind.SETTING:
+                    state = "default"
+                else:
+                    state = "MISSING" if row.required else "not-set"
+                where = row.sign_up_url or f"default={row.default!r}"
+                out.write(f"{row.source_id:14} {row.env_var:28} {row.kind.value:8} {need:9} {state:8} {where}\n")
             return 0
 
         async def run_and_close() -> int:
