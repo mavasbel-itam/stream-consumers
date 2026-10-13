@@ -9,7 +9,7 @@ from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
 from stream_consumers.domain.models import Delivery, Group, PublishedVolume, RawMessage, SourceDescriptor, Transport
 from stream_consumers.domain.policy import ChangeDetector
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class SensorCommunityDecoder(JsonDecoder):
@@ -50,7 +50,7 @@ class SensorcommFactory(BaseSourceFactory):
     )
     URL = "https://data.sensor.community/static/v2/data.json"
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return SensorCommunitySource(
             self.DESCRIPTOR, SensorCommunityDecoder(), deps.clock, deps.http, [self.URL], 150.0, ChangeDetector(["id"])
         )

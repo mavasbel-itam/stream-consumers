@@ -29,7 +29,7 @@ from stream_consumers.domain.models import (
     SamplingRound,
     SourceProfile,
 )
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 from tests.support import FakeClock, ScriptedSource, deps, descriptor
 
 
@@ -37,7 +37,7 @@ class _Factory(BaseSourceFactory):
     def __init__(self, source_id: str) -> None:
         self.DESCRIPTOR = descriptor(source_id)  # type: ignore[misc]
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return ScriptedSource(self.DESCRIPTOR, [], deps.clock)  # type: ignore[arg-type]
 
 

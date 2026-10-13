@@ -15,6 +15,7 @@ dependencies = [
     "gtfs-realtime-bindings==3.0.0",
     "protobuf==7.36.2",
     "cryptography==50.0.2",
+    "fastavro==1.13.1",
 ]
 
 [project.scripts]

@@ -15,6 +15,7 @@ include =
     */stream_consumers/adapters/outbound/sinks.py
     */stream_consumers/adapters/outbound/system.py
     */stream_consumers/adapters/outbound/http.py
+    */stream_consumers/adapters/outbound/auth.py
     */stream_consumers/adapters/outbound/transports/*
 
 [report]

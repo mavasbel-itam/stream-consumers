@@ -1,5 +1,7 @@
 """Domain errors."""
 
+from collections.abc import Sequence
+
 
 class StreamConsumersError(Exception):
     """Base class of every error raised on purpose by this package."""
@@ -12,9 +14,9 @@ class UnknownSourceError(StreamConsumersError):
 
 
 class MissingCredentialError(StreamConsumersError):
-    def __init__(self, env_var: str, sign_up_url: str) -> None:
-        super().__init__(f"missing API key {env_var} (free sign-up: {sign_up_url})")
-        self.env_var = env_var
+    def __init__(self, env_vars: Sequence[str], sign_up_url: str) -> None:
+        super().__init__(f"missing API credentials {', '.join(env_vars)} (free sign-up: {sign_up_url})")
+        self.env_vars = tuple(env_vars)
         self.sign_up_url = sign_up_url
 
 

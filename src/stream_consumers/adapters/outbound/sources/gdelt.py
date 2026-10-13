@@ -12,7 +12,7 @@ from stream_consumers.adapters.outbound.transports.base import FileDropSource, F
 from stream_consumers.domain.errors import DecodeError, TransportError
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
 from stream_consumers.domain.policy import Backoff
-from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
+from stream_consumers.ports.outbound import ClockPort, Credentials, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
 
 GDELT_EVENT_FIELDS = (
     "GlobalEventID",
@@ -120,7 +120,7 @@ class GdeltFactory(BaseSourceFactory):
         notes="One event export every 15 minutes; rate = rows in the newest export / 900 s. Measured median 0.977 events/s, kept because the project document lists it. Column names: https://data.gdeltproject.org/documentation/GDELT-Event_Codebook-V2.0.pdf",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return GdeltExportSource(self.DESCRIPTOR, GdeltExportDecoder(), deps.clock, deps.http)
 
 

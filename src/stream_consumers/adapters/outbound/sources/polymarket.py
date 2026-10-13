@@ -11,7 +11,7 @@ from stream_consumers.adapters.outbound.transports.websocket import WebSocketSou
 from stream_consumers.domain.errors import TransportError
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
 from stream_consumers.domain.policy import Backoff
-from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
+from stream_consumers.ports.outbound import ClockPort, Credentials, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
 
 
 class PolymarketDecoder(JsonDecoder):
@@ -82,7 +82,7 @@ class PolymarketFactory(BaseSourceFactory):
     )
     URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return PolymarketSource(
             self.DESCRIPTOR, PolymarketDecoder(), deps.clock, deps.http, self.URL, headers={"User-Agent": deps.user_agent}
         )

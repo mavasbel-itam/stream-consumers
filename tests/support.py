@@ -117,6 +117,10 @@ class FakeHttp(HttpClientPort):
         self.calls.append(("POST", url, body))
         return self._answer(url)
 
+    async def post_form(self, url: str, fields: Mapping[str, str], headers: Mapping[str, str] | None = None) -> HttpResponse:
+        self.calls.append(("FORM", url, dict(fields)))
+        return self._answer(url)
+
     async def stream(self, url: str, headers: Mapping[str, str] | None = None) -> AsyncIterator[bytes]:
         self.calls.append(("STREAM", url, dict(headers or {})))
         response = self._answer(url)

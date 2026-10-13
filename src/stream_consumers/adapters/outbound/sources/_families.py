@@ -20,7 +20,7 @@ from stream_consumers.adapters.outbound.transports.mqtt import MqttSource
 from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
 from stream_consumers.domain.models import RawMessage
 from stream_consumers.domain.policy import ChangeDetector
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 Record = Mapping[str, object]
 
@@ -38,7 +38,7 @@ class EvmLogDecoder(JsonDecoder):
 class EvmLogsFactory(BaseSourceFactory):
     URL: ClassVar[str]
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         subscribe = {"jsonrpc": "2.0", "id": 1, "method": "eth_subscribe", "params": ["logs", {}]}
         return WebSocketSource(self.DESCRIPTOR, EvmLogDecoder(), deps.clock, self.URL, [subscribe], headers={"User-Agent": deps.user_agent})
 
@@ -56,7 +56,7 @@ class GbfsStationsFactory(BaseSourceFactory):
     URL: ClassVar[str]
     INTERVAL_S: ClassVar[float] = 10.0
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         detector = ChangeDetector(["station_id"], ["last_reported", "num_bikes_available", "num_docks_available"])
         return HttpPollSource(self.DESCRIPTOR, GbfsStationDecoder(), deps.clock, deps.http, [self.URL], self.INTERVAL_S, detector)
 
@@ -74,7 +74,7 @@ class AdsbPointFactory(BaseSourceFactory):
     URL: ClassVar[str]
     INTERVAL_S: ClassVar[float]
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         detector = ChangeDetector(["hex"], ["lat", "lon", "alt_baro", "gs", "track"])
         return HttpPollSource(self.DESCRIPTOR, AdsbAircraftDecoder(), deps.clock, deps.http, [self.URL], self.INTERVAL_S, detector)
 
@@ -83,9 +83,16 @@ class GtfsRealtimeFactory(BaseSourceFactory):
     URL: ClassVar[str]
     INTERVAL_S: ClassVar[float] = 15.0
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _request(self, credentials: Credentials | None) -> tuple[str, Mapping[str, str]]:
+        """URL and headers of one poll; a keyed feed overrides this to place its key."""
+        return self.URL, {}
+
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
+        url, headers = self._request(credentials)
         detector = ChangeDetector(["id"])
-        return HttpPollSource(self.DESCRIPTOR, GtfsRealtimeDecoder(), deps.clock, deps.http, [self.URL], self.INTERVAL_S, detector)
+        return HttpPollSource(
+            self.DESCRIPTOR, GtfsRealtimeDecoder(), deps.clock, deps.http, [url], self.INTERVAL_S, detector, headers=headers or None
+        )
 
 
 class DigitrafficDecoder(JsonDecoder):
@@ -110,5 +117,5 @@ class DigitrafficMqttFactory(BaseSourceFactory):
     TOPICS: ClassVar[tuple[str, ...]]
     TOPIC_FIELDS: ClassVar[Mapping[int, str]] = {}
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return MqttSource(self.DESCRIPTOR, DigitrafficDecoder(self.TOPIC_FIELDS), deps.clock, self.HOST, 443, self.TOPICS)

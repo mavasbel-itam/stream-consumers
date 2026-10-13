@@ -172,5 +172,5 @@ class TestProfileFields:
 
 def test_error_messages_name_the_missing_piece() -> None:
     assert "nope" in str(UnknownSourceError("nope"))
-    err = MissingCredentialError("K", "https://x")
-    assert err.env_var == "K" and "https://x" in str(err)
+    err = MissingCredentialError(["K", "P"], "https://x")
+    assert err.env_vars == ("K", "P") and str(err) == "missing API credentials K, P (free sign-up: https://x)"

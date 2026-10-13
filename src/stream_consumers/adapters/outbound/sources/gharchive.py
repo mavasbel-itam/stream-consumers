@@ -12,7 +12,7 @@ from stream_consumers.adapters.outbound.transports.base import FileDropSource, F
 from stream_consumers.domain.errors import DecodeError
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
 from stream_consumers.domain.policy import Backoff
-from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
+from stream_consumers.ports.outbound import ClockPort, Credentials, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
 
 
 class GhArchiveSource(FileDropSource):
@@ -82,7 +82,7 @@ class GharchiveFactory(BaseSourceFactory):
         notes="One file per UTC hour; rate = events in the newest complete hour / 3,600 s.",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return GhArchiveSource(self.DESCRIPTOR, JsonDecoder(), deps.clock, deps.http)
 
 

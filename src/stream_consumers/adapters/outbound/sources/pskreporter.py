@@ -6,7 +6,7 @@ from stream_consumers.adapters.outbound.decoders import JsonDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.mqtt import MqttSource
 from stream_consumers.domain.models import Delivery, Group, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class PskreporterFactory(BaseSourceFactory):
@@ -24,7 +24,7 @@ class PskreporterFactory(BaseSourceFactory):
         personal_fields=("sc", "rc", "sl", "rl"),
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return MqttSource(
             self.DESCRIPTOR, JsonDecoder(), deps.clock, "mqtt.pskreporter.info", 1883, ["pskr/filter/v2/#"], websockets=False, tls=False
         )

@@ -60,6 +60,7 @@ def test_inbound_and_outbound_ports_are_split_and_abstract() -> None:
         "CheckSourcesUseCase",
         "SampleSourcesUseCase",
         "ProfileSourcesUseCase",
+        "DescribeConfigurationUseCase",
     }
 
 

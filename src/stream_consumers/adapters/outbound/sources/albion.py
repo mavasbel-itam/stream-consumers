@@ -8,7 +8,7 @@ from stream_consumers.adapters.outbound.decoders import JsonDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.nats import NatsSource
 from stream_consumers.domain.models import Delivery, Group, RawMessage, SourceDescriptor, Transport
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class AlbionOrdersDecoder(JsonDecoder):
@@ -37,7 +37,7 @@ class AlbionFactory(BaseSourceFactory):
     SERVER = "nats://nats.albion-online-data.com:4222"
     SUBJECT = "marketorders.deduped"
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return NatsSource(
             self.DESCRIPTOR, AlbionOrdersDecoder(), deps.clock, self.SERVER, self.SUBJECT, user="public", password="thenewalbiondata"
         )

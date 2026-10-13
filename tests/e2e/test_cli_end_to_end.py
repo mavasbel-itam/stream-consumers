@@ -3,18 +3,32 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import sys
+import time
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
+import fastavro
 import pytest
 import websockets
 from aiohttp import web
 
-from tests.servers import MqttBroker, NatsServer, http_server, tcp_server, ws_server, zmq_publisher
+from tests.servers import MqttBroker, NatsServer, http_server, kafka_broker, kafka_produce, tcp_server, ws_server, zmq_publisher
+
+AVRO_SCHEMA = {"type": "record", "name": "alert", "fields": [{"name": "objectId", "type": "string"}, {"name": "cutout", "type": "bytes"}]}
+
+
+def _avro_value() -> bytes:
+    buffer = io.BytesIO()
+    fastavro.schemaless_writer(buffer, fastavro.parse_schema(AVRO_SCHEMA), {"objectId": "ZTF1", "cutout": b"\x00\x01"})
+    return buffer.getvalue()
+
+
+AVRO_VALUE = _avro_value()
 
 pytestmark = pytest.mark.e2e
 ROOT = Path(__file__).resolve().parents[2]
@@ -76,6 +90,29 @@ def http_routes() -> list[web.RouteDef]:
     async def missing_index(request: web.Request) -> web.Response:
         return web.Response(text="missing.csv")
 
+    tokens = {"n": 0}
+
+    async def token(request: web.Request) -> web.Response:
+        form = await request.post()
+        assert (form["grant_type"], form["client_id"], form["client_secret"]) == ("client_credentials", "e2e-id", "e2e-secret")
+        tokens["n"] += 1
+        return web.json_response({"access_token": f"token-{tokens['n']}", "expires_in": 61})
+
+    async def token_denied(request: web.Request) -> web.Response:
+        return web.json_response({"error": "invalid_client"}, status=401)
+
+    async def token_garbage(request: web.Request) -> web.Response:
+        return web.Response(text="<html>")
+
+    async def token_empty(request: web.Request) -> web.Response:
+        return web.json_response({"access_token": ""})
+
+    async def protected(request: web.Request) -> web.Response:
+        if request.headers.get("Authorization") in (None, "Bearer token-1"):
+            return web.Response(status=401, text="expired")
+        polls["n"] += 1
+        return web.json_response([{"id": 1, "v": polls["n"], "token": request.headers["Authorization"]}])
+
     return [
         web.get("/sse", sse),
         web.get("/refuse", refuse),
@@ -84,6 +121,11 @@ def http_routes() -> list[web.RouteDef]:
         web.get("/files/index", index),
         web.get("/files/f1.csv", file),
         web.get("/gone/index", missing_index),
+        web.post("/token", token),
+        web.post("/token_denied", token_denied),
+        web.post("/token_garbage", token_garbage),
+        web.post("/token_empty", token_empty),
+        web.get("/protected", protected),
     ]
 
 
@@ -134,6 +176,9 @@ async def environment() -> AsyncIterator[dict[str, object]]:
         addresses["tcp_silent"] = await stack.enter_async_context(tcp_server(hold))
         addresses["tcp_records"] = await stack.enter_async_context(tcp_server(sends(b"abcdefg")))
         addresses["tcp_truncated"] = await stack.enter_async_context(tcp_server(sends(b"a")))
+        addresses["kafka"] = await stack.enter_async_context(kafka_broker())
+        await kafka_produce(str(addresses["kafka"]), "e2e_json", [(None, b'{"n": 1, "user": "ana"}'), (b"k", b'{"n": 2}')])
+        await kafka_produce(str(addresses["kafka"]), "e2e_avro", [(json.dumps(AVRO_SCHEMA).encode(), AVRO_VALUE)])
         yield addresses
 
 
@@ -196,6 +241,18 @@ EXPECTED = {
     "merged_empty": "error",
     "keyed": "key-pending",
     "stalling": "ok",
+    "disguised_cancel": "ok",
+    "kafka_json": "ok",
+    "kafka_avro": "ok",
+    "kafka_refused": "error",
+    "kafka_no_topics": "error",
+    "kafka_bad_start": "error",
+    "oauth_poll": "ok",
+    "oauth_denied": "error",
+    "oauth_garbage": "error",
+    "oauth_empty": "error",
+    "configured": "ok",
+    "settings_only": "ok",
     "bad_interval": "error",
     "bad_urls": "error",
     "bad_topics": "error",
@@ -211,7 +268,7 @@ async def test_check_every_transport(tmp_path: Path) -> None:
     statuses = {line.split()[0]: line.split()[1] for line in out.splitlines()[:-1]}
     assert statuses == EXPECTED
     failed = sum(1 for s in EXPECTED.values() if s == "error")
-    assert "missing API key E2E_KEY" in out
+    assert "missing API credentials E2E_KEY" in out
     assert out.splitlines()[-1] == f"{len(EXPECTED)} sources, {len(EXPECTED) - failed} delivered or key pending, {failed} failed"
     (report,) = tmp_path.glob("check-*.json")
     rows = {r["source_id"]: r for r in json.loads(report.read_text())}
@@ -220,6 +277,25 @@ async def test_check_every_transport(tmp_path: Path) -> None:
     assert "gave up" in rows["poll_404"]["detail"] and "every child source failed" in rows["merged_dead"]["detail"]
     assert rows["poll_snapshot"]["rate_basis"] == "published" and rows["bad_interval"]["detail"].startswith("ValueError")
     assert rows["zmq_fast"]["events"] > 1000 and rows["merged_finite"]["events"] == 2
+    assert rows["kafka_json"]["events"] == 2 and rows["kafka_avro"]["events"] == 1
+    assert "topics must not be empty" in rows["kafka_no_topics"]["detail"] and "start_at" in rows["kafka_bad_start"]["detail"]
+    assert "token request refused: HTTP 401" in rows["oauth_denied"]["detail"]
+    assert "without access_token" in rows["oauth_garbage"]["detail"] and "empty access_token" in rows["oauth_empty"]["detail"]
+
+
+async def test_oauth_token_is_renewed_before_it_expires_and_after_a_401() -> None:
+    async with environment() as addresses:
+        code, out, err = await cli(addresses, "consume", "oauth_poll", "--seconds", "2.5")
+    assert code == 0, err
+    tokens = [json.loads(line)["payload"]["token"] for line in out.splitlines()]
+    assert tokens[0] == "Bearer token-2" and len(set(tokens)) >= 2  # token-1 refused with 401; renewed after ~1 s
+
+
+async def test_kafka_avro_cutouts_arrive_as_base64() -> None:
+    async with environment() as addresses:
+        code, out, err = await cli(addresses, "consume", "kafka_avro", "--seconds", "15", "--max-events", "1")
+    assert code == 0, err
+    assert json.loads(out)["payload"] == {"objectId": "ZTF1", "cutout": "AAE="}
 
 
 async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
@@ -284,7 +360,7 @@ async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
 
 async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> None:
     env = tmp_path / ".env"
-    env.write_text("# keys\n\nE2E_KEY='secret'\nOTHER=plain\nnot a pair\n", encoding="utf-8")
+    env.write_text("# keys\n\nE2E_KEY='e2e-value-123'\nOTHER=plain\nnot a pair\n", encoding="utf-8")
     async with environment() as addresses:
         code, out, _ = await cli(addresses, "--env-file", str(env), "consume", "keyed", "--seconds", "1")
         assert code == 0 and json.loads(out)["payload"] == {"key": "used"}
@@ -301,3 +377,24 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
             assert (code, message in err) == (2, True), (argv, err)
         code, _, err = await cli(addresses, "--catalog", "tests.e2e.duplicate_catalog", "list")
         assert code == 2 and "duplicate source id: ws_ok" in err
+        code, out, _ = await cli(addresses, "--env-file", str(env), "keys")
+        assert code == 0 and "e2e-value-123" not in out
+        assert [line.split() for line in out.splitlines()] == [
+            ["configured", "E2E_ID", "secret", "optional", "not-set", "https://sign.up/pair"],
+            ["configured", "E2E_SECRET", "secret", "optional", "not-set", "https://sign.up/pair"],
+            ["configured", "E2E_REGION", "setting", "optional", "default", "default='eu'"],
+            ["keyed", "E2E_KEY", "secret", "required", "set", "https://sign.up/e2e"],
+            ["settings_only", "E2E_CONTACT", "setting", "optional", "default", "default=''"],
+        ]
+        code, out, _ = await cli(addresses, "--env-file", str(env), "keys", "--template")
+        assert code == 0 and "e2e-value-123" not in out
+        assert "# How: Form; e-mailed.\nE2E_ID=\nE2E_SECRET=\n# Region to read. Default: eu\n# E2E_REGION=eu\n" in out
+        assert "E2E_KEY=\n" in out and "# Contact e-mail. Default: (empty)\n# E2E_CONTACT=\n" in out
+
+
+async def test_a_disguised_cancellation_still_ends_the_run_on_time(tmp_path: Path) -> None:
+    async with environment() as addresses:
+        started = time.monotonic()
+        code, out, _ = await cli(addresses, "consume", "disguised_cancel", "--seconds", "1")
+        assert code == 0 and [json.loads(line)["payload"] for line in out.splitlines()] == [{"n": 0}]
+        assert time.monotonic() - started < 15

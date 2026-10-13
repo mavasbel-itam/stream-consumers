@@ -16,7 +16,7 @@ from stream_consumers.adapters.outbound.transports.base import MergedEventSource
 from stream_consumers.domain.errors import DecodeError, TransportError
 from stream_consumers.domain.models import Delivery, Group, PublishedVolume, RawMessage, SourceDescriptor, Transport
 from stream_consumers.domain.policy import Backoff
-from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
+from stream_consumers.ports.outbound import ClockPort, Credentials, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
 
 
 def _name(name: x509.Name, oid: x509.ObjectIdentifier) -> str | None:
@@ -180,7 +180,7 @@ class CtFactory(BaseSourceFactory):
         notes="Rate = growth of all usable RFC 6962 logs (static-CT logs are not read). Events are the parsed certificates; a log growing faster than 1,024 entries per 10 s poll is skipped ahead.",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return CtLogsSource(self.DESCRIPTOR, deps.clock, deps.http)
 
 

@@ -10,7 +10,7 @@ from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
 from stream_consumers.domain.models import Delivery, Group, PublishedVolume, SourceDescriptor, Transport
 from stream_consumers.domain.policy import ChangeDetector
-from stream_consumers.ports.outbound import EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 
 
 class MetarCacheDecoder(CsvDecoder):
@@ -57,7 +57,7 @@ class MetarFactory(BaseSourceFactory):
     )
     URL = "https://aviationweather.gov/data/cache/metars.cache.csv.gz"
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return MetarSource(
             self.DESCRIPTOR,
             MetarCacheDecoder(),

@@ -10,9 +10,9 @@ from urllib.parse import quote
 from stream_consumers.adapters.outbound.decoders import JsonDecoder
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
-from stream_consumers.domain.models import Delivery, Group, PublishedVolume, RawMessage, SourceDescriptor, Transport
+from stream_consumers.domain.models import Delivery, Group, PublishedVolume, RawMessage, Setting, SourceDescriptor, Transport
 from stream_consumers.domain.policy import Backoff, ChangeDetector
-from stream_consumers.ports.outbound import ClockPort, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
+from stream_consumers.ports.outbound import ClockPort, Credentials, DecoderPort, EventSourcePort, HttpClientPort, SourceDependencies
 
 
 class CrossrefWorksDecoder(JsonDecoder):
@@ -74,12 +74,13 @@ class CrossrefFactory(BaseSourceFactory):
         terms_url="https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
         min_interval_s=60.0,
         personal_fields=("author", "editor"),
-        notes="Rate = works (re)indexed on the previous UTC day / 86,400 s; most are updates of existing records, not new publications. Set CROSSREF_MAILTO to join Crossref's polite pool.",
+        settings=(Setting("CROSSREF_MAILTO", "", "Contact e-mail sent as mailto= to join Crossref's polite pool (optional)."),),
+        notes="Rate = works (re)indexed on the previous UTC day / 86,400 s; most are updates of existing records, not new publications.",
     )
 
-    def _build(self, deps: SourceDependencies, key: str | None) -> EventSourcePort:
+    def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         return CrossrefIndexedSource(
-            self.DESCRIPTOR, CrossrefWorksDecoder(), deps.clock, deps.http, 60.0, deps.secrets.get("CROSSREF_MAILTO")
+            self.DESCRIPTOR, CrossrefWorksDecoder(), deps.clock, deps.http, 60.0, self.setting(deps, "CROSSREF_MAILTO") or None
         )
 
 
