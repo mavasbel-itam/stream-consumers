@@ -44,21 +44,29 @@ class EvmLogsFactory(BaseSourceFactory):
 
 
 class GbfsStationDecoder(JsonDecoder):
+    """One event per station; the feed's own update time is copied onto each as `feed_last_updated`."""
+
+    def __init__(self, updated_field: str = "last_updated") -> None:
+        self._updated_field = updated_field
+
     def extract(self, document: object, message: RawMessage) -> Sequence[Record]:
         stations = document.get("data", {}).get("stations") if isinstance(document, Mapping) else None  # type: ignore[union-attr]
         if not isinstance(stations, list):
             return []
-        updated = document.get("last_updated")  # type: ignore[union-attr]
+        updated = document.get(self._updated_field)  # type: ignore[union-attr]
         return [dict(s, feed_last_updated=updated) for s in stations if isinstance(s, Mapping)]
 
 
 class GbfsStationsFactory(BaseSourceFactory):
     URL: ClassVar[str]
     INTERVAL_S: ClassVar[float] = 10.0
+    UPDATED_FIELD: ClassVar[str] = "last_updated"
+    """Top-level field holding the feed's update time (GBFS names it `last_updated`)."""
 
     def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
         detector = ChangeDetector(["station_id"], ["last_reported", "num_bikes_available", "num_docks_available"])
-        return HttpPollSource(self.DESCRIPTOR, GbfsStationDecoder(), deps.clock, deps.http, [self.URL], self.INTERVAL_S, detector)
+        decoder = GbfsStationDecoder(self.UPDATED_FIELD)
+        return HttpPollSource(self.DESCRIPTOR, decoder, deps.clock, deps.http, [self.URL], self.INTERVAL_S, detector)
 
 
 class AdsbAircraftDecoder(JsonDecoder):

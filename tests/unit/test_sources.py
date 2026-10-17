@@ -49,11 +49,11 @@ def decoder_of(source_id: str) -> DecoderPort:
 
 
 class TestCatalog:
-    def test_65_sources_in_four_groups(self) -> None:
+    def test_66_sources_in_four_groups(self) -> None:
         groups = [f.descriptor.group for f in FACTORIES]
-        assert len(FACTORIES) == 65 == len(BY_ID)
+        assert len(FACTORIES) == 66 == len(BY_ID)
         counts = tuple(groups.count(g) for g in (Group.KEYLESS, Group.PROJECT_DOCUMENT, Group.FREE_KEY, Group.CANDIDATE))
-        assert counts == (45, 6, 3, 11)
+        assert counts == (46, 6, 3, 11)
 
     def test_candidates_are_exactly_the_sources_whose_key_is_required(self) -> None:
         required = {f.descriptor.id for f in FACTORIES if f.descriptor.credential and f.descriptor.credential.required}
@@ -209,7 +209,7 @@ class TestCredentials:
 EXPECTED = {
     "adsb_fi": [3],
     "aisstream": [0, 1],
-    "cta_bus": [0, 2],
+    "cta_bus": [0, 3],
     "cta_train": [1],
     "entsoe": [1824],
     "gfw": [1],
@@ -262,6 +262,7 @@ EXPECTED = {
     "tfl": [3],
     "twitch": [0, 1, 1, 1, 1],
     "usgs_water": [3],
+    "velib": [3],
     "wikimedia": [1, 1, 1, 1],
     "xrpl": [0, 1, 1, 1, 1],
 }
@@ -322,6 +323,7 @@ ENVELOPE_DECODERS = [
     "usgs_water",
     "xrpl",
     "bicing",
+    "velib",
     "adsb_fi",
     "bitfinex",
 ]
@@ -432,6 +434,8 @@ class TestDecoderBranches:
         assert decode("bicing", {"data": {"stations": [{"station_id": "1"}, 2]}, "last_updated": 5}) == [
             {"station_id": "1", "feed_last_updated": 5}
         ]
+        velib = {"data": {"stations": [{"station_id": 2}]}, "lastUpdatedOther": 7, "last_updated": 9}
+        assert decode("velib", velib) == [{"station_id": 2, "feed_last_updated": 7}]
         assert decode("adsb_lol", {"aircraft": [{"hex": "a"}, 1], "now": 9}) == [{"hex": "a", "feed_now": 9}]
 
     def test_albion_message_shapes(self) -> None:
@@ -475,7 +479,7 @@ def doc_fixture(source_id: str) -> dict[str, object]:
     return json.loads((ROOT / "tests" / "fixtures" / "raw" / f"{source_id}.json").read_text(encoding="utf-8"))
 
 
-@pytest.mark.parametrize("source_id", ["aisstream", "cta_bus", "cta_train", "entsoe", "gfw", "lasair", "mastodon", "mbta_v3_stream"])
+@pytest.mark.parametrize("source_id", ["aisstream", "cta_train", "entsoe", "gfw", "lasair", "mastodon", "mbta_v3_stream"])
 def test_documentation_fixtures_say_where_they_come_from(source_id: str) -> None:
     fixture = doc_fixture(source_id)
     assert str(fixture["origin"]).startswith("official documentation example")
@@ -522,7 +526,7 @@ class TestKeyGatedDecoders:
 
     def test_cta_bus_ignores_no_data_but_not_other_errors(self) -> None:
         events = [e for m in messages("cta_bus") for e in decoder_of("cta_bus").decode(m)]
-        assert [e["vid"] for e in events] == ["1", "2"]
+        assert [e["vid"] for e in events] == ["8678", "7963", "8683"]  # captured 2026-10-17 with a key
         no_data = {"bustime-response": {"error": [{"rt": "X9", "msg": "No data found for parameter"}], "vehicle": {"vid": "7"}}}
         assert decode("cta_bus", no_data) == [{"vid": "7"}]
         with pytest.raises(TransportError, match="No API access key supplied"):

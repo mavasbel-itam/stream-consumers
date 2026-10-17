@@ -147,9 +147,24 @@ MINIMUM_RATE = 1.0
 """Inclusion rule of this repository: median measured rate of at least 1 event/s."""
 
 
+SILENT_STATUSES = frozenset({RunStatus.NO_EVENTS, RunStatus.ERROR})
+"""Runs that delivered nothing; they count as 0 events/s, so a source that is often silent or
+unreachable cannot pass on its good rounds alone."""
+
+
+def round_rate(report: RunReport) -> float | None:
+    """The rate one run contributes to the median: its measured rate, 0.0 when it delivered nothing,
+    None when it measured nothing (key pending, or a successful run without a rate)."""
+    if report.status in SILENT_STATUSES:
+        return 0.0
+    if report.status is RunStatus.OK:
+        return report.rate
+    return None
+
+
 def median_rate(reports: Iterable[RunReport]) -> float | None:
-    """Median rate over the successful runs that produced a rate; None when there are none."""
-    rates = [r.rate for r in reports if r.status is RunStatus.OK and r.rate is not None]
+    """Median of the per-run rates (`round_rate`); None when no run measured anything."""
+    rates = [rate for rate in map(round_rate, reports) if rate is not None]
     return float(statistics.median(rates)) if rates else None
 
 

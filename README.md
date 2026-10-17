@@ -10,7 +10,9 @@ consumer as part of the project; do not share this repository with them.
 
 A source is included when its **median measured rate is at least 1 event per
 second** over the sampling rounds (`stream_consumers.domain.policy.MINIMUM_RATE`,
-`meets_minimum_rate`). The exceptions and pending cases:
+`meets_minimum_rate`). A round in which the source delivered nothing (`no-events`)
+or failed (`error`) counts as 0 events/s; a `key-pending` round measures nothing
+and is left out (`round_rate`). The exceptions and pending cases:
 
 - **GDELT is kept** although its measured median was 0.977 events/s, because the
   project document lists it (decision of 2026-10-13).
@@ -24,16 +26,20 @@ second** over the sampling rounds (`stream_consumers.domain.policy.MINIMUM_RATE`
   only after its own sampling gives a median of at least 1 event/s with the key,
   and is removed otherwise. Until then it reports `key-pending` and counts for
   nothing.
-- Measured below 1 event/s and therefore excluded: Vélib' Paris, Nostr, Stellar,
+- Measured below 1 event/s and therefore excluded: Nostr, Stellar,
   ENA, PyPI, Hacker News, MLB; not measurable as configured: BitMEX, APRS-IS,
   Kystverket AIS, zKillboard.
 
 The rate list will be re-checked with this repository's own `sample` command
 (24 hourly rounds); a source whose median falls below the threshold is removed.
 
-## Sources (65)
+- **Vélib' Paris was re-added on 2026-10-17**: it had been excluded at 0.983
+  events/s on its earliest (night-time) rounds, but its median over 15 earlier
+  cross-check rounds was 4.4 events/s; the 24-hour sampling decides.
 
-Groups: **keyless** (45), **project document** (6, the sources the project
+## Sources (66)
+
+Groups: **keyless** (46), **project document** (6, the sources the project
 document lists), **free key** (3, key optional), **candidate** (11, key
 required, rate not yet measured).
 
@@ -73,6 +79,7 @@ required, rate not yet measured).
 | `adsb_fi` | [adsb.fi open data aircraft — 250 NM around Mexico City airport](https://github.com/adsbfi/opendata) | adsb.fi | keyless | http | poll |
 | `adsb_lol` | [adsb.lol aircraft (ADS-B) — 250 NM around Mexico City airport](https://www.adsb.lol/docs/open-data/api/) | adsb.lol | keyless | http | poll |
 | `bicing` | [Bicing Barcelona bike-share station status (GBFS)](https://opendata-ajuntament.barcelona.cat/data/en/dataset/estat-estacions-bicing) | Barcelona City Council (Bicing) | keyless | http | poll |
+| `velib` | [Vélib' Métropole Paris bike-share station status (GBFS)](https://www.data.gouv.fr/datasets/velib-velos-et-bornes-disponibilite-temps-reel) | Vélib' Métropole (Smovengo) | keyless | http | poll |
 | `dt_marine` | [Digitraffic Finland marine AIS vessel locations](https://www.digitraffic.fi/en/marine-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
 | `dt_rail` | [Digitraffic Finland train GPS locations](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
 | `dt_rail_trains` | [Digitraffic Finland train timetables/actuals](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
@@ -240,12 +247,13 @@ uv run ruff check src tests && uv run ruff format --check src tests
 The component and e2e tiers start a single-node Kafka broker with Docker
 (`apache/kafka:3.9.1`, published on 127.0.0.1 only); Docker is required.
 
-Fixtures are real messages captured on 2026-10-13, trimmed, with personal values
-replaced by `<masked>`; a test checks that no fixture leaks a personal value or an
-e-mail address. Candidates have no key yet, so their fixtures are the providers'
-official documentation examples, marked with `origin`, `documentation_url` and the
-`corrections` applied (PDF page footers, a typographic quote, a trailing comma);
-they are replaced by captured messages once the key works.
+Fixtures are real messages captured on 2026-10-13 (`velib` and `cta_bus` on
+2026-10-17), trimmed, with personal values replaced by `<masked>`; a test checks
+that no fixture leaks a personal value or an e-mail address. Candidates without a
+key yet have the providers' official documentation examples as fixtures, marked
+with `origin`, `documentation_url` and the `corrections` applied (PDF page footers,
+a typographic quote, a trailing comma); each is replaced by captured messages once
+its key works (done for `cta_bus`, captured with a key and stored without it).
 
 ## Known behaviour
 

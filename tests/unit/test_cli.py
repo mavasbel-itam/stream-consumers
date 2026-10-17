@@ -32,7 +32,7 @@ def test_list_prints_one_json_line_per_source_sorted() -> None:
 def test_default_catalog_lists_the_65_sources() -> None:
     out = io.StringIO()
     assert main(["list"], out, io.StringIO()) == 0
-    assert len(out.getvalue().splitlines()) == 65 and DEFAULT_CATALOG.endswith(".sources")
+    assert len(out.getvalue().splitlines()) == 66 and DEFAULT_CATALOG.endswith(".sources")
 
 
 class TestConsume:

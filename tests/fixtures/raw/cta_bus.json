@@ -1,22 +1,16 @@
 {
  "source": "cta_bus",
- "origin": "official documentation example (no key yet to capture live messages)",
- "documentation_url": "https://www.transitchicago.com/assets/1/6/cta_Bus_Tracker_API_Developer_Guide_and_Documentation_2025-04-21.pdf",
- "fetched_at": "2026-10-13",
- "corrections": [
-  "PDF page footer lines and form-feed characters removed from inside the JSON",
-  "getvehicles: a typographic closing quote (U+201D) after a value replaced by '\"'",
-  "getroutes: the missing closing quote and comma after \"Pontiac – Dhu Varren\" added; the '...' elision removed"
- ],
+ "captured_at": "2026-10-17T20:45:39+00:00",
+ "note": "getroutes trimmed to the first 3 of 125 routes; getvehicles (first 10 routes, tmres=s) trimmed to the first 3 of 78 vehicles; the API key is not stored",
  "messages": [
   {
-   "body_text": "{\"bustime-response\": {\"routes\": [{\"rt\": \"1\", \"rtnm\": \"Pontiac – Dhu Varren\", \"rtdd\": \"1\", \"rtclr\": \"#ffffff\"}, {\"rt\": \"2\", \"rtnm\": \"Pontiac - University\", \"rtdd\": \"1\", \"rtclr\": \"#dc78af\"}]}}",
+   "body_text": "{\"bustime-response\": {\"routes\": [{\"rt\": \"1\", \"rtnm\": \"Bronzeville/Union Station\", \"rtclr\": \"#336633\", \"rtdd\": \"1\"}, {\"rt\": \"2\", \"rtnm\": \"Hyde Park Express\", \"rtclr\": \"#993366\", \"rtdd\": \"2\"}, {\"rt\": \"3\", \"rtnm\": \"King Drive\", \"rtclr\": \"#009900\", \"rtdd\": \"3\"}]}}",
    "attributes": {
     "url": "getroutes"
    }
   },
   {
-   "body_text": "{\"bustime-response\": {\"vehicle\": [{\"vid\": \"1\", \"tmstmp\": \"20200307 13:14\", \"lat\": \"37.54381\", \"lon\": \"-77.43878166666667\", \"hdg\": \"308\", \"pid\": 1689, \"rt\": \"6\", \"des\": \"BROAD WILLOW LAWN\", \"pdist\": 3481, \"dly\": false, \"spd\": 3, \"tatripid\": \"12\", \"tablockid\": \"6-05\", \"origtatripno\": \"ME_ME403_V1_AA\", \"zone\": \"\", \"mode\": 1, \"psgld\": \"EMPTY\", \"stst\": 47520, \"stsd\": \"2020-03-07\"}, {\"vid\": \"2\", \"tmstmp\": \"20200307 13:14\", \"lat\": \"37.55896532837857\", \"lon\": \"-77.48567781754004\", \"hdg\": \"294\", \"pid\": 1559, \"rt\": \"16\", \"des\": \"GROVE BF\", \"pdist\": 20156, \"dly\": false, \"spd\": 5, \"tatripid\": \"12\", \"tablockid\": \"16-02\", \"origtatripno\": \"ME_ME403_V1_AA\", \"zone\": \"\", \"mode\": 1, \"psgld\": \"FULL\", \"stst\": 46140, \"stsd\": \"2020-03-07\"}]}}",
+   "body_text": "{\"bustime-response\": {\"vehicle\": [{\"vid\": \"8678\", \"tmstmp\": \"20261017 15:45:34\", \"lat\": \"41.72098\", \"lon\": \"-87.62362166666666\", \"hdg\": \"0\", \"pid\": 18414, \"rt\": \"3\", \"des\": \"Michigan/Chicago\", \"pdist\": 0, \"dly\": false, \"tatripid\": \"1006998\", \"origtatripno\": \"280434296\", \"tablockid\": \"3 -716\", \"zone\": \"\", \"mode\": 1, \"psgld\": \"N/A\", \"stst\": 57780, \"stsd\": \"2026-10-17\"}, {\"vid\": \"7963\", \"tmstmp\": \"20261017 15:45:25\", \"lat\": \"41.72169876098633\", \"lon\": \"-87.62242889404297\", \"hdg\": \"89\", \"pid\": 18414, \"rt\": \"3\", \"des\": \"Michigan/Chicago\", \"pdist\": 796, \"dly\": false, \"tatripid\": \"1006996\", \"origtatripno\": \"280434294\", \"tablockid\": \"3 -726\", \"zone\": \"\", \"mode\": 1, \"psgld\": \"N/A\", \"stst\": 56580, \"stsd\": \"2026-10-17\"}, {\"vid\": \"8683\", \"tmstmp\": \"20261017 15:45:31\", \"lat\": \"41.7399910820855\", \"lon\": \"-87.61459350585938\", \"hdg\": \"359\", \"pid\": 18414, \"rt\": \"3\", \"des\": \"Michigan/Chicago\", \"pdist\": 9685, \"dly\": false, \"tatripid\": \"1006995\", \"origtatripno\": \"280434293\", \"tablockid\": \"3 -705\", \"zone\": \"\", \"mode\": 1, \"psgld\": \"N/A\", \"stst\": 56040, \"stsd\": \"2026-10-17\"}], \"error\": [{\"rt\": \"1\", \"msg\": \"No data found for parameter\"}, {\"rt\": \"2\", \"msg\": \"No data found for parameter\"}, {\"rt\": \"X4\", \"msg\": \"No data found for parameter\"}, {\"rt\": \"N5\", \"msg\": \"No data found for parameter\"}, {\"rt\": \"7\", \"msg\": \"No data found for parameter\"}]}}",
    "attributes": {
     "url": "getvehicles"
    }
