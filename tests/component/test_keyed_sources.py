@@ -224,7 +224,7 @@ class TestCtaBus:
             }
         )
         source = CtaBusSource(D, CtaBusDecoder(), FakeClock(), http, "k", 30.0, FAST)
-        assert [e["vid"] for e in await take(source, 2)] == ["1", "2"]
+        assert [e["vid"] for e in await take(source, 3)] == ["8678", "7963", "8683"]
         assert [c[1].split("/")[-1].split("?")[0] for c in http.calls] == ["getroutes", "getvehicles", "getvehicles"]
         assert len(await source._urls_for_poll()) == 2 and len(http.calls) == 3  # the route list is read once
 

@@ -1,0 +1,13 @@
+{
+ "source": "velib",
+ "captured_at": "2026-10-17T20:45:39+00:00",
+ "note": "station list trimmed to the first 3 of 1519 stations",
+ "messages": [
+  {
+   "body_text": "{\"lastUpdatedOther\": 1792269902, \"ttl\": 3600, \"data\": {\"stations\": [{\"station_id\": 213688169, \"num_bikes_available\": 8, \"numBikesAvailable\": 8, \"num_bikes_available_types\": [{\"mechanical\": 6}, {\"ebike\": 2}], \"num_docks_available\": 27, \"numDocksAvailable\": 27, \"is_installed\": 1, \"is_returning\": 1, \"is_renting\": 1, \"last_reported\": 1792266880, \"stationCode\": \"16107\", \"station_opening_hours\": null}, {\"station_id\": 19179944124, \"num_bikes_available\": 12, \"numBikesAvailable\": 12, \"num_bikes_available_types\": [{\"mechanical\": 9}, {\"ebike\": 3}], \"num_docks_available\": 16, \"numDocksAvailable\": 16, \"is_installed\": 1, \"is_returning\": 1, \"is_renting\": 1, \"last_reported\": 1792266908, \"stationCode\": \"40001\", \"station_opening_hours\": null}, {\"station_id\": 18795078746, \"num_bikes_available\": 6, \"numBikesAvailable\": 6, \"num_bikes_available_types\": [{\"mechanical\": 1}, {\"ebike\": 5}], \"num_docks_available\": 23, \"numDocksAvailable\": 23, \"is_installed\": 1, \"is_returning\": 1, \"is_renting\": 1, \"last_reported\": 1792266635, \"stationCode\": \"32304\", \"station_opening_hours\": null}]}}",
+   "attributes": {
+    "url": "https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json"
+   }
+  }
+ ]
+}

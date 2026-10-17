@@ -19,6 +19,7 @@ from stream_consumers.domain.policy import (
     meets_minimum_rate,
     profile_fields,
     rate,
+    round_rate,
 )
 
 
@@ -135,17 +136,33 @@ class TestInclusionRule:
     def test_threshold_is_one_event_per_second(self) -> None:
         assert MINIMUM_RATE == 1.0
 
-    def test_median_over_successful_measured_runs_only(self) -> None:
-        reports = [report(value=0.5), report(value=2.0), report(value=3.0), report(RunStatus.ERROR, None), report(value=None)]
+    def test_each_status_contributes_its_own_rate(self) -> None:
+        assert round_rate(report(value=2.5)) == 2.5
+        assert round_rate(report(RunStatus.NO_EVENTS, None)) == 0.0
+        assert round_rate(report(RunStatus.ERROR, None)) == 0.0
+        assert round_rate(report(RunStatus.KEY_PENDING, None)) is None
+        assert round_rate(report(value=None)) is None
+
+    def test_median_over_measured_runs_with_silent_runs_as_zero(self) -> None:
+        reports = [report(value=0.5), report(value=2.0), report(value=3.0), report(RunStatus.KEY_PENDING, None), report(value=None)]
         assert median_rate(reports) == 2.0
         assert meets_minimum_rate(reports)
+
+    def test_silent_runs_pull_the_median_down(self) -> None:
+        """Negative control: three good rounds do not pass when two others delivered nothing or failed."""
+        reports = [report(value=5.0), report(value=6.0), report(value=7.0), report(RunStatus.NO_EVENTS, 0.0), report(RunStatus.ERROR, None)]
+        assert median_rate(reports) == 5.0
+        silent = [report(value=5.0), report(RunStatus.NO_EVENTS, 0.0), report(RunStatus.ERROR, None)]
+        assert median_rate(silent) == 0.0
+        assert not meets_minimum_rate(silent)
 
     def test_below_threshold_is_rejected(self) -> None:
         """Negative control: a median of 0.977 events/s does not meet the rule."""
         assert not meets_minimum_rate([report(value=0.977), report(value=0.98), report(value=5.0)])
 
     def test_no_measurement_is_rejected(self) -> None:
-        assert median_rate([report(RunStatus.NO_EVENTS, 0.0)]) is None
+        assert median_rate([report(RunStatus.KEY_PENDING, None)]) is None
+        assert not meets_minimum_rate([report(RunStatus.KEY_PENDING, None)])
         assert not meets_minimum_rate([])
 
 
