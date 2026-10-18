@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from stream_consumers.adapters.outbound.held_keys import HELD_KEYS
 from stream_consumers.adapters.outbound.sources import (
     adsb_fi,
     adsb_lol,
@@ -65,6 +66,8 @@ from stream_consumers.adapters.outbound.sources import (
     xrpl,
 )
 from stream_consumers.ports.outbound import SourceFactoryPort
+
+__all__ = ["FACTORIES", "HELD_KEYS"]
 
 FACTORIES: tuple[SourceFactoryPort, ...] = (
     adsb_fi.FACTORY,

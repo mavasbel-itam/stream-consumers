@@ -1,4 +1,4 @@
-"""Which credentials and settings the sources read, whether they are set, and a `.env` template."""
+"""Which credentials and settings the sources read, which keys are held, whether each is set, and a `.env` template."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 from stream_consumers.domain.models import ConfigKind, ConfigStatus, SourceDescriptor
 from stream_consumers.ports.inbound import DescribeConfigurationUseCase
-from stream_consumers.ports.outbound import SecretProviderPort, SourceRegistryPort
+from stream_consumers.ports.outbound import HeldKeyCatalogPort, SecretProviderPort, SourceRegistryPort
 
 TEMPLATE_HEADER = """\
 # stream-consumers configuration. Copy to .env (git-ignored) and fill in what you have.
@@ -17,11 +17,24 @@ TEMPLATE_HEADER = """\
 # OPTIONAL credentials only raise a provider's limits. Settings show their default.
 """
 
+HELD_HEADER = """\
+# ===== Held keys: no source reads them; they are kept so each can be tested again
+# (tests/live/test_keys_live.py checks that each is accepted and that a damaged copy is refused).
+"""
+
 
 class ConfigurationService(DescribeConfigurationUseCase):
-    def __init__(self, registry: SourceRegistryPort, environment: SecretProviderPort) -> None:
+    def __init__(self, registry: SourceRegistryPort, environment: SecretProviderPort, held: HeldKeyCatalogPort) -> None:
         self._registry = registry
         self._environment = environment
+        self._held = held
+        clash = sorted(self._source_variables() & {n for k in held.held_keys() for n in k.env_vars})
+        if clash:
+            raise ValueError(f"held keys must not be variables a source reads: {', '.join(clash)}")
+
+    def _source_variables(self) -> set[str]:
+        declared = {s.env_var for d in self._registry.descriptors() for s in d.settings}
+        return declared | {n for d in self._registry.descriptors() if d.credential for n in d.credential.env_vars}
 
     def _configurable(self) -> list[SourceDescriptor]:
         return sorted((d for d in self._registry.descriptors() if d.credential or d.settings), key=lambda d: d.id)
@@ -54,11 +67,23 @@ class ConfigurationService(DescribeConfigurationUseCase):
                 )
                 for s in d.settings
             ]
+        out += [
+            ConfigStatus(
+                k.owner,
+                name,
+                ConfigKind.HELD,
+                False,
+                self._environment.get(name) is not None,
+                sign_up_url=k.sign_up_url,
+                description=k.purpose,
+            )
+            for k in self._held.held_keys()
+            for name in k.env_vars
+        ]
         return out
 
     def unknown_variables(self) -> Sequence[str]:
-        declared = {s.env_var for d in self._registry.descriptors() for s in d.settings}
-        declared |= {n for d in self._registry.descriptors() if d.credential for n in d.credential.env_vars}
+        declared = self._source_variables() | {n for k in self._held.held_keys() for n in k.env_vars}
         return [name for name in self._environment.file_names() if name not in declared]
 
     def env_template(self) -> str:
@@ -75,4 +100,9 @@ class ConfigurationService(DescribeConfigurationUseCase):
                 lines.append(f"# {s.description} Default: {s.default or '(empty)'}")
                 lines.append(f"# {s.env_var}={s.default}")
             blocks.append("\n".join(lines) + "\n")
+        if self._held.held_keys():
+            blocks.append(HELD_HEADER)
+        for k in self._held.held_keys():
+            lines = [f"# --- {k.owner}: {k.provider}. {k.purpose}", f"# Sign-up: {k.sign_up_url}"]
+            blocks.append("\n".join(lines + [f"{name}=" for name in k.env_vars]) + "\n")
         return "\n".join(blocks)

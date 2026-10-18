@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from stream_consumers.domain.models import (
     Event,
+    HeldKey,
     PublishedVolume,
     RawMessage,
     RunReport,
@@ -127,6 +128,13 @@ class SourceFactoryPort(ABC):
     @abstractmethod
     def create(self, deps: SourceDependencies) -> EventSourcePort:
         """Raises MissingCredentialError when a required key is not configured."""
+
+
+class HeldKeyCatalogPort(ABC):
+    """Credentials kept for re-testing that no source reads."""
+
+    @abstractmethod
+    def held_keys(self) -> Sequence[HeldKey]: ...
 
 
 class SourceRegistryPort(ABC):

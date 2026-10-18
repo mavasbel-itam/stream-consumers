@@ -6,12 +6,13 @@ from pathlib import Path
 
 import pytest
 
+from stream_consumers.adapters.outbound.held_keys import HELD_KEYS, StaticHeldKeyCatalog
 from stream_consumers.adapters.outbound.registry import FactoryRegistry
 from stream_consumers.adapters.outbound.sources import FACTORIES
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.application.configuration_service import ConfigurationService
 from stream_consumers.domain.errors import MissingCredentialError
-from stream_consumers.domain.models import ConfigKind, Credential, Setting
+from stream_consumers.domain.models import ConfigKind, Credential, HeldKey, Setting
 from stream_consumers.ports.inbound import DescribeConfigurationUseCase
 from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
 from tests.support import FakeSecrets, ScriptedSource, deps, descriptor
@@ -90,8 +91,12 @@ class TestResolution:
             descriptor(min_window_s=-1.0)
 
 
-def service(file_names: tuple[str, ...] = (), **env: str) -> ConfigurationService:
-    return ConfigurationService(FactoryRegistry([Plain(), Pair(), Optional(), SettingsOnly()], deps()), FakeSecrets(env, file_names))
+SPARE = HeldKey("pair", ("PAIR_SPARE_USER", "PAIR_SPARE_PASSWORD"), "Pair provider", "Second account.", "https://sign.up/pair")
+
+
+def service(file_names: tuple[str, ...] = (), held: tuple[HeldKey, ...] = (), **env: str) -> ConfigurationService:
+    registry = FactoryRegistry([Plain(), Pair(), Optional(), SettingsOnly()], deps())
+    return ConfigurationService(registry, FakeSecrets(env, file_names), StaticHeldKeyCatalog(held))
 
 
 class TestConfigurationService:
@@ -123,6 +128,28 @@ class TestConfigurationService:
         assert "# Credentials OPTIONAL (the source also works without it). Sign-up: https://sign.up/opt\nOPT_ID=\nOPT_SECRET=\n" in template
         assert "plain" not in template
         assert "# Optional contact. Default: (empty)\n# ONLY_SETTING=\n" in template
+        assert "Held keys" not in template
+
+    def test_held_keys_are_listed_after_the_sources_and_never_reveal_values(self) -> None:
+        configuration = service(held=(SPARE,), PAIR_SPARE_USER="spare-secret")
+        rows = configuration.status()[-2:]
+        assert [(r.source_id, r.env_var, r.kind, r.required, r.configured) for r in rows] == [
+            ("pair", "PAIR_SPARE_USER", ConfigKind.HELD, False, True),
+            ("pair", "PAIR_SPARE_PASSWORD", ConfigKind.HELD, False, False),
+        ]
+        assert rows[0].sign_up_url == "https://sign.up/pair" and rows[0].description == "Second account."
+        template = configuration.env_template()
+        assert "spare-secret" not in repr(rows) + template
+        assert template.endswith(
+            "# ===== Held keys: no source reads them; they are kept so each can be tested again\n"
+            "# (tests/live/test_keys_live.py checks that each is accepted and that a damaged copy is refused).\n\n"
+            "# --- pair: Pair provider. Second account.\n# Sign-up: https://sign.up/pair\nPAIR_SPARE_USER=\nPAIR_SPARE_PASSWORD=\n"
+        )
+
+    def test_a_held_key_must_not_be_a_variable_a_source_reads(self) -> None:
+        for name in ("PAIR_USER", "PAIR_REGION"):
+            with pytest.raises(ValueError, match=f"held keys must not be variables a source reads: {name}"):
+                service(held=(HeldKey("pair", (name,), "p", "q", "u"),))
 
 
 class TestUnknownVariables:
@@ -139,10 +166,28 @@ class TestUnknownVariables:
     def test_the_process_environment_is_not_inspected(self) -> None:
         assert service((), UNRELATED="x").unknown_variables() == []
 
+    def test_held_keys_are_known(self) -> None:
+        names = ("PAIR_SPARE_USER", "PAIR_SPARE_PASSWORD", "OTHER")
+        assert service(names, held=(SPARE,)).unknown_variables() == ["OTHER"]
+        assert service(names).unknown_variables() == ["PAIR_SPARE_USER", "PAIR_SPARE_PASSWORD", "OTHER"]
+
+
+class TestHeldKeys:
+    def test_a_held_key_names_at_least_one_variable(self) -> None:
+        with pytest.raises(ValueError, match="at least one environment variable"):
+            HeldKey("x", (), "p", "q", "u")
+
+    def test_a_catalog_names_each_variable_once(self) -> None:
+        with pytest.raises(ValueError, match="held keys name a variable twice: A, B"):
+            StaticHeldKeyCatalog((HeldKey("x", ("A", "B"), "p", "q", "u"), HeldKey("y", ("B", "A"), "p", "q", "u")))
+
+    def test_the_default_catalog_is_every_held_key(self) -> None:
+        assert StaticHeldKeyCatalog().held_keys() == HELD_KEYS
+
 
 def test_env_example_is_the_generated_template() -> None:
     """`.env.example` must name exactly what the sources read; regenerate it with `stream-consumers keys --template`."""
-    generated = ConfigurationService(FactoryRegistry(FACTORIES, deps()), FakeSecrets()).env_template()
+    generated = ConfigurationService(FactoryRegistry(FACTORIES, deps()), FakeSecrets(), StaticHeldKeyCatalog()).env_template()
     assert (ROOT / ".env.example").read_text(encoding="utf-8") == generated
 
 
@@ -150,11 +195,13 @@ def test_env_example_defines_only_known_variables() -> None:
     from stream_consumers.adapters.outbound.system import EnvSecretProvider
 
     example = EnvSecretProvider({}, ROOT / ".env.example")
-    configuration = ConfigurationService(FactoryRegistry(FACTORIES, deps()), example)
+    configuration = ConfigurationService(FactoryRegistry(FACTORIES, deps()), example, StaticHeldKeyCatalog())
     assert example.file_names() and configuration.unknown_variables() == []
 
 
 def test_every_declared_variable_is_unique_and_upper_case() -> None:
     names = [n for f in FACTORIES if f.descriptor.credential for n in f.descriptor.credential.env_vars]
     names += [s.env_var for f in FACTORIES for s in f.descriptor.settings]
+    names += [n for k in HELD_KEYS for n in k.env_vars]
     assert len(names) == len(set(names)) and all(n.isupper() for n in names)
+    assert {k.owner for k in HELD_KEYS} - {f.descriptor.id for f in FACTORIES} == {"gfw", "lasair"}  # the removed sources
