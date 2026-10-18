@@ -127,6 +127,18 @@ class TestPersonalDataMasker:
         assert m.leaks({"user": "ana", "note": ["x@y.org"], "ok": "fine"}) == ["user", "note"]
         assert m.leaks(m.mask({"user": "ana", "note": ["x@y.org"]})) == []
 
+    def test_a_wildcard_also_masks_a_list_under_its_prefix(self) -> None:
+        # flatten keeps lists as leaves, so "mentions.*" must also cover the list "mentions" itself
+        m = PersonalDataMasker(["mentions.*"])
+        event = {"mentions": [{"acct": "ana@example.social", "username": "ana"}], "id": "1"}
+        assert m.leaks(event) == ["mentions"]
+        assert m.mask(event) == {"mentions": MASK, "id": "1"} and m.leaks(m.mask(event)) == []
+        assert m.mask({"mentions": [], "m": {}}) == {"mentions": [], "m": {}}
+        assert not m.is_personal("mentionsx") and not m.is_personal("id")
+
+    def test_empty_containers_are_not_leaks(self) -> None:
+        assert PersonalDataMasker(["account.*", "tags"]).leaks({"account": {}, "tags": []}) == []
+
     def test_is_personal(self) -> None:
         m = PersonalDataMasker(["reply-*"])
         assert m.is_personal("reply-parent-user-id") and not m.is_personal("reply")

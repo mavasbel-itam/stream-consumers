@@ -79,11 +79,15 @@ class FakeClock(ClockPort):
 
 
 class FakeSecrets(SecretProviderPort):
-    def __init__(self, values: Mapping[str, str] | None = None) -> None:
+    def __init__(self, values: Mapping[str, str] | None = None, file_names: Sequence[str] = ()) -> None:
         self._values = dict(values or {})
+        self._file_names = list(file_names)
 
     def get(self, name: str) -> str | None:
         return self._values.get(name)
+
+    def file_names(self) -> Sequence[str]:
+        return self._file_names
 
 
 Responder = Callable[[str], HttpResponse]

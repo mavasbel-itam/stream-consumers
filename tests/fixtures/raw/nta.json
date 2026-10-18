@@ -1,0 +1,13 @@
+{
+ "source": "nta",
+ "captured_at": "2026-10-18T04:30:23+00:00",
+ "note": "GTFS-Realtime Vehicles (protobuf) trimmed to the first 3 of 62 entities; the API key is not stored",
+ "messages": [
+  {
+   "body_b64": "Cg0KAzIuMBAAGN+W0dYGEk8KAlYxIkkKLgoKNTk2Ml8xNTg3MxIIMjY6MDA6MDAaCDIwMjYxMDE3IAAqCDEgNDEgYyBhMAASCg23tlVCFcCDx8Ao1ZbR1gZCBQoDMjE0Ek0KAlYyIkcKLAoKNTk2NV8yNjEwNxIIMDU6MTU6MDAaCDIwMjYxMDE4IAAqBjEgRTIgYTABEgoNuydVQhVZPsbAKM2W0dYGQgUKAzI1MBJPCgJWMyJJCi4KCjU5NjJfMTYxOTQSCDI4OjMwOjAwGggyMDI2MTAxNyAAKggxIDQxIGMgYTABEgoN6GVVQhWKH8jAKJiS0dYGQgUKAzMyOA==",
+   "attributes": {
+    "url": "https://api.nationaltransport.ie/gtfsr/v2/Vehicles"
+   }
+  }
+ ]
+}

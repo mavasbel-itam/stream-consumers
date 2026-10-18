@@ -26,10 +26,16 @@ class TflFactory(BaseSourceFactory):
             ("TFL_APP_KEY",),
             "https://api-portal.tfl.gov.uk/signup",
             required=False,
-            how_to_get="API portal account, then create a subscription for the '500 requests' data plan.",
+            how_to_get="API portal account, then subscribe to the product '500 Requests per min' (500 requests per minute).",
         ),
         min_interval_s=30.0,
-        notes="Answers without a key (measured 2026-10-13); TFL_APP_KEY is sent as app_key when set. Polled every 30 s; an event is an arrival prediction that is new or whose expected arrival or current location changed.",
+        notes=(
+            "Answers without a key (measured 2026-10-13); TFL_APP_KEY is sent as app_key when set. Polled every 30 s; "
+            "an event is an arrival prediction that is new or whose expected arrival or current location changed. A "
+            "shared cache serves each answer for up to 60 s (Cache-Control s-maxage=60, X-Cache HIT measured "
+            "2026-10-18), so a 60-s window can see one answer twice and no change; windows are at least 150 s."
+        ),
+        min_window_s=150.0,
     )
     URL = "https://api.tfl.gov.uk/Mode/tube/Arrivals"
 

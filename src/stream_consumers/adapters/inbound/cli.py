@@ -157,6 +157,12 @@ def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: Text
                     state = "MISSING" if row.required else "not-set"
                 where = row.sign_up_url or f"default={row.default!r}"
                 out.write(f"{row.source_id:14} {row.env_var:28} {row.kind.value:8} {need:9} {state:8} {where}\n")
+            unknown = configuration.unknown_variables()
+            for name in unknown:
+                out.write(f"{'-':14} {name:28} {'-':8} {'-':9} {'unknown':8} not read by any source\n")
+            if unknown:
+                err.write(f"error: {args.env_file} defines {len(unknown)} variable(s) no source reads; keep it to the template\n")
+                return 1
             return 0
 
         async def run_and_close() -> int:

@@ -84,9 +84,14 @@ class TestResolution:
         with pytest.raises(ValueError):
             Credential((), "https://x")
 
+    def test_a_minimum_window_is_not_negative(self) -> None:
+        assert descriptor().min_window_s == 0.0 and descriptor(min_window_s=150.0).min_window_s == 150.0
+        with pytest.raises(ValueError, match="min_window_s must not be negative"):
+            descriptor(min_window_s=-1.0)
 
-def service(**env: str) -> ConfigurationService:
-    return ConfigurationService(FactoryRegistry([Plain(), Pair(), Optional(), SettingsOnly()], deps()), FakeSecrets(env))
+
+def service(file_names: tuple[str, ...] = (), **env: str) -> ConfigurationService:
+    return ConfigurationService(FactoryRegistry([Plain(), Pair(), Optional(), SettingsOnly()], deps()), FakeSecrets(env, file_names))
 
 
 class TestConfigurationService:
@@ -120,10 +125,33 @@ class TestConfigurationService:
         assert "# Optional contact. Default: (empty)\n# ONLY_SETTING=\n" in template
 
 
+class TestUnknownVariables:
+    def test_names_the_template_declares_are_known(self) -> None:
+        names = ("PAIR_USER", "PAIR_PASSWORD", "PAIR_REGION", "OPT_ID", "OPT_SECRET", "ONLY_SETTING")
+        assert service(names).unknown_variables() == []
+
+    def test_a_name_no_source_reads_is_reported_in_file_order(self) -> None:
+        assert service(("ZETA_KEY", "PAIR_USER", "ALPHA_KEY")).unknown_variables() == ["ZETA_KEY", "ALPHA_KEY"]
+
+    def test_a_near_miss_is_still_unknown(self) -> None:
+        assert service(("PAIR_USERS", "pair_user")).unknown_variables() == ["PAIR_USERS", "pair_user"]
+
+    def test_the_process_environment_is_not_inspected(self) -> None:
+        assert service((), UNRELATED="x").unknown_variables() == []
+
+
 def test_env_example_is_the_generated_template() -> None:
     """`.env.example` must name exactly what the sources read; regenerate it with `stream-consumers keys --template`."""
     generated = ConfigurationService(FactoryRegistry(FACTORIES, deps()), FakeSecrets()).env_template()
     assert (ROOT / ".env.example").read_text(encoding="utf-8") == generated
+
+
+def test_env_example_defines_only_known_variables() -> None:
+    from stream_consumers.adapters.outbound.system import EnvSecretProvider
+
+    example = EnvSecretProvider({}, ROOT / ".env.example")
+    configuration = ConfigurationService(FactoryRegistry(FACTORIES, deps()), example)
+    assert example.file_names() and configuration.unknown_variables() == []
 
 
 def test_every_declared_variable_is_unique_and_upper_case() -> None:

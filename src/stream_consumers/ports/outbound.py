@@ -40,6 +40,10 @@ class SecretProviderPort(ABC):
     def get(self, name: str) -> str | None:
         """The value called `name`, or None when it is not configured."""
 
+    @abstractmethod
+    def file_names(self) -> Sequence[str]:
+        """Every name the configuration file defines (not the process environment), in file order."""
+
 
 Credentials = Mapping[str, str]
 """Credential values by environment variable name, handed to a source factory."""

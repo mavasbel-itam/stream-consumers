@@ -53,3 +53,7 @@ class DescribeConfigurationUseCase(ABC):
     @abstractmethod
     def env_template(self) -> str:
         """A `.env` template naming every credential and setting, with how to obtain each credential."""
+
+    @abstractmethod
+    def unknown_variables(self) -> Sequence[str]:
+        """Names the `.env` file defines that no source reads, so `.env` can be kept to the template."""

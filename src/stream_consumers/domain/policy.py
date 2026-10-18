@@ -112,14 +112,19 @@ class PersonalDataMasker:
     """Masks personal fields and any e-mail address inside text values.
 
     `personal_fields` are flattened field names; shell-style wildcards are allowed
-    (``payload.*`` masks every field under ``payload``).
+    (``payload.*`` masks every field under ``payload``, and ``payload`` itself when its value is a
+    list, because `flatten` keeps lists as leaves).
     """
 
     def __init__(self, personal_fields: Iterable[str] = ()) -> None:
         self._patterns = tuple(personal_fields)
 
     def is_personal(self, name: str) -> bool:
-        return any(fnmatch.fnmatchcase(name, p) for p in self._patterns)
+        return any(fnmatch.fnmatchcase(name, p) or (p.endswith(".*") and name == p[:-2]) for p in self._patterns)
+
+    @staticmethod
+    def _has_value(value: object) -> bool:
+        return value not in (None, "", MASK) and not (isinstance(value, (list, Mapping)) and not value)
 
     def _scrub(self, value: object) -> object:
         if isinstance(value, str):
@@ -132,13 +137,13 @@ class PersonalDataMasker:
 
     def mask(self, payload: Mapping[str, object]) -> dict[str, object]:
         """Flattened copy of `payload` with personal values replaced by a marker."""
-        return {k: (MASK if self.is_personal(k) and v not in (None, "") else self._scrub(v)) for k, v in flatten(payload).items()}
+        return {k: (MASK if self.is_personal(k) and self._has_value(v) else self._scrub(v)) for k, v in flatten(payload).items()}
 
     def leaks(self, payload: Mapping[str, object]) -> list[str]:
         """Field names that still carry an e-mail address or an unmasked personal value."""
         found = []
         for k, v in flatten(payload).items():
-            if (self.is_personal(k) and v not in (None, "", MASK)) or EMAIL.search(repr(v)):
+            if (self.is_personal(k) and self._has_value(v)) or EMAIL.search(repr(v)):
                 found.append(k)
         return found
 

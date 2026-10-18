@@ -19,8 +19,8 @@ and is left out (`round_rate`). The exceptions and pending cases:
 - Free-key providers whose keyless route was measured at ≥ 1 event/s are included
   (MBTA V3, TfL, NASA FIRMS); the key is optional for MBTA V3 and TfL, and FIRMS
   uses its keyless public files.
-- **Candidates** (group D, 11 sources) need a free key that is not configured yet,
-  so their rate has never been measured. They are built and tested against the
+- **Candidates** (group D, 8 sources) need a free key; until their own sampling
+  with the key finishes, their rate is not measured. They are built and tested against the
   providers' official documentation examples so that adding the key to `.env` is
   enough to run them. A candidate is accepted (group C, or B for aisstream.io)
   only after its own sampling gives a median of at least 1 event/s with the key,
@@ -33,14 +33,31 @@ and is left out (`round_rate`). The exceptions and pending cases:
 The rate list will be re-checked with this repository's own `sample` command
 (24 hourly rounds); a source whose median falls below the threshold is removed.
 
+- **Lasair and Fink were removed on 2026-10-18**: both relay alerts of the
+  Rubin Observatory LSST, and neither had published a single alert since
+  2026-07-14 (Lasair's latest detection 2026-07-14 10:03 UTC, 0 objects in the
+  last 30 days; Fink's last alert night 2026-07-14), so both would measure
+  0 events/s. The Kafka transport and the Avro decoder stay, tested against a
+  local broker, so either can be re-added if alerts resume.
+- **Removed on 2026-10-18 after the 24-hour sampling of 2026-10-17/18**
+  (24 hourly rounds, 60-s windows): Bitstamp (`bitstamp`, median 0.515
+  events/s), npm (`npm`, 0.790) and Digitraffic train timetables
+  (`dt_rail_trains`, 0.865), all below 1 event/s. GDELT (0.772) stays, as
+  decided above.
+- **Global Fishing Watch (`gfw`) was removed on 2026-10-18**: its events API
+  publishes events days after they happen (the latest day with events was
+  2026-10-14 when read on 2026-10-18), so a poll sees no new events within a
+  round. The totals of all four event datasets over a fixed date range did not
+  grow at all in 18 hourly readings (2026-10-18 03:24–21:24 UTC), so the median
+  arrival rate is 0 events/s.
 - **Vélib' Paris was re-added on 2026-10-17**: it had been excluded at 0.983
   events/s on its earliest (night-time) rounds, but its median over 15 earlier
   cross-check rounds was 4.4 events/s; the 24-hour sampling decides.
 
-## Sources (66)
+## Sources (60)
 
-Groups: **keyless** (46), **project document** (6, the sources the project
-document lists), **free key** (3, key optional), **candidate** (11, key
+Groups: **keyless** (43), **project document** (6, the sources the project
+document lists), **free key** (3, key optional), **candidate** (8, key
 required, rate not yet measured).
 
 | id | Source | Provider | Group | Transport | Delivery |
@@ -48,7 +65,6 @@ required, rate not yet measured).
 | `base_logs` | [Base (L2) contract event logs (PublicNode RPC)](https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub) | Allnodes (PublicNode RPC) | keyless | websocket | push |
 | `bitfinex` | [Bitfinex trades + ticker (public v2)](https://docs.bitfinex.com/docs/ws-public) | Bitfinex | keyless | websocket | push |
 | `bitso` | [Bitso (Mexico) trades + order-book diffs (BTC/MXN, USD/MXN, ETH/MXN)](https://docs.bitso.com/bitso-api/docs) | Bitso (Mexico) | keyless | websocket | push |
-| `bitstamp` | [Bitstamp live trades](https://www.bitstamp.net/websocket/v2/) | Bitstamp | keyless | websocket | push |
 | `bsc_logs` | [BNB Smart Chain contract event logs (PublicNode RPC)](https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub) | Allnodes (PublicNode RPC) | keyless | websocket | push |
 | `bybit` | [Bybit spot tickers](https://bybit-exchange.github.io/docs/v5/websocket/public/ticker) | Bybit | keyless | websocket | push |
 | `coinbase` | [Coinbase Exchange ticker](https://docs.cdp.coinbase.com/exchange/websocket-feed/overview) | Coinbase | keyless | websocket | push |
@@ -67,7 +83,6 @@ required, rate not yet measured).
 | `atlas` | [RIPE Atlas measurement results stream (ping)](https://atlas.ripe.net/docs/apis/streaming-api) | RIPE NCC | keyless | websocket | push |
 | `ct` | [Certificate Transparency logs (RFC 6962), read directly](https://www.rfc-editor.org/rfc/rfc6962) | Certificate Transparency log operators (Google, Cloudflare, DigiCert, Sectigo, Let's Encrypt, TrustAsia) | keyless | http | poll |
 | `gharchive` | [GH Archive — all public GitHub events (hourly files)](https://www.gharchive.org/) | GH Archive (Ilya Grigorik) | keyless | http | file-drop |
-| `npm` | [npm registry replication changes](https://github.com/npm/registry-follower-tutorial) | npm, Inc. (GitHub) | keyless | http | poll |
 | `osm` | [OpenStreetMap minutely replication diffs](https://wiki.openstreetmap.org/wiki/Planet.osm/diffs) | OpenStreetMap Foundation | keyless | http | file-drop |
 | `ris` | [RIPE NCC RIS Live — global BGP routing updates](https://ris-live.ripe.net/manual/) | RIPE NCC | keyless | websocket | push |
 | `crossref` | [Crossref scholarly metadata (works indexed per day)](https://www.crossref.org/documentation/retrieve-metadata/rest-api/) | Crossref | keyless | http | poll |
@@ -82,7 +97,6 @@ required, rate not yet measured).
 | `velib` | [Vélib' Métropole Paris bike-share station status (GBFS)](https://www.data.gouv.fr/datasets/velib-velos-et-bornes-disponibilite-temps-reel) | Vélib' Métropole (Smovengo) | keyless | http | poll |
 | `dt_marine` | [Digitraffic Finland marine AIS vessel locations](https://www.digitraffic.fi/en/marine-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
 | `dt_rail` | [Digitraffic Finland train GPS locations](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
-| `dt_rail_trains` | [Digitraffic Finland train timetables/actuals](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
 | `dt_road` | [Digitraffic Finland road traffic (TMS) and road-weather sensors](https://www.digitraffic.fi/en/road-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
 | `ecobici` | [EcoBici CDMX bike-share station status (GBFS)](https://ecobici.cdmx.gob.mx/datos-abiertos/) | Gobierno de la Ciudad de México (EcoBici, operated by Lyft) | keyless | http | poll |
 | `entur` | [Entur Norway real-time vehicle positions](https://developer.entur.org/pages-real-time-intro) | Entur AS (Norway) | keyless | http | poll |
@@ -101,12 +115,9 @@ required, rate not yet measured).
 | `tfl` | [Transport for London Unified API — Tube arrival predictions](https://api-portal.tfl.gov.uk/) | Transport for London (TfL) | free key (optional) | http | poll |
 | `firms` | [NASA FIRMS — satellite active-fire detections (VIIRS ×3, MODIS), global 24 h files](https://firms.modaps.eosdis.nasa.gov/active_fire/) | NASA Earth Science Data Systems (LANCE FIRMS) | free key (optional) | http | poll |
 | `mastodon` | [Mastodon federated public timeline (statuses, edits, deletions)](https://docs.joinmastodon.org/methods/streaming/) | Mastodon (default instance mastodon.social, Mastodon gGmbH) | candidate (key required) | sse | push |
-| `fink` | [Fink — Rubin Observatory LSST and ZTF alert livestream](https://doc.lsst.fink-broker.org/services/livestream/) | Fink broker (CNRS/IN2P3 and partners) | candidate (key required) | kafka | push |
-| `lasair` | [Lasair — Rubin Observatory LSST alerts that pass your saved filter](https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html) | Lasair (Universities of Edinburgh and Belfast) | candidate (key required) | kafka | push |
 | `aisstream` | [aisstream.io — global AIS ship positions and static data](https://aisstream.io/documentation) | aisstream.io | candidate (key required) | websocket | push |
 | `cta_bus` | [CTA Bus Tracker vehicles — every Chicago bus](https://www.transitchicago.com/developers/bustracker/) | Chicago Transit Authority (CTA) | candidate (key required) | http | poll |
 | `cta_train` | [CTA Train Tracker locations — every Chicago 'L' train](https://www.transitchicago.com/developers/traintracker/) | Chicago Transit Authority (CTA) | candidate (key required) | http | poll |
-| `gfw` | [Global Fishing Watch events API — fishing, encounter, loitering and port-visit events](https://globalfishingwatch.org/our-apis/documentation) | Global Fishing Watch | candidate (key required) | http | poll |
 | `mta_bustime` | [MTA Bus Time GTFS-Realtime vehicle positions — every New York City bus](https://bustime.mta.info/developers/gtfs-realtime/) | Metropolitan Transportation Authority (MTA) | candidate (key required) | http | poll |
 | `nta` | [NTA Ireland GTFS-Realtime vehicle positions — Dublin Bus, Bus Éireann, Go-Ahead Ireland](https://developer.nationaltransport.ie/) | National Transport Authority (NTA), Ireland | candidate (key required) | http | poll |
 | `wmata` | [WMATA GTFS-Realtime vehicle positions — Washington DC Metrobus and Metrorail](https://developer.wmata.com/) | Washington Metropolitan Area Transit Authority (WMATA) | candidate (key required) | http | poll |
@@ -154,7 +165,8 @@ printed, logged or written to a report.
 
 ```bash
 cp .env.example .env                          # every variable the sources read, with how to get each key
-uv run stream-consumers keys                  # which are set, missing (required) or not set (optional)
+uv run stream-consumers keys                  # which are set, missing (required) or not set (optional);
+                                              # exits 1 and lists as `unknown` any .env variable no source reads
 uv run stream-consumers check cta_train       # one source for 30 s once its key is in .env
 uv run stream-consumers keys --template       # regenerates .env.example (a unit test keeps them identical)
 ```
@@ -162,33 +174,33 @@ uv run stream-consumers keys --template       # regenerates .env.example (a unit
 A source whose required credentials are missing reports `key-pending` in `check`,
 `sample` and `profile`; it never fails a run.
 
+`.env` holds only the variables of `.env.example`. A credential that no source
+reads (for example a provider key kept for later) belongs outside it, in the
+git-ignored `data/credentials/`, so `keys` keeps passing.
+
 | Variable(s) | Source | Needed | How to get it (sign-up page) | Where it goes | Documented limit |
 |---|---|---|---|---|---|
 | `AISSTREAM_API_KEY` | `aisstream` | required | Sign in with GitHub on the [Account page](https://aisstream.io/account) and create a key (shown once) | `APIKey` in the first WebSocket message | 3 connections per account and per IP; frames dropped for slow readers |
 | `CTA_BUS_KEY` | `cta_bus` | required | [Bus Tracker account](https://www.ctabustracker.com/bustime/login.jsp) → My Account → Developer API; e-mailed after approval | query `key` | 100,000 transactions/day |
 | `CTA_TRAIN_KEY` | `cta_train` | required | [Train Tracker application form](https://www.transitchicago.com/developers/traintrackerapply/); CTA reviews it | query `key` | 50,000 requests/day |
 | `ENTSOE_TOKEN` | `entsoe` | required | [Register](https://transparency.entsoe.eu/), then e-mail transparency@entsoe.eu for RESTful API access ("within 3 working days") | query `securityToken` | 400 requests/min |
-| `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` | `fink` | required | [Fink subscription form](https://forms.gle/2td4jysT4e9pkf889); the team e-mails server and group id | Kafka bootstrap servers and group.id | none documented |
-| `GFW_API_TOKEN` | `gfw` | required | [Global Fishing Watch account](https://globalfishingwatch.org/our-apis/), then request a token (non-commercial use) | `Authorization: Bearer` | 50,000 requests/day, 1,500,000/month |
-| `LASAIR_KAFKA_TOPIC` | `lasair` | required | [Lasair account](https://lasair.lsst.ac.uk/) (e-mail), save a filter with Kafka streaming; its topic is `lasair_<user id><filter name>` | Kafka topic (the server needs no password) | none documented for Kafka |
 | `MASTODON_ACCESS_TOKEN` | `mastodon` | required | [Account on the instance](https://mastodon.social/auth/sign_up), then a user token with scope `read:statuses` | `Authorization: Bearer` | 300 REST calls per 5 min; streaming not stated |
 | `MTA_BUSTIME_KEY` | `mta_bustime` | required | [Web form](https://register.developer.obanyc.com/); e-mailed "within half an hour" | query `key` | no number; all-vehicle requests not under 30 s apart |
 | `NTA_API_KEY` | `nta` | required | [Developer portal](https://developer.nationaltransport.ie/signup), subscribe to "GTFS Realtime" | header `x-api-key` | one call every 60 s |
 | `WMATA_API_KEY` | `wmata` | required | [Developer account](https://developer.wmata.com/signup), subscribe to a Transit Data tier | header `api_key` | not published on an official page |
 | `MBTA_API_KEY` | `mbta_v3` | optional | [V3 API portal](https://api-v3.mbta.com/register), one key per application ("might take a day") | header `x-api-key`; enables streaming | 1,000 requests/min (20 without a key) |
 | `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET` | `opensky` | optional | [OpenSky account](https://opensky-network.org/my-opensky/account) → create an API client | OAuth 2 client credentials → `Authorization: Bearer` | 4,000 credits/day (400 anonymous) |
-| `TFL_APP_KEY` | `tfl` | optional | [API portal](https://api-portal.tfl.gov.uk/signup), subscribe to the "500 requests" data plan | query `app_key` | "500 requests" plan (time unit not stated) |
+| `TFL_APP_KEY` | `tfl` | optional | [API portal](https://api-portal.tfl.gov.uk/signup), subscribe to the product "500 Requests per min" | query `app_key` | 500 requests per minute (subscription page, 2026-10-18) |
 
 Settings with defaults: `AISSTREAM_BOUNDING_BOXES`, `CROSSREF_MAILTO`,
-`ENTSOE_AREAS`, `FINK_TOPICS`, `GFW_DATASET`, `GFW_LOOKBACK_DAYS`, `GFW_PAGES`,
-`LASAIR_KAFKA_SERVER`, `LASAIR_GROUP_ID`, `MASTODON_INSTANCE`,
+`ENTSOE_AREAS`, `MASTODON_INSTANCE`,
 `OPENSKY_POLL_SECONDS` (described in `.env.example`). NASA FIRMS needs no key:
 it reads the public 24 h files.
 
 Terms worth reading before use: OpenSky requires a written agreement for
 "operational" REST API use, including automated systems, even non-profit ones;
 Global Fishing Watch data is CC BY-NC 4.0 and tokens must not be shared;
-aisstream.io and Lasair publish no terms of use (only privacy statements);
+aisstream.io publishes no terms of use (only a privacy statement);
 Mastodon statuses are personal data and are masked in stored samples.
 
 ## Architecture
@@ -248,19 +260,44 @@ The component and e2e tiers start a single-node Kafka broker with Docker
 (`apache/kafka:3.9.1`, published on 127.0.0.1 only); Docker is required.
 
 Fixtures are real messages captured on 2026-10-13 (`velib` and `cta_bus` on
-2026-10-17), trimmed, with personal values replaced by `<masked>`; a test checks
+2026-10-17; `cta_train`, `nta`, `mta_bustime`, `wmata`, `mastodon`, `aisstream`
+and the MBTA stream on 2026-10-18), trimmed, with personal values replaced by `<masked>`; a test checks
 that no fixture leaks a personal value or an e-mail address. Candidates without a
 key yet have the providers' official documentation examples as fixtures, marked
 with `origin`, `documentation_url` and the `corrections` applied (PDF page footers,
 a typographic quote, a trailing comma); each is replaced by captured messages once
-its key works (done for `cta_bus`, captured with a key and stored without it).
+its key works (done for `cta_bus`, `cta_train`, `nta`, `mta_bustime`, `wmata`,
+`mastodon`, `aisstream` and `mbta_v3_stream`, captured with a key and
+stored without it; a test checks that these say when they were captured and that
+the key is not stored).
 
 ## Known behaviour
 
 - Digitraffic road sensors (`dt_road`) publish in bursts; a short window can see
   none.
-- `npm` counts changed packages per request: several updates of one package
-  between two polls count once.
+- With `MBTA_API_KEY`, `mbta_v3` streams: the first `reset` message lists
+  every vehicle (245 on 2026-10-18 04:54 UTC). It is the starting state, not a
+  change, so it yields no events, like the first poll of a polled feed (until
+  2026-10-18 it was counted: 37.3 vs 32.3 events/s live-only that minute).
+- `mta_bustime`'s GTFS-Realtime feed answered the same with no key or a wrong
+  key on 2026-10-18 (its SIRI API refuses them: 401 / 403); the source still
+  sends the key, as the provider's documentation requires.
+- mastodon.social (the default `MASTODON_INSTANCE`) reports
+  `configuration.timelines_access.live_feeds` local and remote `disabled`
+  (`GET /api/v2/instance`, 2026-10-18), so its public stream carries only
+  `delete` events. Use a token from an instance whose live feeds are `public`
+  (social.vivaldi.net, used since 2026-10-18) and set `MASTODON_INSTANCE` to it.
+- TfL answers carry `Cache-Control: ... s-maxage=60` and a shared cache serves
+  them with or without a key, so a poll 30 s after a fresh answer can return
+  the same copy (`X-Cache: HIT`); a 60-s round then measures 0 events/s
+  (5 of 24 rounds on 2026-10-17/18).
+- Sources declare a minimum measuring window (`SourceDescriptor.min_window_s`);
+  `check`, `sample` and `profile` extend a shorter `--seconds`/`--window` to it.
+  150 s for `tfl` (the 60-s cache), `nta` (one call per 60 s, so two polls need
+  more than 60 s), `firms` and `sensorcomm` (whole files must arrive before
+  the first event: up to 73 s and 50 s in the rounds of 2026-10-17/18; both
+  delivered nothing in 6 consecutive rounds, 2026-10-18 00:01–04:45 UTC, while
+  other sources were unaffected).
 - The USGS legacy Water Services announce their retirement on 2027-02-22.
 - Branch protection is not available for private repositories on the GitHub Free
   plan; work reaches `main` through pull requests by convention.

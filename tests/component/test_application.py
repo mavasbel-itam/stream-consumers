@@ -44,13 +44,15 @@ def registry(clock: FakeClock, *factories: Scripted) -> FactoryRegistry:
 def scripted(source_id: str, payloads: Sequence[object], clock: FakeClock, **kwargs: object) -> tuple[Scripted, list[ScriptedSource]]:
     made: list[ScriptedSource] = []
     personal = kwargs.pop("personal", ())
+    min_window_s = kwargs.pop("min_window_s", 0.0)
 
     def make(d: SourceDependencies) -> EventSourcePort:
-        source = ScriptedSource(descriptor(source_id, personal=personal), payloads, clock, **kwargs)  # type: ignore[arg-type]
+        desc = descriptor(source_id, personal=personal, min_window_s=min_window_s)  # type: ignore[arg-type]
+        source = ScriptedSource(desc, payloads, clock, **kwargs)  # type: ignore[arg-type]
         made.append(source)
         return source
 
-    return Scripted(source_id, make, personal=personal), made
+    return Scripted(source_id, make, personal=personal, min_window_s=min_window_s), made
 
 
 class TestConsume:
@@ -87,6 +89,16 @@ class TestConsume:
         factory, _ = scripted("s", [{"a": 1}, {"a": 2}], clock, gap=5.0)
         report = await ConsumeService(registry(clock, factory), clock).consume("s", 4, ListSink())
         assert report.events == 1 and report.seconds == 5.0
+
+    async def test_a_source_minimum_window_extends_a_shorter_request_only(self) -> None:
+        clock = FakeClock()
+        factory, _ = scripted("s", [{"a": 1}] * 4, clock, gap=5.0, min_window_s=12.0)
+        report = await ConsumeService(registry(clock, factory), clock).consume("s", 4, ListSink())
+        assert (report.events, report.seconds) == (3, 15.0)  # read for 12 s, not 4: events at 5, 10 and 15 s
+        clock = FakeClock()
+        factory, _ = scripted("s", [{"a": 1}] * 4, clock, gap=5.0, min_window_s=12.0)
+        report = await ConsumeService(registry(clock, factory), clock).consume("s", 30, ListSink())
+        assert (report.events, report.seconds) == (4, 20.0)  # a longer request is kept
 
     async def test_masking_is_on_by_default_and_can_be_disabled(self) -> None:
         clock = FakeClock()

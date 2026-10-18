@@ -255,17 +255,6 @@ async def test_entsoe_requests_the_last_six_hours_per_area() -> None:
     ]
 
 
-async def test_gfw_requests_pages_of_the_last_days() -> None:
-    clock = FakeClock(start=1_760_356_800.0)  # 2025-10-13T12:00Z
-    secrets = {"GFW_API_TOKEN": "t", "GFW_LOOKBACK_DAYS": "2", "GFW_PAGES": "2"}
-    source = BY_ID["gfw"].create(deps(clock=clock, secrets=secrets))
-    base = "https://gateway.api.globalfishingwatch.org/v3/events?datasets[0]=public-global-fishing-events%3Alatest"
-    assert await source._urls_for_poll() == [  # type: ignore[attr-defined]
-        f"{base}&start-date=2025-10-11&end-date=2025-10-14&limit=100&offset=0",
-        f"{base}&start-date=2025-10-11&end-date=2025-10-14&limit=100&offset=100",
-    ]
-
-
 # ------------------------------------------------------------------ Mastodon: streaming host discovery, then SSE
 INSTANCE = "https://example.social/api/v2/instance"
 STREAM = "https://streaming.example.social/api/v1/streaming/public"

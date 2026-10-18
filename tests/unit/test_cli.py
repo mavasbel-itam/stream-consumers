@@ -29,10 +29,10 @@ def test_list_prints_one_json_line_per_source_sorted() -> None:
     assert rows[0]["group"] == "A" and rows[0]["personal_fields"] == ["user"]
 
 
-def test_default_catalog_lists_the_65_sources() -> None:
+def test_default_catalog_lists_the_64_sources() -> None:
     out = io.StringIO()
     assert main(["list"], out, io.StringIO()) == 0
-    assert len(out.getvalue().splitlines()) == 66 and DEFAULT_CATALOG.endswith(".sources")
+    assert len(out.getvalue().splitlines()) == 60 and DEFAULT_CATALOG.endswith(".sources")
 
 
 class TestConsume:
@@ -113,6 +113,17 @@ def test_keys_shows_status_and_template_without_values(tmp_path: Path) -> None:
     assert code == 0 and out.split()[4] == "MISSING"
     code, out, _ = run("keys", "--template", env_file=env)
     assert code == 0 and "SCRIPTED_KEY=\n" in out and "very-secret" not in out
+
+
+def test_keys_fails_on_a_variable_no_source_reads(tmp_path: Path) -> None:
+    env = tmp_path / ".env"
+    env.write_text("SCRIPTED_KEY=very-secret\nLEFTOVER_SECRET=also-secret\n")
+    code, out, err = run("keys", env_file=env)
+    assert code == 1 and "also-secret" not in out + err and "very-secret" not in out + err
+    assert out.splitlines()[-1].split() == ["-", "LEFTOVER_SECRET", "-", "-", "unknown", "not", "read", "by", "any", "source"]
+    assert "defines 1 variable(s) no source reads" in err
+    code, out, _ = run("keys", "--template", env_file=env)
+    assert code == 0 and "LEFTOVER_SECRET" not in out
 
 
 def test_keys_shows_settings_with_their_default() -> None:

@@ -1,30 +1,28 @@
 {
  "source": "mbta_v3_stream",
- "origin": "official documentation example (no key yet to capture live messages)",
- "documentation_url": "https://www.mbta.com/developers/v3-api/streaming",
- "fetched_at": "2026-10-13",
- "corrections": [],
+ "captured_at": "2026-10-18T04:57:22+00:00",
+ "note": "vehicles stream (Accept: text/event-stream) with a key: the first `reset` trimmed to 2 of 240 vehicles, then the first `add`, `update`, `remove` seen within 300 s; the API key is not stored",
  "messages": [
   {
-   "body_text": "[{\"attributes\":{\"bearing\":315.0,\"current_status\":\"IN_TRANSIT_TO\",\"current_stop_sequence\":310,\"direction_id\":0,\"label\":\"3673-3838\",\"latitude\":42.33982849121094,\"longitude\":-71.15853881835938,\"speed\":null,\"updated_at\":\"2018-06-08T11:22:55-04:00\"},\"id\":\"G-10067\",\"links\":{\"self\":\"/vehicles/G-10067\"},\"relationships\":{\"route\":{\"data\":{\"id\":\"Green-B\",\"type\":\"route\"}},\"stop\":{\"data\":{\"id\":\"70107\",\"type\":\"stop\"}},\"trip\":{\"data\":{\"id\":\"36418064\",\"type\":\"trip\"}}},\"type\":\"vehicle\"},{\"attributes\":{\"bearing\":90.0,\"current_status\":\"IN_TRANSIT_TO\",\"current_stop_sequence\":null,\"direction_id\":1,\"label\":null,\"latitude\":42.349124908447266,\"longitude\":-71.09575653076172,\"speed\":null,\"updated_at\":\"2018-06-08T11:22:30-04:00\"},\"id\":\"0446\",\"links\":{\"self\":\"/vehicles/0446\"},\"relationships\":{\"route\":{\"data\":{\"id\":\"57\",\"type\":\"route\"}},\"stop\":{\"data\":null},\"trip\":{\"data\":{\"id\":\"36616656\",\"type\":\"trip\"}}},\"type\":\"vehicle\"}]",
+   "body_text": "[{\"attributes\": {\"bearing\": 77, \"carriages\": [], \"current_status\": \"STOPPED_AT\", \"current_stop_sequence\": 25, \"direction_id\": 0, \"label\": \"2001\", \"latitude\": 42.431589, \"longitude\": -71.051287, \"occupancy_status\": \"MANY_SEATS_AVAILABLE\", \"revenue\": \"REVENUE\", \"speed\": null, \"updated_at\": \"2026-10-18T00:57:20-04:00\"}, \"id\": \"y2001\", \"links\": {\"self\": \"/vehicles/y2001\"}, \"relationships\": {\"route\": {\"data\": {\"id\": \"106\", \"type\": \"route\"}}, \"stop\": {\"data\": {\"id\": \"5463\", \"type\": \"stop\"}}, \"trip\": {\"data\": {\"id\": \"78064543\", \"type\": \"trip\"}}}, \"type\": \"vehicle\"}, {\"attributes\": {\"bearing\": 225, \"carriages\": [], \"current_status\": \"STOPPED_AT\", \"current_stop_sequence\": 1, \"direction_id\": 0, \"label\": \"2105\", \"latitude\": 42.37498, \"longitude\": -71.02926, \"occupancy_status\": \"MANY_SEATS_AVAILABLE\", \"revenue\": \"REVENUE\", \"speed\": null, \"updated_at\": \"2026-10-18T00:56:52-04:00\"}, \"id\": \"y2105\", \"links\": {\"self\": \"/vehicles/y2105\"}, \"relationships\": {\"route\": {\"data\": {\"id\": \"104\", \"type\": \"route\"}}, \"stop\": {\"data\": {\"id\": \"7096\", \"type\": \"stop\"}}, \"trip\": {\"data\": {\"id\": \"78064290\", \"type\": \"trip\"}}}, \"type\": \"vehicle\"}]",
    "attributes": {
     "event": "reset"
    }
   },
   {
-   "body_text": "{\"attributes\":{\"bearing\":160.0,\"current_status\":\"INCOMING_AT\",\"current_stop_sequence\":30,\"direction_id\":0,\"label\":\"3633-3868\",\"latitude\":42.36283874511719,\"longitude\":-71.05811309814453,\"speed\":null,\"updated_at\":\"2018-06-08T11:22:55-04:00\"},\"id\":\"G-10300\",\"links\":{\"self\":\"/vehicles/G-10300\"},\"relationships\":{\"route\":{\"data\":{\"id\":\"Green-E\",\"type\":\"route\"}},\"stop\":{\"data\":{\"id\":\"70204\",\"type\":\"stop\"}},\"trip\":{\"data\":{\"id\":\"36420357\",\"type\":\"trip\"}}},\"type\":\"vehicle\"}",
+   "body_text": "{\"attributes\": {\"bearing\": 176, \"carriages\": [], \"current_status\": \"IN_TRANSIT_TO\", \"current_stop_sequence\": 2, \"direction_id\": 0, \"label\": \"3131\", \"latitude\": 42.374384, \"longitude\": -71.118837, \"occupancy_status\": \"MANY_SEATS_AVAILABLE\", \"revenue\": \"REVENUE\", \"speed\": null, \"updated_at\": \"2026-10-18T00:59:44-04:00\"}, \"id\": \"y3131\", \"links\": {\"self\": \"/vehicles/y3131\"}, \"relationships\": {\"route\": {\"data\": {\"id\": \"71\", \"type\": \"route\"}}, \"stop\": {\"data\": {\"id\": \"2020\", \"type\": \"stop\"}}, \"trip\": {\"data\": {\"id\": \"78479357\", \"type\": \"trip\"}}}, \"type\": \"vehicle\"}",
    "attributes": {
     "event": "add"
    }
   },
   {
-   "body_text": "{\"attributes\":{\"bearing\":76.0,\"current_status\":\"IN_TRANSIT_TO\",\"current_stop_sequence\":8,\"direction_id\":0,\"label\":\"1633\",\"latitude\":42.56092834472656,\"longitude\":-70.81510162353516,\"speed\":19.0,\"updated_at\":\"2018-06-08T11:21:52-04:00\"},\"id\":\"1633\",\"links\":{\"self\":\"/vehicles/1633\"},\"relationships\":{\"route\":{\"data\":{\"id\":\"CR-Newburyport\",\"type\":\"route\"}},\"stop\":{\"data\":{\"id\":\"Beverly Farms\",\"type\":\"stop\"}},\"trip\":{\"data\":{\"id\":\"CR-Weekday-Spring-18-107\",\"type\":\"trip\"}}},\"type\":\"vehicle\"}",
+   "body_text": "{\"attributes\": {\"bearing\": 289, \"carriages\": [], \"current_status\": \"STOPPED_AT\", \"current_stop_sequence\": 8, \"direction_id\": 0, \"label\": \"1323\", \"latitude\": 42.395901, \"longitude\": -71.035635, \"occupancy_status\": \"MANY_SEATS_AVAILABLE\", \"revenue\": \"REVENUE\", \"speed\": null, \"updated_at\": \"2026-10-18T00:57:22-04:00\"}, \"id\": \"y1323\", \"links\": {\"self\": \"/vehicles/y1323\"}, \"relationships\": {\"route\": {\"data\": {\"id\": \"743\", \"type\": \"route\"}}, \"stop\": {\"data\": {\"id\": \"74633\", \"type\": \"stop\"}}, \"trip\": {\"data\": {\"id\": \"78205274\", \"type\": \"trip\"}}}, \"type\": \"vehicle\"}",
    "attributes": {
     "event": "update"
    }
   },
   {
-   "body_text": "{\"id\":\"1723\",\"type\":\"vehicle\"}",
+   "body_text": "{\"id\": \"y1843\", \"type\": \"vehicle\"}",
    "attributes": {
     "event": "remove"
    }
