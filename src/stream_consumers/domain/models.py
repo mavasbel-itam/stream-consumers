@@ -77,14 +77,33 @@ class Setting:
     description: str
 
 
+@dataclass(frozen=True)
+class HeldKey:
+    """A credential the project keeps so that it can be tested again, although no source reads it.
+
+    `owner` is the source it belongs to, or the id of a removed source; `env_vars` are needed together.
+    """
+
+    owner: str
+    env_vars: tuple[str, ...]
+    provider: str
+    purpose: str
+    sign_up_url: str
+
+    def __post_init__(self) -> None:
+        if not self.env_vars:
+            raise ValueError("a held key names at least one environment variable")
+
+
 class ConfigKind(Enum):
     SECRET = "secret"
     SETTING = "setting"
+    HELD = "held"
 
 
 @dataclass(frozen=True)
 class ConfigStatus:
-    """Whether one environment variable a source reads is set (never its value)."""
+    """Whether one environment variable a source reads, or a held key, is set (never its value)."""
 
     source_id: str
     env_var: str

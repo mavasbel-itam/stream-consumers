@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.domain.errors import TransportError
-from stream_consumers.domain.models import Credential
+from stream_consumers.domain.models import Credential, HeldKey
 from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies, SourceFactoryPort
 from tests.support import ScriptedSource, descriptor
 
@@ -31,3 +31,4 @@ class Broken(BaseSourceFactory):
 
 
 FACTORIES: tuple[SourceFactoryPort, ...] = (Alpha(), Keyed(), Broken())
+HELD_KEYS = (HeldKey("keyed", ("SCRIPTED_SPARE_KEY",), "Scripted provider", "Second key of the same account.", "https://sign.up/here"),)

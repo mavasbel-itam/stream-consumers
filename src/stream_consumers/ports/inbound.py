@@ -48,12 +48,12 @@ class ProfileSourcesUseCase(ABC):
 class DescribeConfigurationUseCase(ABC):
     @abstractmethod
     def status(self) -> Sequence[ConfigStatus]:
-        """Every credential and setting the sources read, and whether it is set (values are never returned)."""
+        """Every credential and setting the sources read, every held key, and whether each is set (values are never returned)."""
 
     @abstractmethod
     def env_template(self) -> str:
-        """A `.env` template naming every credential and setting, with how to obtain each credential."""
+        """A `.env` template naming every credential, setting and held key, with how to obtain each credential."""
 
     @abstractmethod
     def unknown_variables(self) -> Sequence[str]:
-        """Names the `.env` file defines that no source reads, so `.env` can be kept to the template."""
+        """Names the `.env` file defines that are neither read by a source nor held, so `.env` can be kept to the template."""

@@ -164,9 +164,9 @@ git-ignored `.env` file (`--env-file` changes the path). Values are never
 printed, logged or written to a report.
 
 ```bash
-cp .env.example .env                          # every variable the sources read, with how to get each key
+cp .env.example .env                          # every variable the sources read and every held key, with how to get each
 uv run stream-consumers keys                  # which are set, missing (required) or not set (optional);
-                                              # exits 1 and lists as `unknown` any .env variable no source reads
+                                              # exits 1 and lists as `unknown` any .env variable neither read nor held
 uv run stream-consumers check cta_train       # one source for 30 s once its key is in .env
 uv run stream-consumers keys --template       # regenerates .env.example (a unit test keeps them identical)
 ```
@@ -174,9 +174,23 @@ uv run stream-consumers keys --template       # regenerates .env.example (a unit
 A source whose required credentials are missing reports `key-pending` in `check`,
 `sample` and `profile`; it never fails a run.
 
-`.env` holds only the variables of `.env.example`. A credential that no source
-reads (for example a provider key kept for later) belongs outside it, in the
-git-ignored `data/credentials/`, so `keys` keeps passing.
+`.env` holds only the variables of `.env.example`, and every key the project
+has is kept in it. Keys that no source reads are **held keys**, declared in
+`stream_consumers/adapters/outbound/held_keys.py` (`HELD_KEYS`, exported by the
+catalog next to `FACTORIES`) and listed by `keys` as `held`: secondary keys
+(NTA, WMATA, TfL), WMATA and TfL products the sources do not read, the
+Mastodon applications' client id and secret and the tokens of other instances
+(mastodon.world, mastodon.social), the Coinbase CDP key, and the tokens of the
+removed `lasair` and `gfw`. A new key is added to `HELD_KEYS` (or to a source's
+`Credential`) and to `tests/live/test_keys_live.py`, which fails if a key has
+no probe. That test sends, for each key, one read-only request with the stored
+value (must be accepted), one with its last four characters changed (must be
+refused) and one without it (refused where the provider requires a key,
+accepted where the key is optional):
+
+```bash
+uv run pytest tests/live/test_keys_live.py -m live    # KEYS_ENV_FILE=path/.env to test another file
+```
 
 | Variable(s) | Source | Needed | How to get it (sign-up page) | Where it goes | Documented limit |
 |---|---|---|---|---|---|
@@ -245,7 +259,7 @@ the services.
 | unit | domain, decoders against real captured messages (`tests/fixtures/raw`), factories, sinks, CLI in-process, architecture rules | `uv run pytest --cov` (with component) | 100 % gated |
 | component | services with scripted sources; every transport against a local server, Kafka against a real broker; sources with their own fetching logic against captured answers | (same run) | (same gate) |
 | e2e | the CLI as a subprocess against local servers for every transport (Kafka included), working and failing | see below | 100 % gated on the CLI, services, ports and infrastructure adapters (`.coveragerc.e2e`) |
-| live | every source against its real provider, 60 s | see below | reported only (`.coveragerc.live`) |
+| live | every source against its real provider, 60 s; every key in `.env` accepted, a damaged copy refused (`test_keys_live.py`) | see below | reported only (`.coveragerc.live`) |
 
 ```bash
 uv run pytest --cov                                   # unit + component, fails under 100 %

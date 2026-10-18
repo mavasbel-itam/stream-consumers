@@ -13,6 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TextIO
 
+from stream_consumers.adapters.outbound.held_keys import StaticHeldKeyCatalog
 from stream_consumers.adapters.outbound.http import AiohttpClient
 from stream_consumers.adapters.outbound.registry import FactoryRegistry
 from stream_consumers.adapters.outbound.sinks import (
@@ -34,6 +35,7 @@ from stream_consumers.domain.models import ConfigKind, RunReport, RunStatus
 from stream_consumers.ports.outbound import (
     ClockPort,
     EventSinkPort,
+    HeldKeyCatalogPort,
     HttpClientPort,
     SourceDependencies,
     SourceFactoryPort,
@@ -90,6 +92,11 @@ def _factories(module_name: str) -> Sequence[SourceFactoryPort]:
     return tuple(importlib.import_module(module_name).FACTORIES)
 
 
+def _held_keys(module_name: str) -> HeldKeyCatalogPort:
+    """A catalog module may also name the keys it holds for re-testing (HELD_KEYS)."""
+    return StaticHeldKeyCatalog(tuple(getattr(importlib.import_module(module_name), "HELD_KEYS", ())))
+
+
 def _line(report: RunReport) -> str:
     rate = "-" if report.rate is None else f"{report.rate:.3f}/s"
     return f"{report.source_id:16} {report.status.value:11} events={report.events:<7} rate={rate:<12} {report.rate_basis.value:10} {report.detail[:120]}"
@@ -143,12 +150,12 @@ def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: Text
                 out.write(json.dumps(asdict(descriptor), default=lambda v: getattr(v, "value", str(v)), ensure_ascii=False) + "\n")
             return 0
         if args.command == "keys":
-            configuration = ConfigurationService(registry, deps.secrets)
+            configuration = ConfigurationService(registry, deps.secrets, _held_keys(args.catalog))
             if args.template:
                 out.write(configuration.env_template())
                 return 0
             for row in configuration.status():
-                need = "required" if row.required else "optional"
+                need = "-" if row.kind is ConfigKind.HELD else "required" if row.required else "optional"
                 if row.configured:
                     state = "set"
                 elif row.kind is ConfigKind.SETTING:
@@ -156,12 +163,14 @@ def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: Text
                 else:
                     state = "MISSING" if row.required else "not-set"
                 where = row.sign_up_url or f"default={row.default!r}"
-                out.write(f"{row.source_id:14} {row.env_var:28} {row.kind.value:8} {need:9} {state:8} {where}\n")
+                out.write(f"{row.source_id:14} {row.env_var:32} {row.kind.value:8} {need:9} {state:8} {where}\n")
             unknown = configuration.unknown_variables()
             for name in unknown:
-                out.write(f"{'-':14} {name:28} {'-':8} {'-':9} {'unknown':8} not read by any source\n")
+                out.write(f"{'-':14} {name:32} {'-':8} {'-':9} {'unknown':8} not read by any source and not held\n")
             if unknown:
-                err.write(f"error: {args.env_file} defines {len(unknown)} variable(s) no source reads; keep it to the template\n")
+                err.write(
+                    f"error: {args.env_file} defines {len(unknown)} variable(s) neither read by a source nor held; keep it to the template\n"
+                )
                 return 1
             return 0
 

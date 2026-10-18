@@ -29,7 +29,7 @@ def test_list_prints_one_json_line_per_source_sorted() -> None:
     assert rows[0]["group"] == "A" and rows[0]["personal_fields"] == ["user"]
 
 
-def test_default_catalog_lists_the_64_sources() -> None:
+def test_default_catalog_lists_the_60_sources() -> None:
     out = io.StringIO()
     assert main(["list"], out, io.StringIO()) == 0
     assert len(out.getvalue().splitlines()) == 60 and DEFAULT_CATALOG.endswith(".sources")
@@ -105,14 +105,17 @@ def test_profile_writes_masked_events_and_field_statistics(tmp_path: Path) -> No
 
 def test_keys_shows_status_and_template_without_values(tmp_path: Path) -> None:
     env = tmp_path / ".env"
-    env.write_text("SCRIPTED_KEY=very-secret\n")
+    env.write_text("SCRIPTED_KEY=very-secret\nSCRIPTED_SPARE_KEY=spare-secret\n")
     code, out, _ = run("keys", env_file=env)
-    assert code == 0 and "very-secret" not in out
-    assert out.split() == ["keyed", "SCRIPTED_KEY", "secret", "required", "set", "https://sign.up/here"]
+    assert code == 0 and "very-secret" not in out and "spare-secret" not in out
+    assert [line.split() for line in out.splitlines()] == [
+        ["keyed", "SCRIPTED_KEY", "secret", "required", "set", "https://sign.up/here"],
+        ["keyed", "SCRIPTED_SPARE_KEY", "held", "-", "set", "https://sign.up/here"],
+    ]
     code, out, _ = run("keys")
-    assert code == 0 and out.split()[4] == "MISSING"
+    assert code == 0 and [line.split()[4] for line in out.splitlines()] == ["MISSING", "not-set"]
     code, out, _ = run("keys", "--template", env_file=env)
-    assert code == 0 and "SCRIPTED_KEY=\n" in out and "very-secret" not in out
+    assert code == 0 and "SCRIPTED_KEY=\n" in out and "SCRIPTED_SPARE_KEY=\n" in out and "-secret" not in out
 
 
 def test_keys_fails_on_a_variable_no_source_reads(tmp_path: Path) -> None:
@@ -120,8 +123,15 @@ def test_keys_fails_on_a_variable_no_source_reads(tmp_path: Path) -> None:
     env.write_text("SCRIPTED_KEY=very-secret\nLEFTOVER_SECRET=also-secret\n")
     code, out, err = run("keys", env_file=env)
     assert code == 1 and "also-secret" not in out + err and "very-secret" not in out + err
-    assert out.splitlines()[-1].split() == ["-", "LEFTOVER_SECRET", "-", "-", "unknown", "not", "read", "by", "any", "source"]
-    assert "defines 1 variable(s) no source reads" in err
+    assert out.splitlines()[-1].split() == [
+        "-",
+        "LEFTOVER_SECRET",
+        "-",
+        "-",
+        "unknown",
+        *["not", "read", "by", "any", "source", "and", "not", "held"],
+    ]
+    assert "defines 1 variable(s) neither read by a source nor held" in err
     code, out, _ = run("keys", "--template", env_file=env)
     assert code == 0 and "LEFTOVER_SECRET" not in out
 
