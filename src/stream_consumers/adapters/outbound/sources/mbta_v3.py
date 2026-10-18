@@ -22,11 +22,14 @@ class JsonApiDataDecoder(JsonDecoder):
 
 
 class MbtaStreamDecoder(JsonDecoder):
-    """V3 API streaming events: `reset` carries every resource (a list), `add` and `update` one
-    resource, `remove` a resource identifier. Each event keeps its type in `event_type`."""
+    """V3 API streaming events: `add` and `update` one resource, `remove` a resource identifier; each
+    event keeps its type in `event_type`. `reset` lists every current resource when a stream opens: that
+    is the starting state, not a change, so like the first poll of a polled feed it yields no events."""
 
     def extract(self, document: object, message: RawMessage) -> Sequence[Mapping[str, object]]:
         event = message.attributes.get("event", "")
+        if event == "reset":
+            return []
         items = document if isinstance(document, list) else [document]
         return [dict(item, event_type=event) for item in items if isinstance(item, Mapping)]
 

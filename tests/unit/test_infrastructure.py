@@ -124,7 +124,9 @@ class TestSystem:
         assert secrets.get("B") == "quoted" and secrets.get("C") == "double"
         assert secrets.get("D") is None and secrets.get("Z") is None and secrets.get("missing") is None
         assert secrets.get("E") == "'"
+        assert secrets.file_names() == ["A", "B", "C", "D", "E"]
 
     def test_missing_file_is_fine(self, tmp_path: Path) -> None:
         assert EnvSecretProvider({}, tmp_path / "absent").get("A") is None
         assert EnvSecretProvider({"A": "1"}, None).get("A") == "1"
+        assert EnvSecretProvider({"A": "1"}, tmp_path / "absent").file_names() == []

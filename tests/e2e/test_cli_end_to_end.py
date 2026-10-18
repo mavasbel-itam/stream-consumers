@@ -377,15 +377,20 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
             assert (code, message in err) == (2, True), (argv, err)
         code, _, err = await cli(addresses, "--catalog", "tests.e2e.duplicate_catalog", "list")
         assert code == 2 and "duplicate source id: ws_ok" in err
-        code, out, _ = await cli(addresses, "--env-file", str(env), "keys")
-        assert code == 0 and "e2e-value-123" not in out
+        code, out, err = await cli(addresses, "--env-file", str(env), "keys")
+        assert code == 1 and "e2e-value-123" not in out and "plain" not in out
+        assert "defines 1 variable(s) no source reads" in err
         assert [line.split() for line in out.splitlines()] == [
             ["configured", "E2E_ID", "secret", "optional", "not-set", "https://sign.up/pair"],
             ["configured", "E2E_SECRET", "secret", "optional", "not-set", "https://sign.up/pair"],
             ["configured", "E2E_REGION", "setting", "optional", "default", "default='eu'"],
             ["keyed", "E2E_KEY", "secret", "required", "set", "https://sign.up/e2e"],
             ["settings_only", "E2E_CONTACT", "setting", "optional", "default", "default=''"],
+            ["-", "OTHER", "-", "-", "unknown", "not", "read", "by", "any", "source"],
         ]
+        env.write_text("E2E_KEY='e2e-value-123'\n", encoding="utf-8")
+        code, _, err = await cli(addresses, "--env-file", str(env), "keys")
+        assert (code, err) == (0, "")
         code, out, _ = await cli(addresses, "--env-file", str(env), "keys", "--template")
         assert code == 0 and "e2e-value-123" not in out
         assert "# How: Form; e-mailed.\nE2E_ID=\nE2E_SECRET=\n# Region to read. Default: eu\n# E2E_REGION=eu\n" in out

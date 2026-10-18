@@ -1,0 +1,13 @@
+{
+ "source": "mta_bustime",
+ "captured_at": "2026-10-18T04:57:22+00:00",
+ "note": "GTFS-Realtime vehiclePositions (protobuf) trimmed to the first 3 of 585 entities; the API key is not stored",
+ "messages": [
+  {
+   "body_b64": "Cg0KAzEuMBAAGJyj0dYGEokBCg1NVEEgTllDVF85NzczIngKMAodTVFfRDYtU2F0dXJkYXktMTQ5MDAwX002Nl81MjIaCDIwMjYxMDE3KgNNNjYwABIPDbkRI0IV8uyTwh19yahDKJij0dYGOgY0MDM5OTNCHAoNTVRBIE5ZQ1RfOTc3M8I+CgoIU1RST0xMRVJIAfI+BAgBEFASgAEKDU1UQSBOWUNUXzcxMTQibwowCh1FTl9ENi1TYXR1cmRheS0xNDUwMDBfQjgyXzY0NxoIMjAyNjEwMTcqA0I4MjAAEg8NVooiQhXs05PCHaHCBkIolaPR1gY6BjMwODg2M0IcCg1NVEEgTllDVF83MTE0wj4KCghTVFJPTExFUhKAAQoNTVRBIE5ZQ1RfODQzOCJvCjAKHkpBX0Q2LVNhdHVyZGF5LTE0OTAwMF9NSVNDXzkwNRoIMjAyNjEwMTcqAlE1MAASDw3T0CJCFYmWk8IdxS2+QSiRo9HWBjoGNTAzOTM3QhwKDU1UQSBOWUNUXzg0MzjCPgoKCFNUUk9MTEVS",
+   "attributes": {
+    "url": "https://gtfsrt.prod.obanyc.com/vehiclePositions?key=<MTA_BUSTIME_KEY>"
+   }
+  }
+ ]
+}

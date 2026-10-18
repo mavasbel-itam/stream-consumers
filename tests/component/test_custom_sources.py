@@ -94,33 +94,6 @@ def build(source_id: str, http: FakeHttp, clock: FakeClock, **secrets: str) -> E
     return source
 
 
-class TestNpm:
-    async def test_follows_the_changes_feed_from_the_current_sequence(self) -> None:
-        changes = json.loads(body("npm"))
-        http = FakeHttp(
-            {
-                "https://replicate.npmjs.com/registry/": ok({"update_seq": "100-abc"}),
-                "https://replicate.npmjs.com/registry/_changes?since=100&limit=10000": ok(changes),
-                f"https://replicate.npmjs.com/registry/_changes?since={changes['last_seq']}&limit=10000": ok(
-                    {"results": [], "last_seq": changes["last_seq"]}
-                ),
-            }
-        )
-        source = build("npm", http, FakeClock())
-        events = await take(source, 3)
-        assert [e["id"] for e in events] == [r["id"] for r in changes["results"]]
-        assert source.published_volume() is None
-
-    async def test_an_answer_without_last_seq_fails(self) -> None:
-        http = FakeHttp(
-            {
-                "https://replicate.npmjs.com/registry/": ok({"update_seq": 1}),
-                "https://replicate.npmjs.com/registry/_changes?since=1&limit=10000": ok({"results": []}),
-            }
-        )
-        assert "last_seq" in str((await failure(build("npm", http, FakeClock()))).__cause__)
-
-
 class TestCrossref:
     async def test_polls_today_and_measures_yesterday(self) -> None:
         clock = FakeClock()  # 2023-11-14

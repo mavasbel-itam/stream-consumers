@@ -43,6 +43,7 @@ class ConsumeService(ConsumeStreamUseCase):
                 source_id, RunStatus.ERROR, 0, 0.0, None, RateBasis.UNMEASURED, 0.0, None, started_at, f"{type(exc).__name__}: {exc}"[:500]
             )
         masker = PersonalDataMasker(source.descriptor.personal_fields) if mask else None
+        seconds = max(seconds, source.descriptor.min_window_s)
         start = self._clock.monotonic()
         events = 0
         counts: list[int] = []

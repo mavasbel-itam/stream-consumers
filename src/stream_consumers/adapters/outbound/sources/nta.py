@@ -30,8 +30,10 @@ class NtaFactory(GtfsRealtimeFactory):
         notes=(
             "The key goes in the `x-api-key` header. The usage policy allows one call every 60 seconds per token, so "
             "it is polled every 60 s. The docs do not state the default response format; the decoder reads both "
-            "GTFS-Realtime protobuf and its JSON mapping. An event is a feed entity that is new or changed."
+            "GTFS-Realtime protobuf and its JSON mapping. An event is a feed entity that is new or changed. A rate "
+            "needs at least two polls 60 s apart, so windows are at least 150 s."
         ),
+        min_window_s=150.0,
     )
     URL = "https://api.nationaltransport.ie/gtfsr/v2/Vehicles"
     INTERVAL_S = 60.0

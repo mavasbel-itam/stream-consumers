@@ -56,6 +56,11 @@ class ConfigurationService(DescribeConfigurationUseCase):
             ]
         return out
 
+    def unknown_variables(self) -> Sequence[str]:
+        declared = {s.env_var for d in self._registry.descriptors() for s in d.settings}
+        declared |= {n for d in self._registry.descriptors() if d.credential for n in d.credential.env_vars}
+        return [name for name in self._environment.file_names() if name not in declared]
+
     def env_template(self) -> str:
         blocks = [TEMPLATE_HEADER]
         for d in self._configurable():

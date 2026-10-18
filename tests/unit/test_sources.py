@@ -6,6 +6,7 @@ import importlib
 import json
 import struct
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -15,9 +16,9 @@ from stream_consumers.adapters.outbound.decoders import JsonDecoder
 from stream_consumers.adapters.outbound.sources import FACTORIES
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
 from stream_consumers.adapters.outbound.sources.mbta_v3 import MbtaStreamDecoder
+from stream_consumers.adapters.outbound.sources.wmata import FeedTaggedGtfsRealtimeDecoder
 from stream_consumers.adapters.outbound.transports.base import DecodingEventSource, MergedEventSource
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
-from stream_consumers.adapters.outbound.transports.kafka import KafkaSource
 from stream_consumers.adapters.outbound.transports.sse import SseSource
 from stream_consumers.domain.errors import DecodeError, MissingCredentialError, TransportError
 from stream_consumers.domain.models import Credential, Group, RawMessage
@@ -49,11 +50,11 @@ def decoder_of(source_id: str) -> DecoderPort:
 
 
 class TestCatalog:
-    def test_66_sources_in_four_groups(self) -> None:
+    def test_60_sources_in_four_groups(self) -> None:
         groups = [f.descriptor.group for f in FACTORIES]
-        assert len(FACTORIES) == 66 == len(BY_ID)
+        assert len(FACTORIES) == 60 == len(BY_ID)
         counts = tuple(groups.count(g) for g in (Group.KEYLESS, Group.PROJECT_DOCUMENT, Group.FREE_KEY, Group.CANDIDATE))
-        assert counts == (46, 6, 3, 11)
+        assert counts == (43, 6, 3, 8)
 
     def test_candidates_are_exactly_the_sources_whose_key_is_required(self) -> None:
         required = {f.descriptor.id for f in FACTORIES if f.descriptor.credential and f.descriptor.credential.required}
@@ -66,9 +67,6 @@ class TestCatalog:
                 "cta_bus",
                 "cta_train",
                 "entsoe",
-                "fink",
-                "gfw",
-                "lasair",
                 "mastodon",
                 "mta_bustime",
                 "nta",
@@ -160,7 +158,6 @@ class TestCredentials:
         assert train._urls[0] == "https://lapi.transitchicago.com/api/1.0/ttpositions.aspx?key=k&rt=Red&outputType=JSON"
         assert len(train._urls) == 8 and train._interval_s == 30.0
         assert poll("cta_bus", CTA_BUS_KEY="k")._urls == ("https://www.ctabustracker.com/bustime/api/v3/getroutes?key=k&format=json",)
-        assert poll("gfw", GFW_API_TOKEN="t")._headers == {"Authorization": "Bearer t"}
 
     def test_opensky_uses_oauth_only_when_both_values_are_set(self) -> None:
         assert BY_ID["opensky"].create(deps())._auth is None  # type: ignore[attr-defined]
@@ -169,17 +166,6 @@ class TestCredentials:
             deps(secrets={"OPENSKY_CLIENT_ID": "i", "OPENSKY_CLIENT_SECRET": "s", "OPENSKY_POLL_SECONDS": "90"})
         )
         assert isinstance(keyed._auth, OAuthClientCredentials) and keyed._interval_s == 90.0  # type: ignore[attr-defined]
-
-    def test_kafka_sources_read_their_settings(self) -> None:
-        lasair = BY_ID["lasair"].create(deps(secrets={"LASAIR_KAFKA_TOPIC": "lasair_1demo"}))
-        assert isinstance(lasair, KafkaSource)
-        assert (lasair._servers, lasair._topics, lasair._group_id) == (
-            "lasair-lsst-kafka.lsst.ac.uk:9092",
-            ("lasair_1demo",),
-            "stream-consumers",
-        )
-        fink = BY_ID["fink"].create(deps(secrets={"FINK_KAFKA_SERVERS": "h:9092", "FINK_GROUP_ID": "g", "FINK_TOPICS": "a, b,"}))
-        assert isinstance(fink, KafkaSource) and (fink._servers, fink._topics, fink._group_id) == ("h:9092", ("a", "b"), "g")
 
     def test_aisstream_subscription_carries_key_and_boxes(self) -> None:
         source = BY_ID["aisstream"].create(deps(secrets={"AISSTREAM_API_KEY": "k"}))
@@ -192,11 +178,6 @@ class TestCredentials:
         with pytest.raises(ValueError, match="EIC"):
             BY_ID["entsoe"].create(deps(secrets={"ENTSOE_TOKEN": "t", "ENTSOE_AREAS": " , "}))
 
-    def test_gfw_rejects_non_positive_lookback_and_pages(self) -> None:
-        for name in ("GFW_LOOKBACK_DAYS", "GFW_PAGES"):
-            with pytest.raises(ValueError, match="at least 1"):
-                BY_ID["gfw"].create(deps(secrets={"GFW_API_TOKEN": "t", name: "0"}))
-
     def test_tfl_key_goes_in_the_query(self) -> None:
         assert BY_ID["tfl"].create(deps())._urls == ("https://api.tfl.gov.uk/Mode/tube/Arrivals",)  # type: ignore[attr-defined]
         assert BY_ID["tfl"].create(deps(secrets={"TFL_APP_KEY": "k"}))._urls == (  # type: ignore[attr-defined]
@@ -208,12 +189,10 @@ class TestCredentials:
 # must not count as an event. Sources read from files or several endpoints are tested in the component tier.
 EXPECTED = {
     "adsb_fi": [3],
-    "aisstream": [0, 1],
+    "aisstream": [0, 1, 1, 1, 1],
     "cta_bus": [0, 3],
-    "cta_train": [1],
+    "cta_train": [3],
     "entsoe": [1824],
-    "gfw": [1],
-    "lasair": [1],
     "mastodon": [1, 1],
     "adsb_lol": [3],
     "albion": [1, 1, 1],
@@ -223,7 +202,6 @@ EXPECTED = {
     "binance": [1, 1, 1, 1],
     "bitfinex": None,
     "bitso": [0, 1, 1, 1, 1],
-    "bitstamp": [0, 1, 1, 1, 1],
     "bluesky": [1, 1, 1, 1],
     "bsc_logs": [0, 1, 1, 1, 1],
     "bybit": [0, 1, 1, 1, 1],
@@ -232,7 +210,6 @@ EXPECTED = {
     "deribit": [0, 1, 1, 1, 1],
     "dt_marine": [1, 1, 1, 1],
     "dt_rail": [1, 1, 1, 1],
-    "dt_rail_trains": [1, 1, 1, 1],
     "dt_road": [0, 0, 1, 1],
     "ecobici": [3],
     "entur": [3],
@@ -246,9 +223,10 @@ EXPECTED = {
     "mbta_v3": [3],
     "mempool": [0, 5, 5, 5, 5],
     "metar": [3],
+    "mta_bustime": [3],
     "mta_gtfsrt": [3],
     "ndov": [67, 66, 54, 119],
-    "npm": [3],
+    "nta": [3],
     "okx": [0, 1, 1, 1, 1],
     "opensky": [3],
     "polygon_logs": [0, 1, 1, 1, 1],
@@ -295,12 +273,10 @@ ENVELOPE_DECODERS = [
     "aisstream",
     "cta_bus",
     "cta_train",
-    "gfw",
     "atlas",
     "base_logs",
     "binance",
     "bitso",
-    "bitstamp",
     "bluesky",
     "bybit",
     "coinbase",
@@ -313,7 +289,6 @@ ENVELOPE_DECODERS = [
     "kraken",
     "mbta_v3",
     "mempool",
-    "npm",
     "okx",
     "opensky",
     "polymarket",
@@ -474,31 +449,58 @@ class TestDecoderBranches:
             assert decode(source_id, [{"a": 1}]) == [{"a": 1}]
 
 
-# ---------------------------------------------------------------- key-gated sources, from official documentation examples
+# ---------------------------------------------------------------- key-gated sources (documentation examples until a key exists)
 def doc_fixture(source_id: str) -> dict[str, object]:
     return json.loads((ROOT / "tests" / "fixtures" / "raw" / f"{source_id}.json").read_text(encoding="utf-8"))
 
 
-@pytest.mark.parametrize("source_id", ["aisstream", "cta_train", "entsoe", "gfw", "lasair", "mastodon", "mbta_v3_stream"])
+@pytest.mark.parametrize("source_id", ["entsoe"])
 def test_documentation_fixtures_say_where_they_come_from(source_id: str) -> None:
     fixture = doc_fixture(source_id)
     assert str(fixture["origin"]).startswith("official documentation example")
     assert str(fixture["documentation_url"]).startswith("https://") and isinstance(fixture["corrections"], list)
 
 
+@pytest.mark.parametrize("source_id", ["aisstream", "cta_bus", "cta_train", "mastodon", "mbta_v3_stream", "mta_bustime", "nta", "wmata"])
+def test_fixtures_captured_with_a_key_say_when_and_that_the_key_is_not_stored(source_id: str) -> None:
+    fixture = doc_fixture(source_id)
+    assert datetime.fromisoformat(str(fixture["captured_at"])).tzinfo is not None
+    assert "origin" not in fixture and "is not stored" in str(fixture["note"])
+
+
+def test_only_sources_that_need_a_longer_window_declare_one() -> None:
+    # tfl: 60-s shared cache; nta: one call per 60 s; firms, sensorcomm: whole files before the first event
+    assert {f.descriptor.id: f.descriptor.min_window_s for f in FACTORIES if f.descriptor.min_window_s} == {
+        "firms": 150.0,
+        "nta": 150.0,
+        "sensorcomm": 150.0,
+        "tfl": 150.0,
+    }
+
+
 class TestKeyGatedDecoders:
-    def test_mbta_stream_events_keep_their_type(self) -> None:
+    def test_mbta_stream_events_keep_their_type_and_the_opening_reset_is_not_an_event(self) -> None:
         decoder = MbtaStreamDecoder()
-        decoded = [decoder.decode(m) for m in messages("mbta_v3_stream")]
-        assert [len(d) for d in decoded] == [2, 1, 1, 1]
-        assert [d[0]["event_type"] for d in decoded] == ["reset", "add", "update", "remove"]
-        assert decoded[3][0] == {"id": "1723", "type": "vehicle", "event_type": "remove"}
-        assert decoder.decode(RawMessage("[1, 2]", {"event": "reset"})) == []
+        decoded = [decoder.decode(m) for m in messages("mbta_v3_stream")]  # captured 2026-10-18 with a key
+        assert [len(d) for d in decoded] == [0, 1, 1, 1]
+        assert [d[0]["event_type"] for d in decoded[1:]] == ["add", "update", "remove"]
+        assert [d[0]["id"] for d in decoded[1:]] == ["y3131", "y1323", "y1843"]
+        assert decoded[3][0] == {"id": "y1843", "type": "vehicle", "event_type": "remove"}
+        reset = messages("mbta_v3_stream")[0]
+        assert len(json.loads(reset.body)) == 2 and reset.attributes == {"event": "reset"}  # the snapshot holds two vehicles
+        assert decoder.decode(RawMessage(reset.body, {"event": "add"})) != []  # same body under another event type counts
 
     def test_aisstream_puts_type_and_metadata_on_the_body(self) -> None:
-        (event,) = [e for m in messages("aisstream") for e in decoder_of("aisstream").decode(m)]
-        assert event["MessageType"] == "PositionReport" and event["UserID"] == 368207620
-        assert event["MetaData"] == {"MMSI": 368207620, "ShipName": "EXAMPLE VESSEL", "Latitude": 25.7617, "Longitude": -80.1918}
+        events = [e for m in messages("aisstream") for e in decoder_of("aisstream").decode(m)]  # captured 2026-10-18
+        assert [e["MessageType"] for e in events] == [
+            "PositionReport",
+            "StandardClassBPositionReport",
+            "ShipStaticData",
+            "StaticDataReport",
+        ]
+        event = events[0]
+        assert event["UserID"] == event["MetaData"]["MMSI"] == 211437340 and event["Sog"] == 9.4
+        assert event["MetaData"]["ShipName"] == "TOLLERORT" and event["MetaData"]["latitude"] == 53.54225
         assert decode("aisstream", {"MessageType": "PositionReport", "Message": {"PositionReport": {"Sog": 1}}}) == [
             {"Sog": 1, "MessageType": "PositionReport", "MetaData": {}}
         ]
@@ -506,8 +508,9 @@ class TestKeyGatedDecoders:
 
     def test_mastodon_events(self) -> None:
         update, delete = [e for m in messages("mastodon") for e in decoder_of("mastodon").decode(m)]
-        assert update["event_type"] == "update" and update["id"] == "108914354907984653"
-        assert delete == {"event_type": "delete", "id": "107214471804101576"}
+        assert update["event_type"] == "update" and update["id"] == "117462650988898961"  # captured 2026-10-18, masked
+        assert delete == {"event_type": "delete", "id": "116945619957947049"}
+        assert update["account.username"] == update["content"] == "<masked>"
         assert decode("mastodon", {"id": "1"}, event="status.update") == [{"id": "1", "event_type": "status.update"}]
         assert decode("mastodon", "[1]", event="update") == []
         assert decode("mastodon", {"x": 1}, event="notification") == []
@@ -515,14 +518,39 @@ class TestKeyGatedDecoders:
             decode("mastodon", "{not json", event="update")
 
     def test_cta_train_errors_and_single_objects(self) -> None:
-        (train,) = [e for m in messages("cta_train") for e in decoder_of("cta_train").decode(m)]
-        assert (train["route"], train["rn"], train["tmst"]) == ("red", "827", "2015-04-30T20:29:44")
+        trains = [e for m in messages("cta_train") for e in decoder_of("cta_train").decode(m)]  # captured 2026-10-18 with a key
+        assert [(t["route"], t["rn"]) for t in trains] == [("red", "818"), ("red", "821"), ("red", "827")]
+        assert {t["tmst"] for t in trains} == {"2026-10-17T22:25:41"} and len(trains[0]) == 17
         one = {"ctatt": {"errCd": "0", "route": {"@name": "g", "train": {"rn": "1"}}}}
         assert decode("cta_train", one) == [{"rn": "1", "route": "g", "tmst": None}]
         assert decode("cta_train", {"ctatt": {"errCd": "0"}}) == []
         assert decode("cta_train", {"ctatt": {"errCd": "0", "route": [1, {"@name": "p", "train": [2]}]}}) == []
         with pytest.raises(TransportError, match="error 101: Invalid API key"):
             decode("cta_train", {"ctatt": {"errCd": "101", "errNm": "Invalid API key"}})
+
+    def test_mta_bustime_vehicles_captured_with_a_key(self) -> None:
+        events = [e for m in messages("mta_bustime") for e in decoder_of("mta_bustime").decode(m)]  # captured 2026-10-18
+        assert [e["id"] for e in events] == ["MTA NYCT_9773", "MTA NYCT_7114", "MTA NYCT_8438"]
+        assert all(e["vehicle"]["vehicle"]["id"] == e["id"] for e in events)
+
+    def test_wmata_bus_and_rail_feeds_captured_with_a_key(self) -> None:
+        bus, rail = messages("wmata")  # captured 2026-10-18 with a key
+        events = FeedTaggedGtfsRealtimeDecoder("bus").decode(bus) + FeedTaggedGtfsRealtimeDecoder("rail").decode(rail)
+        assert [(e["feed"], e["id"]) for e in events] == [
+            ("bus", "4728"),
+            ("bus", "4722"),
+            ("bus", "4726"),
+            ("rail", "0"),
+            ("rail", "1"),
+            ("rail", "2"),
+        ]
+        assert [e["vehicle"]["vehicle"]["id"] for e in events[3:]] == ["006", "016", "021"]
+
+    def test_nta_vehicles_captured_with_a_key(self) -> None:
+        events = [e for m in messages("nta") for e in decoder_of("nta").decode(m)]  # captured 2026-10-18 with a key
+        assert [(e["id"], e["vehicle"]["vehicle"]["id"]) for e in events] == [("V1", "214"), ("V2", "250"), ("V3", "328")]
+        assert {e["feedTimestamp"] for e in events} == {1792297823} and events[0]["vehicle"]["trip"]["routeId"] == "1 41 c a"
+        assert all(set(e["vehicle"]["position"]) == {"latitude", "longitude"} for e in events)
 
     def test_cta_bus_ignores_no_data_but_not_other_errors(self) -> None:
         events = [e for m in messages("cta_bus") for e in decoder_of("cta_bus").decode(m)]
@@ -571,10 +599,3 @@ class TestKeyGatedDecoders:
         assert decode("entsoe", ack.format("No matching data found for Data item ACTUAL_GENERATION")) == []
         with pytest.raises(TransportError, match=r"999 Authentication failed\."):
             decode("entsoe", ack.format("Authentication failed."))
-
-    def test_lasair_and_gfw_shapes(self) -> None:
-        (alert,) = [e for m in messages("lasair") for e in decoder_of("lasair").decode(m)]
-        assert set(alert) == {"diaObjectId", "decl", "ra", "UTC"}
-        (event,) = [e for m in messages("gfw") for e in decoder_of("gfw").decode(m)]
-        assert event["id"] == "718a4d93c16f78d9a54e9bc56d20c7e0" and event["type"] == "fishing"
-        assert decode("gfw", {"entries": [1, {"id": "a"}]}) == [{"id": "a"}]

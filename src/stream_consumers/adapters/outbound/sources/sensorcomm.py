@@ -46,7 +46,12 @@ class SensorcommFactory(BaseSourceFactory):
         docs_url="https://github.com/opendata-stuttgart/meta/wiki/EN-APIs",
         terms_url="https://sensor.community/en/",
         min_interval_s=150.0,
-        notes="All sensors, last 5 minutes, polled every 150 s; an event is a new measurement id.",
+        notes=(
+            "All sensors, last 5 minutes, polled every 150 s; an event is a new measurement id. The 8.5 MB file "
+            "must arrive whole before the first event (up to 50 s in the rounds of 2026-10-17/18), so windows are "
+            "at least 150 s."
+        ),
+        min_window_s=150.0,
     )
     URL = "https://data.sensor.community/static/v2/data.json"
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from stream_consumers.ports.outbound import ClockPort, SecretProviderPort
@@ -45,3 +45,6 @@ class EnvSecretProvider(SecretProviderPort):
     def get(self, name: str) -> str | None:
         value = self._environ.get(name) or self._file.get(name)
         return value or None
+
+    def file_names(self) -> Sequence[str]:
+        return list(self._file)

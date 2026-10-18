@@ -1,17 +1,22 @@
 {
  "source": "aisstream",
- "origin": "official documentation example (no key yet to capture live messages)",
- "documentation_url": "https://aisstream.io/documentation#messages",
- "fetched_at": "2026-10-13",
- "corrections": [
-  "delivered as binary frames in the service; stored here as UTF-8 text"
- ],
+ "captured_at": "2026-10-18T17:18:44+00:00",
+ "note": "whole-world subscription; the SubscriptionConfirmation, then the first message of each of the four most frequent types (PositionReport, StandardClassBPositionReport, ShipStaticData, StaticDataReport), binary frames stored as UTF-8 text; the API key is not stored",
  "messages": [
   {
-   "body_text": "{\"MessageType\": \"SubscriptionConfirmation\", \"Message\": {\"CompressionEnabled\": true}}"
+   "body_text": "{\"Message\":{\"CompressionEnabled\":true},\"MessageType\":\"SubscriptionConfirmation\"}"
   },
   {
-   "body_text": "{\"MessageType\": \"PositionReport\", \"MetaData\": {\"MMSI\": 368207620, \"ShipName\": \"EXAMPLE VESSEL\", \"Latitude\": 25.7617, \"Longitude\": -80.1918}, \"Message\": {\"PositionReport\": {\"MessageID\": 1, \"UserID\": 368207620, \"Sog\": 12.4, \"Cog\": 86.7, \"TrueHeading\": 87, \"Valid\": true}}}"
+   "body_text": "{\"MetaData\":{\"MMSI\":211437340,\"MMSI_String\":211437340,\"ShipName\":\"TOLLERORT\",\"latitude\":53.54225,\"longitude\":9.86215,\"time_utc\":\"2026-10-18 17:18:43.578083049 +0000 UTC\"},\"MessageType\":\"PositionReport\",\"Message\":{\"PositionReport\":{\"MessageID\":3,\"RepeatIndicator\":0,\"UserID\":211437340,\"Valid\":true,\"NavigationalStatus\":0,\"RateOfTurn\":-127,\"Sog\":9.4,\"PositionAccuracy\":true,\"Longitude\":9.862153333333334,\"Latitude\":53.54224833333333,\"Cog\":139.4,\"TrueHeading\":133,\"Timestamp\":41,\"SpecialManoeuvreIndicator\":0,\"Spare\":0,\"Raim\":false,\"CommunicationState\":4032}}}"
+  },
+  {
+   "body_text": "{\"MetaData\":{\"MMSI\":512009155,\"MMSI_String\":512009155,\"ShipName\":\"GUPPY\",\"latitude\":-23.22712,\"longitude\":-44.6958,\"time_utc\":\"2026-10-18 17:18:43.569870278 +0000 UTC\"},\"MessageType\":\"StandardClassBPositionReport\",\"Message\":{\"StandardClassBPositionReport\":{\"AssignedMode\":false,\"ClassBBand\":true,\"ClassBDisplay\":false,\"ClassBDsc\":true,\"ClassBMsg22\":true,\"ClassBUnit\":false,\"Cog\":360,\"CommunicationState\":85450,\"CommunicationStateIsItdma\":true,\"Latitude\":-23.22712,\"Longitude\":-44.69579833333333,\"MessageID\":18,\"PositionAccuracy\":true,\"Raim\":true,\"RepeatIndicator\":0,\"Sog\":0.1,\"Spare1\":0,\"Spare2\":0,\"Timestamp\":43,\"TrueHeading\":511,\"UserID\":512009155,\"Valid\":true}}}"
+  },
+  {
+   "body_text": "{\"MetaData\":{\"MMSI\":244740753,\"MMSI_String\":244740753,\"ShipName\":\"KLASIENA            \",\"latitude\":53.03965,\"longitude\":4.85008,\"time_utc\":\"2026-10-18 17:18:43.676243191 +0000 UTC\"},\"MessageType\":\"ShipStaticData\",\"Message\":{\"ShipStaticData\":{\"AisVersion\":1,\"CallSign\":\"PE7952 \",\"Destination\":\"LELYSTAD            \",\"Dimension\":{\"A\":31,\"B\":5,\"C\":2,\"D\":4},\"Dte\":false,\"Eta\":{\"Day\":22,\"Hour\":18,\"Minute\":0,\"Month\":6},\"FixType\":15,\"ImoNumber\":0,\"MaximumStaticDraught\":1,\"MessageID\":5,\"Name\":\"KLASIENA            \",\"RepeatIndicator\":0,\"Spare\":false,\"Type\":70,\"UserID\":244740753,\"Valid\":true}}}"
+  },
+  {
+   "body_text": "{\"MetaData\":{\"MMSI\":538070966,\"MMSI_String\":538070966,\"ShipName\":\"FIVE WAVES\",\"latitude\":49.29222,\"longitude\":-123.12535,\"time_utc\":\"2026-10-18 17:18:43.620825842 +0000 UTC\"},\"MessageType\":\"StaticDataReport\",\"Message\":{\"StaticDataReport\":{\"MessageID\":24,\"PartNumber\":false,\"RepeatIndicator\":0,\"ReportA\":{\"Name\":\"FIVE WAVES\",\"Valid\":true},\"ReportB\":{\"CallSign\":\"\",\"Dimension\":{\"A\":0,\"B\":0,\"C\":0,\"D\":0},\"FixType\":0,\"ShipType\":0,\"Spare\":0,\"Valid\":false,\"VenderIDModel\":0,\"VenderIDSerial\":0,\"VendorIDName\":\"\"},\"Reserved\":0,\"UserID\":538070966,\"Valid\":true}}}"
   }
  ]
 }

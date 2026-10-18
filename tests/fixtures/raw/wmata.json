@@ -1,0 +1,19 @@
+{
+ "source": "wmata",
+ "captured_at": "2026-10-18T04:57:22+00:00",
+ "note": "bus and rail GTFS-Realtime vehicle positions (protobuf), each trimmed to the first 3 entities (of bus 328, rail 89); the API key is not stored",
+ "messages": [
+  {
+   "body_b64": "Cg0KAzIuMBAAGLCj0dYGEmIKBDQ3MjgiWgonCggyODQ5NDA3MBIIMjQ6NDU6MDAaCDIwMjYxMDE3IAAqA0Q2MDAAEg8NcIgbQhUXC5rCLQAAAAAYAyABKK+j0dYGOgQ0NjMyQgwKBDQ3MjgSBDQ3MjhIBxJoCgQ0NzIyImAKJwoIMjM0NzEwNzASCDI0OjM2OjAwGggyMDI2MTAxNyAAKgNEMjAwABIUDdOZG0IVBBKawh0AALRCLTXvIEEYCSABKK6j0dYGOgUyMTc4NkIMCgQ0NzIyEgQ0NzIySAcSLwoENDcyNiInEg8NDDAcQhXgN5rCLQAAAAAoi6LR1gZCDAoENDcyNhIENDcyNkgH",
+   "attributes": {
+    "url": "https://api.wmata.com/gtfs/bus-gtfsrt-vehiclepositions.pb"
+   }
+  },
+  {
+   "body_b64": "Cg0KAzIuMBAAGKqj0dYGEpUBCgEwEAAijQEKLQoOMTQ0NDUwOTVfMjA3NDESCDI1OjAwOjAwGggyMDI2MTAxNyAAKgNSRUQwARIPDYw+HEIVCBuawh0AAAhDGAEgASiqo9HWBjoIUEZfQjExX0NCNQoDMDA2EgMxNDgaKThfNzI0NC03MjQ1LjczNjEtNzM2MC43MTI4LTcxMjkuNzU0Ny03NTQ2SAASmAEKATEQACKQAQowCg4xNDYzNzgxNV8yMDc0MRIIMjQ6NDE6MDAaCDIwMjYxMDE3IAAqBk9SQU5HRTABEg8Nf5UbQhVmZ5rCHQAAaUMYBSACKKqj0dYGOghQRl9LMDZfMkI1CgMwMTYSAzk1NhopOF83NTEyLTc1MTMuNzIxMS03MjEwLjczNDgtNzM0OS43NzQ3LTc3NDZIABKVAQoBMhAAIo0BCi0KDjE0NDQ1Mjg4XzIwNzQxEggyNDoyMDowMBoIMjAyNjEwMTcgACoDUkVEMAESDw30lxtCFawLmsIdAACHQxgMIAEoqqPR1gY6CFBGX0IwMV8yQjUKAzAyMRIDMTM2Gik4Xzc0NjYtNzQ2Ny43NTI5LTc1MjguNzcwNi03NzA3Ljc2ODUtNzY4NEgA",
+   "attributes": {
+    "url": "https://api.wmata.com/gtfs/rail-gtfsrt-vehiclepositions.pb"
+   }
+  }
+ ]
+}

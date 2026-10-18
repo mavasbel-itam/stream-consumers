@@ -113,6 +113,12 @@ class SourceDescriptor:
     min_interval_s: float = 0.0
     personal_fields: tuple[str, ...] = ()
     notes: str = ""
+    min_window_s: float = 0.0
+    """Shortest measuring window that yields a rate; a shorter requested window is extended to it."""
+
+    def __post_init__(self) -> None:
+        if self.min_window_s < 0:
+            raise ValueError("min_window_s must not be negative")
 
 
 @dataclass(frozen=True)

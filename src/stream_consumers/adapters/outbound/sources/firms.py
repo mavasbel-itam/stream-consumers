@@ -32,7 +32,13 @@ class FirmsFactory(BaseSourceFactory):
         docs_url="https://firms.modaps.eosdis.nasa.gov/active_fire/",
         terms_url="https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance",
         min_interval_s=900.0,
-        notes="Reads the keyless public 24 h files (VIIRS NOAA-20, NOAA-21, S-NPP and MODIS), polled every 15 min; the MAP_KEY API serves the same products by area and is not needed. An event is a new detection.",
+        notes=(
+            "Reads the keyless public 24 h files (VIIRS NOAA-20, NOAA-21, S-NPP and MODIS), polled every 15 min; "
+            "the MAP_KEY API serves the same products by area and is not needed. An event is a new detection. The "
+            "files (1.1-8.7 MB each) must arrive whole before the first event (up to 73 s in the rounds of "
+            "2026-10-17/18), so windows are at least 150 s."
+        ),
+        min_window_s=150.0,
     )
     URLS = (
         "https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-20-viirs-c2/csv/J1_VIIRS_C2_Global_24h.csv",
