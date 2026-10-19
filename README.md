@@ -6,12 +6,10 @@ final project of COM-22102 *Bases de Datos No Relacionales* (ITAM, Otoño 2026).
 **Private, instructor-only repository.** Students build their own ingestion
 consumer as part of the project; do not share this repository with them.
 
-The decision records live in the course repository `non-relational-dbs`
-(local only, branch `claude-course-streams` until it is merged): the stream
-surveys of 2026-10-12 and the stream-consumers and API keys record of
-2026-10-13 (`docs/research/`), the screening of the Bytewax list
-(`docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md`) and the
-status of every API key (`docs/reference/2026-10-17-15-13-api-key-gated-sources.md`).
+The decision records are in [`docs/`](docs/README.md): the stream surveys,
+how this repository was built, the screening of the Bytewax list and the status
+of every API key
+([`docs/reference/2026-10-17-15-13-api-key-gated-sources.md`](docs/reference/2026-10-17-15-13-api-key-gated-sources.md)).
 
 ## Inclusion rule
 

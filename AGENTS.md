@@ -23,3 +23,8 @@
   src tests`, `uv run pytest --cov` (100 %), and the e2e tier (100 %). Both
   tiers need Docker for the Kafka broker.
 - Documentation in English.
+- Decision records go in `docs/plans/`, `docs/research/` and `docs/reference/`,
+  named `YYYY-MM-DD-HH-MM-<name>.md` from the system clock (UTC), and are listed
+  in `docs/README.md`. Plans and research are historical: never rewrite them,
+  add dated addenda. Reference pages are status pages updated in place with a
+  change-log row. No key value, token or personal value in any document.
