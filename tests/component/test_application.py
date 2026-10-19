@@ -16,7 +16,17 @@ from stream_consumers.application.profile_service import CollectingSink, Profile
 from stream_consumers.application.sample_service import SampleService
 from stream_consumers.application.verdict_service import VerdictService
 from stream_consumers.domain.errors import TransportError, UnknownSourceError
-from stream_consumers.domain.models import Credential, PublishedVolume, RateBasis, RateVerdict, RunReport, RunStatus, SamplingRound, Verdict
+from stream_consumers.domain.models import (
+    Credential,
+    FieldClass,
+    PublishedVolume,
+    RateBasis,
+    RateVerdict,
+    RunReport,
+    RunStatus,
+    SamplingRound,
+    Verdict,
+)
 from stream_consumers.domain.policy import MASK, PersonalDataMasker
 from stream_consumers.ports.inbound import (
     CheckSourcesUseCase,
@@ -307,7 +317,8 @@ class TestProfile:
         fields = {f.name: f for f in profile.fields}
         assert profile.events_inspected == 3 and profile.run.events == 3
         assert fields["user"].distinct == 2 and fields["user"].example == MASK
-        assert fields["n"].mean == 3.0
+        assert fields["n"].mean == 3.0 and fields["n"].field_class is FieldClass.NUMBER
+        assert profile.natural_key == ("n",) and profile.duplicate_ratio == 0.0 and profile.bytes_p95 is not None
         assert [e.payload for e in sinks.sinks["s"].events] == [{"user": MASK, "n": 1}, {"user": MASK, "n": 3}, {"n": 5}]
         assert sinks.sinks["s"].closed and reports.profiles == [[profile]]
 

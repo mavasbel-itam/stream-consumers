@@ -28,16 +28,15 @@ and is left out (`round_rate`). The exceptions and pending cases:
   removed otherwise. Until then it reports `key-pending` and counts for nothing.
   Seven of the eight were measured with their keys on 2026-10-17/19 and accepted
   on 2026-10-19: `cta_bus`, `cta_train`, `mastodon`, `mta_bustime`, `nta` and
-  `wmata` (group C) and `aisstream` (group B); `aisstream` and `mastodon` were
-  accepted while their samplings were still running (provisional, see
-  [Sampling results](#sampling-results)). ENTSO-E (`entsoe`) is still waiting for
-  its key.
+  `wmata` (group C) and `aisstream` (group B), each with a certain median of at
+  least 1 event/s (see [Sampling results](#sampling-results)). ENTSO-E
+  (`entsoe`) is still waiting for its key.
 - Measured below 1 event/s and therefore excluded: Nostr, Stellar,
   ENA, PyPI, Hacker News, MLB; not measurable as configured: BitMEX, APRS-IS,
   Kystverket AIS, zKillboard.
 
-The rate list will be re-checked with this repository's own `sample` command
-(24 hourly rounds); a source whose median falls below the threshold is removed.
+Every rate in the source list was then re-checked with this repository's own
+`sample` command; the results are in [Sampling results](#sampling-results).
 
 - **Lasair and Fink were removed on 2026-10-18**: both relay alerts of the
   Rubin Observatory LSST, and neither had published a single alert since
@@ -58,10 +57,10 @@ The rate list will be re-checked with this repository's own `sample` command
   arrival rate is 0 events/s.
 - **Added on 2026-10-19 from the Bytewax "Awesome Public Real-Time Datasets"
   list** (all 69 free entries screened): `blockchain`, `citibike`, `coinpaprika`,
-  `ndbc`, `ogn`, `sharpe` and `ukflood`, each keyless and measured at ≥ 1
-  event/s in one screening window. They stay only if their own sampling
-  (`sample --stop-when-settled`) gives a median of at least 1 event/s. Not
-  added from that list: EPA AirNow (its hourly file lists 4,415 sites but only
+  `ogn`, `sharpe` and `ukflood`, each keyless with a median of at least 1
+  event/s in their own sampling. NOAA's National Data Buoy Center latest
+  observations (`ndbc`) were added too and removed on 2026-10-19: median 0.268
+  events/s over 3 rounds. Not added from that list: EPA AirNow (its hourly file lists 4,415 sites but only
   1,980 reported in the hour 2026-10-18 22:00 UTC, 0.55 events/s), Yahoo
   Finance (its terms forbid automated collection) and GitHub's REST events
   (the same events as `gharchive`).
@@ -69,9 +68,9 @@ The rate list will be re-checked with this repository's own `sample` command
   events/s on its earliest (night-time) rounds, but its median over 15 earlier
   cross-check rounds was 4.4 events/s; the 24-hour sampling decides.
 
-## Sources (67)
+## Sources (66)
 
-Groups: **keyless** (50), **project document** (7, the sources the project
+Groups: **keyless** (49), **project document** (7, the sources the project
 document lists), **free key** (9: key optional for 3, required for 6, rate
 measured with the key), **candidate** (1, key required, rate not yet measured).
 
@@ -125,7 +124,6 @@ measured with the key), **candidate** (1, key required, rate not yet measured).
 | `ogn` | [Open Glider Network — live positions of gliders, light aircraft and ADS-B traffic](https://wiki.glidernet.org/wiki:subscribe-to-ogn-data) | Open Glider Network | keyless | tcp | push |
 | `velib` | [Vélib' Métropole Paris bike-share station status (GBFS)](https://www.data.gouv.fr/datasets/velib-velos-et-bornes-disponibilite-temps-reel) | Vélib' Métropole (Smovengo) | keyless | http | poll |
 | `metar` | [NOAA aviationweather.gov METAR observations (global airports)](https://aviationweather.gov/data/api/) | NOAA National Weather Service — Aviation Weather Center | keyless | http | poll |
-| `ndbc` | [NOAA National Data Buoy Center — latest observation of every buoy and coastal station](https://www.ndbc.noaa.gov/faq/rt_data_access.shtml) | NOAA National Data Buoy Center (NDBC) | keyless | http | poll |
 | `ukflood` | [Environment Agency (England) — real-time flood-monitoring readings: river level, flow, rainfall, tide](https://environment.data.gov.uk/flood-monitoring/doc/reference) | Environment Agency (England) | keyless | http | poll |
 | `binance` | [Binance spot trades + 24 h tickers](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md) | Binance | project document | websocket | push |
 | `mempool` | [mempool.space — Bitcoin transactions entering the mempool](https://mempool.space/docs/api/websocket) | The Mempool Open Source Project (mempool.space) | project document | websocket | push |
@@ -161,10 +159,12 @@ its key or with a changed consumer (`mbta_v3`, `firms`, `sensorcomm`, `tfl`:
 run `d2`, after the minimum windows and the `mbta_v3` opening-snapshot fix).
 Values come from `uv run stream-consumers verdict data/reports/<run> --planned 24`.
 **passes (certain)** means the median of 24 rounds is at least 1 event/s
-whatever the missing rounds show; **provisional (open)** means the run is still
-going and the source is included on its rounds so far. Read at
-<!-- results-read-at -->2026-10-19 04:27 UTC; the table is replaced with the final results when
-the runs end, and a source whose final median is below 1 event/s is removed.
+whatever the missing rounds show. The runs `d2`, `mastodon-world` and
+`bytewax` were stopped on 2026-10-19 05:38 UTC before 24 rounds; their
+sources are decided on the median of the rounds they completed
+(**passes on N rounds (stopped early)**), and `ndbc`, the only one below
+1 event/s, was removed. Read at
+<!-- results-read-at -->2026-10-19 05:39 UTC; the table lists every source in the catalog.
 
 <!-- results-table -->
 | id | Group | Run (`data/reports/sampling-…`) | Rounds | Rounds ≥ 1/s | Median (events/s) | Rounds span (UTC) | Result |
@@ -179,13 +179,13 @@ the runs end, and a source whose final median is below 1 event/s is removed.
 | `binance` | project document | 20261017 | 24/24 | 24 | 42.585 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `bitfinex` | keyless | 20261017 | 24/24 | 16 | 1.338 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `bitso` | keyless | 20261017 | 24/24 | 24 | 26.812 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `blockchain` | keyless | bytewax-20261019 | 2/24 | 2 | 4.122 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `blockchain` | keyless | bytewax-20261019 | 3/24 | 2 | 1.795 | 10-19 02:45–10-19 04:45 | passes on 3 rounds (stopped early) |
 | `bluesky` | project document | 20261017 | 24/24 | 24 | 275.843 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `bsc_logs` | keyless | 20261017 | 24/24 | 24 | 372.913 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `bybit` | keyless | 20261017 | 24/24 | 24 | 5.499 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `citibike` | keyless | bytewax-20261019 | 2/24 | 2 | 23.563 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `citibike` | keyless | bytewax-20261019 | 3/24 | 2 | 23.368 | 10-19 02:45–10-19 04:45 | passes on 3 rounds (stopped early) |
 | `coinbase` | keyless | 20261017 | 24/24 | 24 | 5.696 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `coinpaprika` | keyless | bytewax-20261019 | 2/24 | 2 | 6.661 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `coinpaprika` | keyless | bytewax-20261019 | 3/24 | 3 | 6.662 | 10-19 02:45–10-19 04:45 | passes on 3 rounds (stopped early) |
 | `crossref` | keyless | 20261017 | 24/24 | 23 | 7.983 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `ct` | keyless | 20261017 | 24/24 | 24 | 263.575 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `cta_bus` | free key | 20261017 | 24/24 | 23 | 17.379 | 10-17 21:00–10-18 19:44 | passes (certain) |
@@ -198,7 +198,7 @@ the runs end, and a source whose final median is below 1 event/s is removed.
 | `entsoe` | candidate | — | 0 | — | — | — | key not set; not measured |
 | `entur` | keyless | 20261017 | 24/24 | 24 | 28.648 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `eth_logs` | keyless | 20261017 | 24/24 | 21 | 43.822 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `firms` | free key | d2-20261018 | 6/24 | 3 | 1.863 | 10-18 22:35–10-19 03:35 | provisional (open) |
+| `firms` | free key | d2-20261018 | 7/24 | 4 | 3.727 | 10-18 22:35–10-19 04:35 | passes on 7 rounds (stopped early) |
 | `gdelt` | project document | 20261017 | 24/24 | 2 | 0.772 | 10-17 21:00–10-18 19:44 | kept below 1/s: the project document lists it |
 | `gemini` | keyless | 20261017 | 24/24 | 24 | 286.996 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `gharchive` | keyless | 20261017 | 24/24 | 24 | 2.939 | 10-17 21:00–10-18 19:44 | passes (certain) |
@@ -207,15 +207,14 @@ the runs end, and a source whose final median is below 1 event/s is removed.
 | `kraken` | keyless | 20261017 | 24/24 | 23 | 2.968 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `mastodon` | free key | mastodon-vivaldi-20261018 | 13/24 | 13 | 2.383 | 10-18 15:37–10-19 03:37 | passes (certain) |
 | `mbta_gtfsrt` | keyless | 20261017 | 24/24 | 24 | 24.620 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `mbta_v3` | free key | d2-20261018 | 6/24 | 6 | 45.927 | 10-18 22:35–10-19 03:35 | provisional (open) |
+| `mbta_v3` | free key | d2-20261018 | 7/24 | 7 | 45.787 | 10-18 22:35–10-19 04:35 | passes on 7 rounds (stopped early) |
 | `mempool` | project document | 20261017 | 24/24 | 24 | 3.554 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `metar` | keyless | 20261017 | 24/24 | 23 | 1.386 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `mta_bustime` | free key | mta_bustime-20261018 | 20/24 | 20 | 50.567 | 10-18 04:56–10-18 23:56 | passes (certain) |
 | `mta_gtfsrt` | keyless | 20261017 | 24/24 | 24 | 10.106 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `ndbc` | keyless | bytewax-20261019 | 2/24 | 0 | 0.418 | 10-19 02:45–10-19 03:45 | provisional (open) |
 | `ndov` | keyless | 20261017 | 24/24 | 24 | 67.944 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `nta` | free key | nta-20261018 | 21/24 | 21 | 11.474 | 10-18 04:28–10-19 00:28 | passes (certain) |
-| `ogn` | keyless | bytewax-20261019 | 2/24 | 2 | 99.007 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `ogn` | keyless | bytewax-20261019 | 3/24 | 3 | 115.615 | 10-19 02:45–10-19 04:45 | passes on 3 rounds (stopped early) |
 | `okx` | keyless | 20261017 | 24/24 | 24 | 30.451 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `opensky` | project document | opensky-20261018 | 12/24 | 12 | 30.477 | 10-18 15:53–10-19 02:53 | passes (certain) |
 | `osm` | keyless | 20261017 | 24/24 | 24 | 30.275 | 10-17 21:00–10-18 19:44 | passes (certain) |
@@ -225,12 +224,12 @@ the runs end, and a source whose final median is below 1 event/s is removed.
 | `rbn` | keyless | 20261017 | 24/24 | 24 | 23.200 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `ris` | keyless | 20261017 | 24/24 | 24 | 2921.520 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `seedlink` | keyless | 20261017 | 24/24 | 23 | 1.873 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `sensorcomm` | keyless | d2-20261018 | 6/24 | 4 | 58.703 | 10-18 22:35–10-19 03:35 | provisional (open) |
-| `sharpe` | keyless | bytewax-20261019 | 2/24 | 2 | 40.419 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `sensorcomm` | keyless | d2-20261018 | 7/24 | 5 | 58.733 | 10-18 22:35–10-19 04:35 | passes on 7 rounds (stopped early) |
+| `sharpe` | keyless | bytewax-20261019 | 3/24 | 3 | 40.396 | 10-19 02:45–10-19 04:45 | passes on 3 rounds (stopped early) |
 | `solana` | keyless | 20261017 | 24/24 | 24 | 1391.347 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `tfl` | free key | d2-20261018 | 6/24 | 4 | 1.716 | 10-18 22:35–10-19 03:35 | provisional (open) |
+| `tfl` | free key | d2-20261018 | 7/24 | 5 | 1.750 | 10-18 22:35–10-19 04:35 | passes on 7 rounds (stopped early) |
 | `twitch` | keyless | 20261017 | 24/24 | 24 | 5.275 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `ukflood` | keyless | bytewax-20261019 | 2/24 | 2 | 4.883 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `ukflood` | keyless | bytewax-20261019 | 3/24 | 3 | 4.865 | 10-19 02:45–10-19 04:45 | passes on 3 rounds (stopped early) |
 | `usgs_water` | keyless | 20261017 | 24/24 | 24 | 2.402 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `velib` | keyless | 20261017 | 24/24 | 24 | 4.578 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `wikimedia` | project document | 20261017 | 24/24 | 24 | 29.034 | 10-17 21:00–10-18 19:44 | passes (certain) |
@@ -283,6 +282,21 @@ uv run stream-consumers profile --max-events 500 --seconds 120 --out data/profil
 Personal fields declared by each source (`personal_fields`) and any e-mail
 address are masked in everything written, unless `consume --raw` is given.
 Captured data and reports go to `data/`, which git ignores.
+
+`profile` writes `profiles-<time>.json` to `--reports`: per source the event
+size in compact UTF-8 JSON (mean and 95th percentile), the share of events equal
+to an earlier one, the natural key (smallest set of at most three fields unique
+across the sample, preferring identifiers and times) and, per flattened field,
+presence, distinct values, kinds, numeric range, a masked example and a class.
+Classes are decided in this order (`FieldClass`, `policy.classify_field`):
+`datetime` (ISO 8601 text, or epoch s/ms/µs/ns or `YYYYMMDD[hhmmss]` within
+400 days of the run), `geographic` (a latitude or longitude whose partner field
+is present, within range), `number` (numbers, or numeric text without a leading
+zero, flagged `numeric_text`), `identifier` (text without spaces with more
+distinct values than a category may have), `free-text` (30+ characters on
+average, mostly with spaces, at least half distinct), `label` (other text with
+that many distinct values), `category` (text or Booleans with at most
+max(20, 5 % of the events) distinct values), `nested` and `empty`.
 
 ## API keys and configuration
 
@@ -424,7 +438,8 @@ the key is not stored).
   0).
 - PublicNode's Ethereum endpoint (`eth_logs`) can acknowledge the unfiltered
   `eth_subscribe("logs")` and then send no logs: on 2026-10-19 it sent none
-  in 60-s windows at 03:53, 04:10 and 04:24 UTC, while `eth_getLogs` returned
+  in 60-s windows at 03:53, 04:10, 04:24 and 05:45 UTC nor in a 180-s window at
+  06:01 UTC, while `eth_getLogs` returned
   666 logs for the latest block, a subscription filtered by one contract
   address received 252 logs in 40 s, and
   the BSC, Base and Polygon endpoints delivered (3 of the 24 rounds of
@@ -466,9 +481,8 @@ the key is not stored).
   only copies of one version and measured 0 events/s, so its window is 150 s.
   `coinpaprika` and `sharpe` refresh their whole
   snapshot together about every 5 min (CoinPaprika: "up to 10 min"; Sharpe's
-  freshness SLA is 600 s), so their windows are 630 s; `ndbc` rewrites its
-  file at irregular times (consecutive rewrites seen 14 min 51 s and 9 min 59 s
-  apart on 2026-10-19) and `ukflood` is polled every 15 min, so theirs are 960 s.
+  freshness SLA is 600 s), so their windows are 630 s; `ukflood` is polled every
+  15 min, so its window is 960 s.
 - The USGS legacy Water Services announce their retirement on 2027-02-22.
 - Branch protection is not available for private repositories on the GitHub Free
   plan; work reaches `main` through pull requests by convention.

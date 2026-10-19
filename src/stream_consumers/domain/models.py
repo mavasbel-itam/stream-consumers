@@ -177,6 +177,20 @@ class RunReport:
     detail: str = ""
 
 
+class FieldClass(Enum):
+    """What a field's observed values are, decided by fixed rules in this order (`policy.classify_field`)."""
+
+    DATETIME = "datetime"  # ISO 8601 text; epoch s/ms/µs/ns or YYYYMMDD[hhmmss] within 400 days of the observation
+    GEOGRAPHIC = "geographic"  # a latitude or longitude with its partner field, both within range
+    NUMBER = "number"  # every value a number, or numeric text without a leading zero (flagged)
+    IDENTIFIER = "identifier"  # text without spaces, more distinct values than a category may have
+    FREE_TEXT = "free-text"  # text averaging 30+ characters, at least half distinct, mostly with spaces
+    LABEL = "label"  # other text with more distinct values than a category may have: names, titles
+    CATEGORY = "category"  # text or Booleans with at most max(20, 5 % of the events) distinct values
+    NESTED = "nested"  # lists, mappings and mixed kinds
+    EMPTY = "empty"  # never carried a value
+
+
 @dataclass(frozen=True)
 class FieldProfile:
     name: str
@@ -187,6 +201,8 @@ class FieldProfile:
     maximum: float | None
     mean: float | None
     example: str
+    field_class: FieldClass
+    numeric_text: bool  # numbers carried as text
 
 
 @dataclass(frozen=True)
@@ -194,6 +210,10 @@ class SourceProfile:
     run: RunReport
     events_inspected: int
     fields: tuple[FieldProfile, ...]
+    bytes_mean: float | None  # compact UTF-8 JSON of each decoded event
+    bytes_p95: int | None
+    duplicate_ratio: float | None  # share of events equal to an earlier event of the sample
+    natural_key: tuple[str, ...]  # smallest field set unique across the sample; empty when none
 
 
 class Verdict(Enum):
