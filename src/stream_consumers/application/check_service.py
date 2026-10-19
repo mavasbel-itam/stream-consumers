@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from stream_consumers.domain.models import RunReport
 from stream_consumers.ports.inbound import CheckSourcesUseCase, ConsumeStreamUseCase
-from stream_consumers.ports.outbound import EventSinkPort, ReportSinkPort
+from stream_consumers.ports.outbound.outputs import EventSinkPort, ReportSinkPort
 
 
 class CheckService(CheckSourcesUseCase):

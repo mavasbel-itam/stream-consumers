@@ -14,19 +14,19 @@ from aiohttp import web
 from google.protobuf.json_format import MessageToJson
 from google.transit import gtfs_realtime_pb2
 
-from stream_consumers.adapters.outbound.auth import OAuthClientCredentials
-from stream_consumers.adapters.outbound.decoders import AvroSchemaInKeyDecoder, GtfsRealtimeDecoder, JsonDecoder
-from stream_consumers.adapters.outbound.http import AiohttpClient
-from stream_consumers.adapters.outbound.sources import FACTORIES
-from stream_consumers.adapters.outbound.sources.cta_bus import CtaBusDecoder, CtaBusSource
-from stream_consumers.adapters.outbound.sources.mastodon import MastodonSource, MastodonStreamDecoder
-from stream_consumers.adapters.outbound.sources.wmata import FeedTaggedGtfsRealtimeDecoder
-from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
-from stream_consumers.adapters.outbound.transports.kafka import KafkaSource
+from stream_consumers.adapters.outbound.providers.auth import OAuthClientCredentials
+from stream_consumers.adapters.outbound.providers.decoders import AvroSchemaInKeyDecoder, GtfsRealtimeDecoder, JsonDecoder
+from stream_consumers.adapters.outbound.providers.http import AiohttpClient
+from stream_consumers.adapters.outbound.providers.sources import FACTORIES
+from stream_consumers.adapters.outbound.providers.sources.cta_bus import CtaBusDecoder, CtaBusSource
+from stream_consumers.adapters.outbound.providers.sources.mastodon import MastodonSource, MastodonStreamDecoder
+from stream_consumers.adapters.outbound.providers.sources.wmata import FeedTaggedGtfsRealtimeDecoder
+from stream_consumers.adapters.outbound.providers.transports.http_poll import HttpPollSource
+from stream_consumers.adapters.outbound.providers.transports.kafka import KafkaSource
 from stream_consumers.domain.errors import DecodeError, TransportError
 from stream_consumers.domain.models import RawMessage
 from stream_consumers.domain.policy import Backoff
-from stream_consumers.ports.outbound import EventSourcePort, HttpResponse
+from stream_consumers.ports.outbound.providers import EventSourcePort, HttpResponse
 from tests.servers import http_server, kafka_broker, kafka_produce
 from tests.support import FakeClock, FakeHttp, deps, descriptor, messages, ok
 

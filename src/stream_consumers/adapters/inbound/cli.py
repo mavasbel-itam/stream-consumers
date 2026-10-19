@@ -13,18 +13,19 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TextIO
 
-from stream_consumers.adapters.outbound.held_keys import StaticHeldKeyCatalog
-from stream_consumers.adapters.outbound.history import JsonSamplingHistory
-from stream_consumers.adapters.outbound.http import AiohttpClient
-from stream_consumers.adapters.outbound.registry import FactoryRegistry
-from stream_consumers.adapters.outbound.sinks import (
+from stream_consumers.adapters.outbound.outputs.history import JsonSamplingHistory
+from stream_consumers.adapters.outbound.outputs.sinks import (
     JsonlFileEventSink,
     JsonlFileSinkFactory,
     JsonReportSink,
     NullEventSink,
     TextStreamEventSink,
 )
-from stream_consumers.adapters.outbound.system import EnvSecretProvider, SystemClock
+from stream_consumers.adapters.outbound.providers.held_keys import StaticHeldKeyCatalog
+from stream_consumers.adapters.outbound.providers.http import AiohttpClient
+from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
+from stream_consumers.adapters.outbound.system.clock import SystemClock
+from stream_consumers.adapters.outbound.system.environment import EnvSecretProvider
 from stream_consumers.application.check_service import CheckService
 from stream_consumers.application.configuration_service import ConfigurationService
 from stream_consumers.application.consume_service import ConsumeService
@@ -34,18 +35,18 @@ from stream_consumers.application.sample_service import SampleService
 from stream_consumers.application.verdict_service import VerdictService
 from stream_consumers.domain.errors import StreamConsumersError
 from stream_consumers.domain.models import ConfigKind, RateVerdict, RunReport, RunStatus, Verdict
-from stream_consumers.ports.outbound import (
-    ClockPort,
-    EventSinkPort,
+from stream_consumers.ports.outbound.outputs import EventSinkPort
+from stream_consumers.ports.outbound.providers import (
     HeldKeyCatalogPort,
     HttpClientPort,
     SourceDependencies,
     SourceFactoryPort,
     SourceRegistryPort,
 )
+from stream_consumers.ports.outbound.system import ClockPort
 
 USER_AGENT = "stream-consumers/0.1 (ITAM COM-22102 course research; non-commercial)"
-DEFAULT_CATALOG = "stream_consumers.adapters.outbound.sources"
+DEFAULT_CATALOG = "stream_consumers.adapters.outbound.providers.sources"
 SIGPIPE_EXIT = 141  # 128 + SIGPIPE: what a shell reports for a writer whose reader closed the pipe
 DEFAULT_SOURCES_HELP = "source ids (default: every source outside the low-rate group E; name a low-rate source to run it)"
 

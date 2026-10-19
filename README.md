@@ -466,8 +466,8 @@ A source whose required credentials are missing reports `key-pending` in `check`
 
 `.env` holds only the variables of `.env.example`, and every key the project
 has is kept in it. Keys that no source reads are **held keys**, declared in
-`stream_consumers/adapters/outbound/held_keys.py` (`HELD_KEYS`, exported by the
-catalog next to `FACTORIES`) and listed by `keys` as `held`: secondary keys
+`stream_consumers/adapters/outbound/providers/held_keys.py` (`HELD_KEYS`,
+exported by the catalog next to `FACTORIES`) and listed by `keys` as `held`: secondary keys
 (NTA, WMATA, TfL), WMATA and TfL products the sources do not read, the
 Mastodon applications' client id and secret and the tokens of other instances
 (mastodon.world, mastodon.social), the Coinbase CDP key, the Bitso and Binance
@@ -514,40 +514,91 @@ Mastodon statuses are personal data and are masked in stored samples.
 
 ## Architecture
 
-Hexagonal (ports and adapters) with split inbound and outbound ports:
+Hexagonal (ports and adapters) with split inbound and outbound ports. Inbound
+and outbound name who starts the conversation, not which way the data flows.
+Alistair Cockburn's
+[original article](https://alistair.cockburn.us/hexagonal-architecture/) puts it
+this way: "A primary actor is an actor that drives the application […]. A
+secondary actor is one that the application drives, either to get answers from
+or to merely notify. The distinction between primary and secondary lies in who
+triggers or is in charge of the conversation." The command line drives the
+application, so it is the inbound (driving) adapter. The data providers are
+outbound (driven): data comes in from them, but `ConsumeService` opens each
+source, pulls its events, decides when the window ends (`--seconds`,
+`--max-events`) and closes it, the same way an application reads from a
+database. The outputs (terminal, JSON-lines files, reports) are outbound too.
+The outbound side is therefore split by purpose: data providers, outputs, and
+the operating system.
+
+```mermaid
+flowchart LR
+  user([operator, scripts, tests]) --> cli
+  subgraph inbound [inbound: driving]
+    cli[adapters/inbound/cli.py<br/>composition root]
+  end
+  subgraph core [application and domain]
+    usecases[ports/inbound.py<br/>use cases] --> services[application/<br/>one service per use case]
+    services --> domain[domain/<br/>models and pure rules]
+  end
+  cli --> usecases
+  subgraph outbound [outbound: driven]
+    providers[ports/outbound/providers.py<br/>adapters/outbound/providers/]
+    outputs[ports/outbound/outputs.py<br/>adapters/outbound/outputs/]
+    system[ports/outbound/system.py<br/>adapters/outbound/system/]
+  end
+  services -->|open, pull, close| providers
+  services -->|write, read back| outputs
+  services -->|time, settings| system
+  providers --> internet([public data providers])
+  outputs --> files([terminal, data/ files])
+```
 
 ```text
 src/stream_consumers/
-  domain/        models, pure rules (rates, change detection, back-off, masking, field profiles), errors
+  domain/            models, pure rules (rates, change detection, back-off, masking, field profiles), errors
   ports/
-    inbound.py   use cases: ListSources, ConsumeStream, CheckSources, SampleSources, JudgeSampling,
-                 ProfileSources, DescribeConfiguration
-    outbound.py  Clock, SecretProvider, HttpClient, RequestAuth, Decoder, EventSource, SourceFactory,
-                 HeldKeyCatalog, SourceRegistry, EventSink, EventSinkFactory, SamplingHistory, ReportSink
-  application/   one service per inbound port; depends on ports and domain only
+    inbound.py       use cases: ListSources, ConsumeStream, CheckSources, SampleSources, JudgeSampling,
+                     ProfileSources, DescribeConfiguration
+    outbound/
+      providers.py   EventSource, SourceFactory, SourceRegistry, Decoder, HttpClient, RequestAuth, HeldKeyCatalog
+      outputs.py     EventSink, EventSinkFactory, ReportSink, SamplingHistory
+      system.py      Clock, SecretProvider
+  application/       one service per inbound port; depends on ports and domain only
   adapters/
-    inbound/cli.py            the composition root: the only module that names concrete classes
-    outbound/transports/      EventSourcePort → BaseEventSource → DecodingEventSource → Push / Poll / FileDrop,
-                              and MergedEventSource; one module per transport
-    outbound/decoders.py      DecoderPort → BaseDecoder → Json / Line / Csv / GtfsRealtime / AvroSchemaInKey
-    outbound/auth.py          RequestAuthPort → OAuthClientCredentials
-    outbound/sources/         one module per source (descriptor + decoder + factory), families in _families.py
-    outbound/held_keys.py     HeldKeyCatalogPort → StaticHeldKeyCatalog (keys kept in .env that no source reads)
-    outbound/history.py       SamplingHistoryPort → JsonSamplingHistory (reads round-*.json for `verdict`)
-    outbound/{http,sinks,system,registry}.py
+    inbound/cli.py   the composition root: the only module that names concrete classes
+    outbound/
+      providers/
+        sources/       one module per source (descriptor + decoder + factory), families in _families.py
+        transports/    EventSourcePort → BaseEventSource → DecodingEventSource → Push / Poll / FileDrop,
+                       and MergedEventSource; one module per transport
+        decoders.py    DecoderPort → BaseDecoder → Json / Line / Csv / GtfsRealtime / AvroSchemaInKey
+        auth.py        RequestAuthPort → OAuthClientCredentials
+        http.py        HttpClientPort → AiohttpClient
+        registry.py    SourceRegistryPort → FactoryRegistry
+        held_keys.py   HeldKeyCatalogPort → StaticHeldKeyCatalog (keys kept in .env that no source reads)
+      outputs/
+        sinks.py       EventSinkPort → Null / TextStream → JsonlFile, EventSinkFactoryPort → JsonlFileSinkFactory,
+                       ReportSinkPort → JsonReportSink
+        history.py     SamplingHistoryPort → JsonSamplingHistory (reads round-*.json for `verdict` and `--continue-from`)
+      system/
+        clock.py       ClockPort → SystemClock
+        environment.py SecretProviderPort → EnvSecretProvider (process environment, then .env)
+```
 
 Transports: WebSocket, SSE, MQTT, NATS, ZeroMQ, TCP, HTTP polling, file drops and
-Kafka (aiokafka). `raise_if_cancelling` in `transports/base.py` stops every retry
-loop when its task is being cancelled, even if a client library turns the
-CancelledError into another exception (websockets 15–17 raises AssertionError
-when `recv()` is cancelled while reassembling a fragmented message and another
-frame is already queued; without the check a merged source never stopped).
-```
+Kafka (aiokafka). `raise_if_cancelling` in `providers/transports/base.py` stops
+every retry loop when its task is being cancelled, even if a client library
+turns the CancelledError into another exception (websockets 15–17 raises
+AssertionError when `recv()` is cancelled while reassembling a fragmented
+message and another frame is already queued; without the check a merged source
+never stopped).
 
 `tests/unit/test_architecture.py` checks these rules on the code: the domain
 imports nothing outside itself, ports and application import only the domain and
-ports, every adapter and service class extends a port, and only the CLI imports
-the services.
+ports, every adapter and service class extends a port, only the CLI imports the
+services, the outbound adapters sit only in the three groups, every outbound
+adapter class implements a port of its own group, no outbound group imports
+another, and the provider ports and output ports do not depend on each other.
 
 ## Tests
 

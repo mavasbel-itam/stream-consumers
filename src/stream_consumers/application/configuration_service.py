@@ -6,7 +6,8 @@ from collections.abc import Sequence
 
 from stream_consumers.domain.models import ConfigKind, ConfigStatus, SourceDescriptor
 from stream_consumers.ports.inbound import DescribeConfigurationUseCase
-from stream_consumers.ports.outbound import HeldKeyCatalogPort, SecretProviderPort, SourceRegistryPort
+from stream_consumers.ports.outbound.providers import HeldKeyCatalogPort, SourceRegistryPort
+from stream_consumers.ports.outbound.system import SecretProviderPort
 
 TEMPLATE_HEADER = """\
 # stream-consumers configuration. Copy to .env (git-ignored) and fill in what you have.

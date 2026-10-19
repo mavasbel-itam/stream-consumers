@@ -11,20 +11,20 @@ from pathlib import Path
 
 import pytest
 
-from stream_consumers.adapters.outbound.auth import OAuthClientCredentials
-from stream_consumers.adapters.outbound.decoders import JsonDecoder
-from stream_consumers.adapters.outbound.sources import FACTORIES
-from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
-from stream_consumers.adapters.outbound.sources.mbta_v3 import MbtaStreamDecoder
-from stream_consumers.adapters.outbound.sources.wmata import FeedTaggedGtfsRealtimeDecoder
-from stream_consumers.adapters.outbound.transports.base import DecodingEventSource, MergedEventSource
-from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
-from stream_consumers.adapters.outbound.transports.kafka import KafkaSource
-from stream_consumers.adapters.outbound.transports.sse import SseSource
+from stream_consumers.adapters.outbound.providers.auth import OAuthClientCredentials
+from stream_consumers.adapters.outbound.providers.decoders import JsonDecoder
+from stream_consumers.adapters.outbound.providers.sources import FACTORIES
+from stream_consumers.adapters.outbound.providers.sources._base import BaseSourceFactory
+from stream_consumers.adapters.outbound.providers.sources.mbta_v3 import MbtaStreamDecoder
+from stream_consumers.adapters.outbound.providers.sources.wmata import FeedTaggedGtfsRealtimeDecoder
+from stream_consumers.adapters.outbound.providers.transports.base import DecodingEventSource, MergedEventSource
+from stream_consumers.adapters.outbound.providers.transports.http_poll import HttpPollSource
+from stream_consumers.adapters.outbound.providers.transports.kafka import KafkaSource
+from stream_consumers.adapters.outbound.providers.transports.sse import SseSource
 from stream_consumers.domain.errors import DecodeError, MissingCredentialError, TransportError
 from stream_consumers.domain.models import Credential, Group, RawMessage
 from stream_consumers.domain.policy import PersonalDataMasker
-from stream_consumers.ports.outbound import Credentials, DecoderPort, EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound.providers import Credentials, DecoderPort, EventSourcePort, SourceDependencies
 from tests.support import ScriptedSource, deps, descriptor, messages
 
 BY_ID = {f.descriptor.id: f for f in FACTORIES}
@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def module(source_id: str):  # type: ignore[no-untyped-def]
-    return importlib.import_module(f"stream_consumers.adapters.outbound.sources.{source_id}")
+    return importlib.import_module(f"stream_consumers.adapters.outbound.providers.sources.{source_id}")
 
 
 def all_credentials(source_id: str) -> dict[str, str]:

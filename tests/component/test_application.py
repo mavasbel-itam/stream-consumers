@@ -8,10 +8,10 @@ from collections.abc import AsyncGenerator, Callable, Mapping, Sequence
 import pytest
 
 import stream_consumers.application.consume_service as consume_module
-from stream_consumers.adapters.outbound.registry import FactoryRegistry
-from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
-from stream_consumers.adapters.outbound.system import SystemClock
-from stream_consumers.adapters.outbound.transports.base import BaseEventSource
+from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
+from stream_consumers.adapters.outbound.providers.sources._base import BaseSourceFactory
+from stream_consumers.adapters.outbound.providers.transports.base import BaseEventSource
+from stream_consumers.adapters.outbound.system.clock import SystemClock
 from stream_consumers.application.check_service import CheckService
 from stream_consumers.application.consume_service import ConsumeService
 from stream_consumers.application.list_service import ListService
@@ -41,7 +41,7 @@ from stream_consumers.ports.inbound import (
     ProfileSourcesUseCase,
     SampleSourcesUseCase,
 )
-from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound.providers import Credentials, EventSourcePort, SourceDependencies
 from tests.support import FakeClock, ListSink, ListSinkFactory, MemoryReports, ScriptedSource, deps, descriptor
 
 

@@ -30,10 +30,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from stream_consumers.adapters.inbound.cli import USER_AGENT
-from stream_consumers.adapters.outbound.held_keys import StaticHeldKeyCatalog
-from stream_consumers.adapters.outbound.registry import FactoryRegistry
-from stream_consumers.adapters.outbound.sources import FACTORIES
-from stream_consumers.adapters.outbound.system import EnvSecretProvider
+from stream_consumers.adapters.outbound.providers.held_keys import StaticHeldKeyCatalog
+from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
+from stream_consumers.adapters.outbound.providers.sources import FACTORIES
+from stream_consumers.adapters.outbound.system.environment import EnvSecretProvider
 from stream_consumers.application.configuration_service import ConfigurationService
 from stream_consumers.domain.models import ConfigKind
 from tests.support import deps

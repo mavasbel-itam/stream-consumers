@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 from stream_consumers.domain.models import SourceDescriptor
 from stream_consumers.ports.inbound import ListSourcesUseCase
-from stream_consumers.ports.outbound import SourceRegistryPort
+from stream_consumers.ports.outbound.providers import SourceRegistryPort
 
 
 class ListService(ListSourcesUseCase):

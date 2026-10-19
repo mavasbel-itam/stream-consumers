@@ -19,7 +19,7 @@ directory, from the source's descriptor, or from a research record in
 ## 1. Group E in the code
 
 - **Kept and tested like every other source.** Each has its module in
-  `src/stream_consumers/adapters/outbound/sources/`, a row in
+  `src/stream_consumers/adapters/outbound/providers/sources/`, a row in
   `tests/unit/test_sources.py::EXPECTED` (fink has no captured message: its
   Kafka transport and Avro decoder are tested against a local broker in the
   component tier, its factory in the unit tier), and is inside the 100 %
@@ -186,5 +186,6 @@ From `docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md`
 
 | Date (UTC) | Change |
 |---|---|
+| 2026-10-19 23:35 | Source modules moved to `src/stream_consumers/adapters/outbound/providers/sources/` (outbound adapters regrouped by purpose); nothing else changed. |
 | 2026-10-19 (correction) | Page rewritten from the records. The first version had: invented figures for CoinCheck ("30 trades in 600 s"), DexPaprika ("14 swaps in 360 s"), USGS ("100–300 earthquakes a day") and Transport for NSW ("5 requests per minute, burst 10 per 15 s", and called it rejected); rounds at ≥ 1 event/s of 4 for `bitstamp` (3) and 6 for `npm` (9); Bitstamp as two pairs (five are subscribed); "no Lasair alerts in 90 days" (the record says 0 objects in 30 days); cause statements without evidence for `dt_rail_trains` and `npm`; and `lasair` reading `LASAIR_API_TOKEN` with a default topic `lasair_all` (the source reads `LASAIR_KAFKA_TOPIC` and has no default). Added: the group value `"E"`, the exclusion of group E from bulk commands, the 22 GFW readings, the ENTSO-E evidence now under `data/reports/entsoe-20261019/`, and section 3.1. |
 | 2026-10-19 18:27 | Page created with the 8 group E sources (stream-consumers `e32490d`). |

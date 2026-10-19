@@ -8,7 +8,9 @@ from stream_consumers.domain.errors import MissingCredentialError, UnknownSource
 from stream_consumers.domain.models import Event, RateBasis, RunReport, RunStatus
 from stream_consumers.domain.policy import PersonalDataMasker, attribute_count, median, rate
 from stream_consumers.ports.inbound import ConsumeStreamUseCase
-from stream_consumers.ports.outbound import ClockPort, EventSinkPort, SourceRegistryPort
+from stream_consumers.ports.outbound.outputs import EventSinkPort
+from stream_consumers.ports.outbound.providers import SourceRegistryPort
+from stream_consumers.ports.outbound.system import ClockPort
 
 ATTRIBUTE_SAMPLE = 1000
 """Attributes are counted on the first events only; counting every event would slow fast streams."""

@@ -13,18 +13,18 @@ import time
 from collections.abc import AsyncGenerator, Callable, Mapping
 from dataclasses import replace
 
-from stream_consumers.adapters.outbound.auth import OAuthClientCredentials
-from stream_consumers.adapters.outbound.decoders import AvroSchemaInKeyDecoder, CsvDecoder, JsonDecoder, LineDecoder
-from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
-from stream_consumers.adapters.outbound.transports.base import BaseEventSource, FileDropSource, FileLocation, MergedEventSource
-from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
-from stream_consumers.adapters.outbound.transports.kafka import KafkaSource
-from stream_consumers.adapters.outbound.transports.mqtt import MqttSource
-from stream_consumers.adapters.outbound.transports.nats import NatsSource
-from stream_consumers.adapters.outbound.transports.sse import SseSource
-from stream_consumers.adapters.outbound.transports.tcp import TcpLineSource, TcpRecordSource
-from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
-from stream_consumers.adapters.outbound.transports.zeromq import ZmqSubSource
+from stream_consumers.adapters.outbound.providers.auth import OAuthClientCredentials
+from stream_consumers.adapters.outbound.providers.decoders import AvroSchemaInKeyDecoder, CsvDecoder, JsonDecoder, LineDecoder
+from stream_consumers.adapters.outbound.providers.sources._base import BaseSourceFactory
+from stream_consumers.adapters.outbound.providers.transports.base import BaseEventSource, FileDropSource, FileLocation, MergedEventSource
+from stream_consumers.adapters.outbound.providers.transports.http_poll import HttpPollSource
+from stream_consumers.adapters.outbound.providers.transports.kafka import KafkaSource
+from stream_consumers.adapters.outbound.providers.transports.mqtt import MqttSource
+from stream_consumers.adapters.outbound.providers.transports.nats import NatsSource
+from stream_consumers.adapters.outbound.providers.transports.sse import SseSource
+from stream_consumers.adapters.outbound.providers.transports.tcp import TcpLineSource, TcpRecordSource
+from stream_consumers.adapters.outbound.providers.transports.websocket import WebSocketSource
+from stream_consumers.adapters.outbound.providers.transports.zeromq import ZmqSubSource
 from stream_consumers.domain.errors import TransportError
 from stream_consumers.domain.models import (
     Credential,
@@ -38,8 +38,7 @@ from stream_consumers.domain.models import (
     Transport,
 )
 from stream_consumers.domain.policy import Backoff, ChangeDetector
-from stream_consumers.ports.outbound import (
-    ClockPort,
+from stream_consumers.ports.outbound.providers import (
     Credentials,
     DecoderPort,
     EventSourcePort,
@@ -47,6 +46,7 @@ from stream_consumers.ports.outbound import (
     SourceDependencies,
     SourceFactoryPort,
 )
+from stream_consumers.ports.outbound.system import ClockPort
 
 FAST = Backoff(initial_s=0.05, factor=1, max_s=0.05, max_attempts=2)
 

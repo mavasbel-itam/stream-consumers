@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 from stream_consumers.domain.models import ConfigStatus, RateVerdict, RunReport, SamplingRound, SourceDescriptor, SourceProfile
-from stream_consumers.ports.outbound import EventSinkPort
+from stream_consumers.ports.outbound.outputs import EventSinkPort
 
 
 class ListSourcesUseCase(ABC):

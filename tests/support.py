@@ -21,17 +21,9 @@ from stream_consumers.domain.models import (
     SourceProfile,
     Transport,
 )
-from stream_consumers.ports.outbound import (
-    ClockPort,
-    EventSinkFactoryPort,
-    EventSinkPort,
-    EventSourcePort,
-    HttpClientPort,
-    HttpResponse,
-    ReportSinkPort,
-    SecretProviderPort,
-    SourceDependencies,
-)
+from stream_consumers.ports.outbound.outputs import EventSinkFactoryPort, EventSinkPort, ReportSinkPort
+from stream_consumers.ports.outbound.providers import EventSourcePort, HttpClientPort, HttpResponse, SourceDependencies
+from stream_consumers.ports.outbound.system import ClockPort, SecretProviderPort
 
 FIXTURES = Path(__file__).parent / "fixtures" / "raw"
 
