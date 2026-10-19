@@ -68,6 +68,9 @@ class ConsumeService(ConsumeStreamUseCase):
                 events += 1
                 if len(counts) < ATTRIBUTE_SAMPLE:
                     counts.append(attribute_count(payload))
+                # A source whose next record is always ready never suspends; without this turn it would hold
+                # the event loop for its whole window and the sources consumed beside it would get nothing.
+                await asyncio.sleep(0)
         except Exception as exc:  # a provider failure is a measured result, never a crash
             failed, detail = True, f"{type(exc).__name__}: {exc}"[:500]
         finally:

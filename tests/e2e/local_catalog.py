@@ -515,5 +515,6 @@ class Local(BaseSourceFactory):
         return self._builder(self.DESCRIPTOR, deps)
 
 
-FACTORIES: tuple[SourceFactoryPort, ...] = tuple(Local(source_id) for source_id in BUILDERS)
+# stalling blocks the event loop on purpose, so it has its own catalog (stalling_catalog.py)
+FACTORIES: tuple[SourceFactoryPort, ...] = tuple(Local(source_id) for source_id in BUILDERS if source_id != "stalling")
 HELD_KEYS = (HeldKey("keyed", ("E2E_SPARE_KEY",), "Local provider", "Second key of the account.", "https://sign.up/e2e"),)
