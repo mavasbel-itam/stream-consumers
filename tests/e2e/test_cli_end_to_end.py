@@ -453,6 +453,31 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
         assert code == 2 and "held keys must not be variables a source reads: E2E_KEY" in err
 
 
+async def test_a_reader_that_closes_the_pipe_early_gets_no_traceback() -> None:
+    # like `stream-consumers list | head -1`: the reader is gone before the command writes
+    read_end, write_end = os.pipe()
+    os.close(read_end)
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "coverage",
+        "run",
+        "--rcfile",
+        str(ROOT / ".coveragerc.e2e"),
+        "-m",
+        "stream_consumers",
+        "--catalog",
+        "tests.e2e.local_catalog",
+        "list",
+        cwd=ROOT,
+        stdout=write_end,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    os.close(write_end)
+    _, err = await asyncio.wait_for(process.communicate(), 120)
+    assert (process.returncode, err.decode()) == (141, "")
+
+
 async def test_a_disguised_cancellation_still_ends_the_run_on_time(tmp_path: Path) -> None:
     async with environment() as addresses:
         started = time.monotonic()

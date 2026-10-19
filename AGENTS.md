@@ -16,6 +16,11 @@
 - A source's credentials get a row in the README key table and its settings a
   place in the README settings list (`tests/unit/test_documentation.py`); a CLI
   option with a default states it in its help (`tests/unit/test_cli.py`).
+- The README's "Reference links" section lists every source's documentation,
+  terms and sign-up link and links every page under `docs/`; "Running the
+  consumers" documents every command and every option with its default. The
+  same `tests/unit/test_documentation.py` fails when one is missing; a new
+  source, `docs/` page or CLI option adds its row in the same change.
 - Inclusion rule: median measured rate of at least 1 event/s (GDELT is the
   documented exception). A source that needs a key nobody has configured is a
   candidate (`Group.CANDIDATE`): built and tested, but accepted only after its

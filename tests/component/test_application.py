@@ -21,6 +21,7 @@ from stream_consumers.application.verdict_service import VerdictService
 from stream_consumers.domain.errors import TransportError, UnknownSourceError
 from stream_consumers.domain.models import (
     Credential,
+    Event,
     FieldClass,
     Group,
     PublishedVolume,
@@ -179,6 +180,17 @@ class TestConsume:
         factory, _ = scripted("s", [{"a": 1}, {"a": 1, "b": 2, "c": 3}], clock)
         report = await ConsumeService(registry(clock, factory), clock).consume("s", 5, ListSink())
         assert report.events == 2 and report.attributes_median == 1.0
+
+    async def test_a_failing_sink_ends_the_run_and_is_not_reported_as_a_provider_failure(self) -> None:
+        class ClosedPipe(ListSink):
+            def write(self, event: Event) -> None:
+                raise BrokenPipeError(32, "Broken pipe")
+
+        clock = FakeClock()
+        factory, made = scripted("s", [{"a": 1}, {"a": 2}], clock)
+        with pytest.raises(BrokenPipeError):
+            await ConsumeService(registry(clock, factory), clock).consume("s", 5, ClosedPipe())
+        assert made[0].closed
 
     @pytest.mark.parametrize("seconds, max_events", [(0, None), (-1, None), (5, 0)])
     async def test_rejects_invalid_limits(self, seconds: float, max_events: int | None) -> None:

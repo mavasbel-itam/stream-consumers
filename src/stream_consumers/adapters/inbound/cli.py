@@ -46,6 +46,7 @@ from stream_consumers.ports.outbound import (
 
 USER_AGENT = "stream-consumers/0.1 (ITAM COM-22102 course research; non-commercial)"
 DEFAULT_CATALOG = "stream_consumers.adapters.outbound.sources"
+SIGPIPE_EXIT = 141  # 128 + SIGPIPE: what a shell reports for a writer whose reader closed the pipe
 DEFAULT_SOURCES_HELP = "source ids (default: every source outside the low-rate group E; name a low-rate source to run it)"
 
 
@@ -183,6 +184,20 @@ async def _run(args: argparse.Namespace, registry: SourceRegistryPort, clock: Cl
 
 def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: TextIO | None = None) -> int:
     out, err = out or sys.stdout, err or sys.stderr
+    try:
+        code = _main(argv, out, err)
+        out.flush()
+    except BrokenPipeError:
+        # the reader closed the pipe early (e.g. `list | head`): stop without a traceback and point the
+        # descriptor at /dev/null so the interpreter's final flush cannot fail again
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, out.fileno())
+        os.close(devnull)
+        return SIGPIPE_EXIT
+    return code
+
+
+def _main(argv: Sequence[str] | None, out: TextIO, err: TextIO) -> int:
     args = _parser().parse_args(argv)
     clock = SystemClock()
     http: HttpClientPort = AiohttpClient(USER_AGENT)
