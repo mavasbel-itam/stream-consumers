@@ -44,7 +44,7 @@ class CtaTrainFactory(BaseSourceFactory):
         name="CTA Train Tracker locations — every Chicago 'L' train",
         category="Transport",
         provider="Chicago Transit Authority (CTA)",
-        group=Group.CANDIDATE,
+        group=Group.FREE_KEY,
         delivery=Delivery.POLL,
         transport=Transport.HTTP,
         endpoint="https://lapi.transitchicago.com/api/1.0/ttpositions.aspx?key=<CTA_TRAIN_KEY>&rt=<line>&outputType=JSON",

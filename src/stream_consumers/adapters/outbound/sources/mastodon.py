@@ -74,23 +74,29 @@ class MastodonFactory(BaseSourceFactory):
         id="mastodon",
         name="Mastodon federated public timeline (statuses, edits, deletions)",
         category="Games, media & social",
-        provider="Mastodon (default instance mastodon.social, Mastodon gGmbH)",
-        group=Group.CANDIDATE,
+        provider="Mastodon (default instance social.vivaldi.net, funded by Vivaldi Technologies)",
+        group=Group.FREE_KEY,
         delivery=Delivery.PUSH,
         transport=Transport.SSE,
-        endpoint="https://streaming.mastodon.social/api/v1/streaming/public",
+        endpoint="https://social.vivaldi.net/api/v1/streaming/public",
         docs_url="https://docs.joinmastodon.org/methods/streaming/",
-        terms_url="https://mastodon.social/terms-of-service",
+        terms_url="https://social.vivaldi.net/terms-of-service",
         credential=Credential(
             ("MASTODON_ACCESS_TOKEN",),
-            "https://mastodon.social/auth/sign_up",
+            "https://social.vivaldi.net/auth/sign_up",
             how_to_get=(
                 "A user account on the instance, then a user access token with scope read:statuses (OAuth flow: "
                 "https://docs.joinmastodon.org/client/token/; the web interface's Preferences → Development page is "
                 "not described in the official docs). Since Mastodon 4.2 app-only tokens are refused."
             ),
         ),
-        settings=(Setting("MASTODON_INSTANCE", "mastodon.social", "Host name of the Mastodon instance whose federated timeline is read."),),
+        settings=(
+            Setting(
+                "MASTODON_INSTANCE",
+                "social.vivaldi.net",
+                "Host name of the Mastodon instance whose federated timeline is read; it must allow live feeds and issue the token.",
+            ),
+        ),
         personal_fields=(
             "account.*",
             "content",
@@ -109,8 +115,9 @@ class MastodonFactory(BaseSourceFactory):
         ),
         notes=(
             "Statuses are written by people: account names, content and links are personal data and are masked in "
-            "stored samples. mastodon.social's community standards ban 'using automation to disrupt conversations'; "
-            "this consumer only reads."
+            "stored samples. The token is valid only on the instance that issued it. social.vivaldi.net allows live "
+            "feeds of local and remote posts (mastodon.social has them disabled); mastodon.world was measured as a "
+            "second option. The consumer only reads."
         ),
     )
 

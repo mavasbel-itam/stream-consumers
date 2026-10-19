@@ -262,6 +262,41 @@ class TestAiohttpClient:
     async def test_close_before_use(self) -> None:
         await AiohttpClient("t").close()
 
+    async def test_a_slow_body_that_keeps_arriving_outlasts_the_wait_timeout(self) -> None:
+        async def trickle(request: web.Request) -> web.StreamResponse:
+            response = web.StreamResponse()
+            await response.prepare(request)
+            for _ in range(6):
+                await response.write(b"x" * 10)
+                await asyncio.sleep(0.1)
+            await response.write_eof()
+            return response
+
+        async with http_server([web.get("/t", trickle)]) as base:
+            http = AiohttpClient("t", timeout_s=0.4, total_s=5)
+            try:
+                got = await http.get(base + "/t")
+            finally:
+                await http.close()
+        assert got.body == b"x" * 60
+
+    @pytest.mark.parametrize(("timeout_s", "total_s"), [(0.2, 5.0), (5.0, 0.2)])
+    async def test_a_stalled_body_or_an_overlong_transfer_times_out(self, timeout_s: float, total_s: float) -> None:
+        async def stall(request: web.Request) -> web.StreamResponse:
+            response = web.StreamResponse()
+            await response.prepare(request)
+            await response.write(b"x")
+            await asyncio.sleep(2)
+            return response
+
+        async with http_server([web.get("/s", stall)]) as base:
+            http = AiohttpClient("t", timeout_s=timeout_s, total_s=total_s)
+            try:
+                with pytest.raises(asyncio.TimeoutError):
+                    await http.get(base + "/s")
+            finally:
+                await http.close()
+
 
 # ------------------------------------------------------------------ MQTT
 class TestMqtt:

@@ -177,15 +177,19 @@ class NatsServer:
 
 # ------------------------------------------------------------------ ZeroMQ
 @asynccontextmanager
-async def zmq_publisher(frames: Sequence[bytes], every_s: float = 0.02) -> AsyncIterator[str]:
-    """Publishes `frames` as one multipart message, repeatedly (subscribers join late)."""
+async def zmq_publisher(frames: Sequence[bytes], every_s: float = 0.02, burst: int = 1) -> AsyncIterator[str]:
+    """Publishes `frames` as one multipart message, `burst` times every `every_s` (subscribers join late).
+
+    A high rate comes from the burst, not from a short sleep, so it does not depend on how soon a
+    loaded machine wakes the loop up."""
     context = zmq.asyncio.Context()
     socket = context.socket(zmq.PUB)
     port = socket.bind_to_random_port("tcp://127.0.0.1")
 
     async def loop() -> None:
         while True:
-            await socket.send_multipart(list(frames))
+            for _ in range(burst):
+                await socket.send_multipart(list(frames))
             await asyncio.sleep(every_s)
 
     task = asyncio.create_task(loop())

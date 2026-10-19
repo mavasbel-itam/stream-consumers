@@ -54,25 +54,23 @@ class TestCatalog:
         groups = [f.descriptor.group for f in FACTORIES]
         assert len(FACTORIES) == 67 == len(BY_ID)
         counts = tuple(groups.count(g) for g in (Group.KEYLESS, Group.PROJECT_DOCUMENT, Group.FREE_KEY, Group.CANDIDATE))
-        assert counts == (50, 6, 3, 8)
+        assert counts == (50, 7, 9, 1)
 
-    def test_candidates_are_exactly_the_sources_whose_key_is_required(self) -> None:
+    def test_required_keys_belong_to_measured_free_key_sources_or_candidates(self) -> None:
         required = {f.descriptor.id for f in FACTORIES if f.descriptor.credential and f.descriptor.credential.required}
-        candidates = {f.descriptor.id for f in FACTORIES if f.descriptor.group is Group.CANDIDATE}
-        assert (
-            required
-            == candidates
-            == {
-                "aisstream",
-                "cta_bus",
-                "cta_train",
-                "entsoe",
-                "mastodon",
-                "mta_bustime",
-                "nta",
-                "wmata",
-            }
-        )
+        assert required == {"aisstream", "cta_bus", "cta_train", "entsoe", "mastodon", "mta_bustime", "nta", "wmata"}
+        assert {f.descriptor.id for f in FACTORIES if f.descriptor.group is Group.CANDIDATE} == {"entsoe"}
+        assert {f.descriptor.id for f in FACTORIES if f.descriptor.group is Group.FREE_KEY} == {
+            "cta_bus",
+            "cta_train",
+            "firms",
+            "mastodon",
+            "mbta_v3",
+            "mta_bustime",
+            "nta",
+            "tfl",
+            "wmata",
+        }
         assert all(f.descriptor.credential.how_to_get for f in FACTORIES if f.descriptor.credential)  # type: ignore[union-attr]
 
     def test_project_document_sources(self) -> None:
@@ -83,6 +81,7 @@ class TestCatalog:
             "binance",
             "mempool",
             "opensky",
+            "aisstream",
         }
 
     @pytest.mark.parametrize("source_id", sorted(BY_ID))
@@ -557,10 +556,10 @@ def test_only_sources_that_need_a_longer_window_declare_one() -> None:
     assert {f.descriptor.id: f.descriptor.min_window_s for f in FACTORIES if f.descriptor.min_window_s} == {
         "citibike": 150.0,
         "coinpaprika": 630.0,
-        "firms": 150.0,
+        "firms": 600.0,
         "ndbc": 960.0,
         "nta": 150.0,
-        "sensorcomm": 150.0,
+        "sensorcomm": 600.0,
         "sharpe": 630.0,
         "tfl": 150.0,
         "ukflood": 960.0,

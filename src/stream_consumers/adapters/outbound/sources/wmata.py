@@ -30,7 +30,7 @@ class WmataFactory(BaseSourceFactory):
         name="WMATA GTFS-Realtime vehicle positions — Washington DC Metrobus and Metrorail",
         category="Transport",
         provider="Washington Metropolitan Area Transit Authority (WMATA)",
-        group=Group.CANDIDATE,
+        group=Group.FREE_KEY,
         delivery=Delivery.POLL,
         transport=Transport.HTTP,
         endpoint="https://api.wmata.com/gtfs/bus-gtfsrt-vehiclepositions.pb ; https://api.wmata.com/gtfs/rail-gtfsrt-vehiclepositions.pb",
