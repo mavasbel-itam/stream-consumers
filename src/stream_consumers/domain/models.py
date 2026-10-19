@@ -31,6 +31,7 @@ class Group(Enum):
     PROJECT_DOCUMENT = "B"
     FREE_KEY = "C"
     CANDIDATE = "D"  # needs a free key that is not configured yet; rate not measured, so not yet accepted
+    LOW_RATE = "low_rate"  # measured below 1 event/s; retained and documented separately
 
 
 class RunStatus(Enum):

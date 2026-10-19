@@ -29,10 +29,10 @@ def test_list_prints_one_json_line_per_source_sorted() -> None:
     assert rows[0]["group"] == "A" and rows[0]["personal_fields"] == ["user"]
 
 
-def test_default_catalog_lists_the_66_sources() -> None:
+def test_default_catalog_lists_the_73_sources() -> None:
     out = io.StringIO()
     assert main(["list"], out, io.StringIO()) == 0
-    assert len(out.getvalue().splitlines()) == 66 and DEFAULT_CATALOG.endswith(".sources")
+    assert len(out.getvalue().splitlines()) == 73 and DEFAULT_CATALOG.endswith(".sources")
 
 
 class TestConsume:

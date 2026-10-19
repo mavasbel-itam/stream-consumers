@@ -95,20 +95,6 @@ HELD_KEYS: tuple[HeldKey, ...] = (
         "public streams and needs no key.",
         "https://www.binance.com/en/my/settings/api-management",
     ),
-    HeldKey(
-        "lasair",
-        ("LASAIR_API_TOKEN",),
-        "Lasair (LSST alert broker)",
-        "REST API token. The lasair source was removed on 2026-10-18 (no LSST alerts since 2026-07-14).",
-        "https://lasair.lsst.ac.uk/",
-    ),
-    HeldKey(
-        "gfw",
-        ("GFW_API_TOKEN",),
-        "Global Fishing Watch",
-        "API token (non-commercial use). The gfw source was removed on 2026-10-18 (events published days late; zero growth).",
-        "https://globalfishingwatch.org/our-apis/",
-    ),
 )
 
 

@@ -25,17 +25,19 @@ and is left out (`round_rate`). The exceptions and pending cases:
 - Free-key providers whose keyless route was measured at ≥ 1 event/s are included
   (MBTA V3, TfL, NASA FIRMS); the key is optional for MBTA V3 and TfL, and FIRMS
   uses its keyless public files.
-- **Candidates** (group D) need a free key; until their own sampling with the
-  key finishes, their rate is not measured. They are built and tested against the
-  providers' official documentation examples so that adding the key to `.env` is
+- **Candidates** (group D) needed a free key; until their own sampling with the
+  key finished, their rate was unmeasured. They were built and tested against the
+  providers' official documentation examples so that adding the key to `.env` was
   enough to run them. A candidate is accepted (group C, or B for aisstream.io)
   when its own sampling gives a median of at least 1 event/s with the key, and is
-  removed otherwise. Until then it reports `key-pending` and counts for nothing.
+  transferred to the low-rate catalog otherwise.
   Seven of the eight were measured with their keys on 2026-10-17/19 and accepted
   on 2026-10-19: `cta_bus`, `cta_train`, `mastodon`, `mta_bustime`, `nta` and
   `wmata` (group C) and `aisstream` (group B), each with a certain median of at
   least 1 event/s (see [Sampling results](#sampling-results)). ENTSO-E
-  (`entsoe`) is still waiting for its key.
+  (`entsoe`) token was received and tested on 2026-10-19: its measured rate
+  (0.010 events/s; theoretical all-Europe ceiling ~0.33) is below 1 event/s, so
+  it is retained in code under `Group.LOW_RATE` in the low-rate catalog.
 - Measured below 1 event/s and therefore excluded: Nostr, Stellar,
   ENA, PyPI, Hacker News, MLB; not measurable as configured: BitMEX, APRS-IS,
   Kystverket AIS, zKillboard.
@@ -73,11 +75,12 @@ Every rate in the source list was then re-checked with this repository's own
   events/s on its earliest (night-time) rounds, but its median over 15 earlier
   cross-check rounds was 4.4 events/s; the 24-hour sampling decides.
 
-## Sources (66)
+## Sources (65)
 
 Groups: **keyless** (49), **project document** (7, the sources the project
 document lists), **free key** (9: key optional for 3, required for 6, rate
-measured with the key), **candidate** (1, key required, rate not yet measured).
+measured with the key). The 8 sources measured below 1 event/s are retained in
+code under `Group.LOW_RATE` and documented in [Sources Below 1 Event/s](#sources-below-1-events-measured--low-rate-catalog).
 
 | id | Source | Provider | Group | Transport | Delivery |
 |---|---|---|---|---|---|
@@ -146,7 +149,26 @@ measured with the key), **candidate** (1, key required, rate not yet measured).
 | `mta_bustime` | [MTA Bus Time GTFS-Realtime vehicle positions — every New York City bus](https://bustime.mta.info/developers/gtfs-realtime/) | Metropolitan Transportation Authority (MTA) | free key (required) | http | poll |
 | `nta` | [NTA Ireland GTFS-Realtime vehicle positions — Dublin Bus, Bus Éireann, Go-Ahead Ireland](https://developer.nationaltransport.ie/) | National Transport Authority (NTA), Ireland | free key (required) | http | poll |
 | `wmata` | [WMATA GTFS-Realtime vehicle positions — Washington DC Metrobus and Metrorail](https://developer.wmata.com/) | Washington Metropolitan Area Transit Authority (WMATA) | free key (required) | http | poll |
-| `entsoe` | [ENTSO-E Transparency Platform — actual electricity generation per production type](https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API) | European Network of Transmission System Operators for Electricity (ENTSO-E) | candidate (key required) | http | poll |
+
+## Sources Below 1 Event/s (Measured & Low-Rate Catalog)
+
+These 8 sources were implemented, tested, and measured below the 1 event/s
+inclusion threshold. Per project decision, all 8 are **retained in code** under
+`Group.LOW_RATE` (`low_rate`) and verified (100% unit and component test
+coverage, decoders, and live key probes), but documented separately from the
+primary catalog. Detailed measurements and background are recorded in
+[`docs/reference/2026-10-19-18-27-sub-threshold-sources.md`](docs/reference/2026-10-19-18-27-sub-threshold-sources.md).
+
+| id | Source | Provider | Transport / Delivery | Measured Rate | Bottleneck / Limiting Factor | Command |
+|---|---|---|---|---|---|---|
+| `bitstamp` | [Bitstamp live trades](https://www.bitstamp.net/websocket/v2/) | Bitstamp | websocket / push | **0.515 events/s** (24 rounds median) | Low trade frequency on BTC/USD and ETH/USD during off-peak hours (min 0.150, max 3.555) | `stream-consumers consume bitstamp` |
+| `dt_rail_trains` | [Digitraffic Finland train timetables/actuals](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | mqtt / push | **0.865 events/s** (24 rounds median) | Timetable progress actuals publish in bursts only when trains pass physical checkpoints | `stream-consumers consume dt_rail_trains` |
+| `entsoe` | [ENTSO-E Transparency Platform actual generation](https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API) | ENTSO-E | http / poll (token required) | **0.010 events/s** (DE/FR/ES); ceiling **~0.33 events/s** | 15-minute resolution per area/type; querying all 59 reporting areas takes ~380 s per poll cycle | `stream-consumers consume entsoe` |
+| `fink` | [Fink — Rubin Observatory LSST and ZTF alerts](https://doc.lsst.fink-broker.org/services/livestream/) | Fink broker (CNRS/IN2P3) | kafka / push (free credentials) | **0 events/s** (no alerts since 2026-07-14) | Upstream LSST alerts paused; broker stream produces no live messages | `stream-consumers consume fink` |
+| `gfw` | [Global Fishing Watch events API](https://globalfishingwatch.org/our-apis/documentation) | Global Fishing Watch | http / poll (free token) | **0 events/s** (0 growth across 18 hourly rounds) | AIS events are batch-derived and published days late; zero intra-hour event growth | `stream-consumers consume gfw` |
+| `lasair` | [Lasair — Rubin Observatory LSST alerts](https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html) | Lasair (Edinburgh/Belfast) | kafka / push (free token) | **0 events/s** (no detections since 2026-07-14) | Upstream LSST alert hiatus; filter topic receives no events | `stream-consumers consume lasair` |
+| `ndbc` | [NOAA National Data Buoy Center observations](https://www.ndbc.noaa.gov/faq/rt_data_access.shtml) | NOAA NDBC | http / poll | **0.268 events/s** (median of 3 rounds) | Station observations file (`latest_obs.txt`) updates irregularly at 10–15 minute intervals | `stream-consumers consume ndbc` |
+| `npm` | [npm registry replication changes](https://github.com/npm/registry-follower-tutorial) | npm / GitHub | http / poll | **0.790 events/s** (24 rounds median) | CouchDB sequence changes average < 1 event/s across standard daily release intervals (min 0.259, max 1.616) | `stream-consumers consume npm` |
 
 Three links cannot be checked by a script: `www.binance.com/en/terms` answers
 HTTP 202 with a JavaScript challenge, and `www.mta.info/developers` and
@@ -200,7 +222,6 @@ sources are decided on the median of the rounds they completed
 | `dt_rail` | keyless | 20261017 | 24/24 | 24 | 48.622 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `dt_road` | keyless | 20261017 | 24/24 | 24 | 274.221 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `ecobici` | keyless | 20261017 | 24/24 | 15 | 1.465 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `entsoe` | candidate | — | 0 | — | — | — | key not set; not measured |
 | `entur` | keyless | 20261017 | 24/24 | 24 | 28.648 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `eth_logs` | keyless | 20261017 | 24/24 | 21 | 43.822 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `firms` | free key | d2-20261018 | 7/24 | 4 | 3.727 | 10-18 22:35–10-19 04:35 | passes on 7 rounds (stopped early) |

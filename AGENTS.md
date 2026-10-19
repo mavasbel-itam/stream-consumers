@@ -15,7 +15,9 @@
 - Inclusion rule: median measured rate of at least 1 event/s (GDELT is the
   documented exception). A source that needs a key nobody has configured is a
   candidate (`Group.CANDIDATE`): built and tested, but accepted only after its
-  measured median reaches 1 event/s, and removed otherwise.
+  measured median reaches 1 event/s, and transferred to `Group.LOW_RATE` otherwise.
+  Sources measured below 1 event/s are retained in code under `Group.LOW_RATE`
+  and documented in a dedicated low-rate catalog section.
 - Credentials and settings are declared in the descriptor (`Credential`,
   `Setting`); `.env.example` is generated with `stream-consumers keys --template`.
 - Never commit `.env`, API keys, or anything under `data/`.
