@@ -23,6 +23,7 @@ from stream_consumers.adapters.outbound.system import EnvSecretProvider, SystemC
 from stream_consumers.domain.errors import UnknownSourceError
 from stream_consumers.domain.models import (
     Event,
+    FieldClass,
     FieldProfile,
     RateBasis,
     RunReport,
@@ -98,14 +99,15 @@ class TestReportSink:
         sink = JsonReportSink(tmp_path / "r", clock)
         sink.write_check([REPORT])
         sink.write_round(SamplingRound(2, 0.0, (REPORT,)))
-        field = FieldProfile("a", 1.0, 1, ("number",), 1.0, 1.0, 1.0, "1")
-        sink.write_profiles([SourceProfile(REPORT, 1, (field,))])
+        field = FieldProfile("a", 1.0, 1, ("number",), 1.0, 1.0, 1.0, "1", FieldClass.NUMBER, False)
+        sink.write_profiles([SourceProfile(REPORT, 1, (field,), 7.0, 7, 0.0, ("a",))])
         names = sorted(p.name for p in (tmp_path / "r").iterdir())
         assert names == ["check-19700101T000000Z.json", "profiles-19700101T000000Z.json", "round-02-19700101T000000Z.json"]
         check = json.loads((tmp_path / "r" / names[0]).read_text())
         assert check[0]["status"] == "ok" and check[0]["rate_basis"] == "observed"
         profile = json.loads((tmp_path / "r" / names[1]).read_text())
-        assert profile[0]["fields"][0]["kinds"] == ["number"]
+        assert profile[0]["fields"][0]["kinds"] == ["number"] and profile[0]["fields"][0]["field_class"] == "number"
+        assert profile[0]["natural_key"] == ["a"] and profile[0]["bytes_p95"] == 7
         assert json.loads((tmp_path / "r" / names[2]).read_text())["reports"][0]["source_id"] == "s"
 
 

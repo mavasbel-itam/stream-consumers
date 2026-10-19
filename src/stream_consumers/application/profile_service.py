@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Mapping, Sequence
 
 from stream_consumers.domain.models import Event, SourceProfile
-from stream_consumers.domain.policy import PersonalDataMasker, profile_fields
+from stream_consumers.domain.policy import PersonalDataMasker, profile_sample
 from stream_consumers.ports.inbound import ConsumeStreamUseCase, ProfileSourcesUseCase
 from stream_consumers.ports.outbound import EventSinkFactoryPort, EventSinkPort, ReportSinkPort, SourceRegistryPort
 
@@ -55,7 +55,7 @@ class ProfileService(ProfileSourcesUseCase):
                     run = await self._consume.consume(source_id, seconds, sink, max_events=max_events, mask=False)
                 finally:
                     sink.close()
-            return SourceProfile(run, len(sink.payloads), profile_fields(sink.payloads, masker))
+            return profile_sample(run, sink.payloads, masker)
 
         profiles = list(await asyncio.gather(*(one(s) for s in source_ids)))
         self._reports.write_profiles(profiles)

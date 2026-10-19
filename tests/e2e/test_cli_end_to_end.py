@@ -404,6 +404,7 @@ async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
         (profiles,) = (tmp_path / "profile").glob("profiles-*.json")
         fields = {f["name"]: f for f in json.loads(profiles.read_text())[0]["fields"]}
         assert fields["user"]["example"] == "<masked>" and fields["n"]["kinds"] == ["number"]
+        assert fields["n"]["field_class"] == "number" and json.loads(profiles.read_text())[0]["bytes_mean"] > 0
 
 
 async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> None:

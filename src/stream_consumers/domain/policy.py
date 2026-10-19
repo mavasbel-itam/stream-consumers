@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import fnmatch
+import itertools
+import json
 import math
 import re
 import statistics
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
-from stream_consumers.domain.models import FieldProfile, RunReport, RunStatus, SamplingRound, Verdict
+from stream_consumers.domain.models import (
+    FieldClass,
+    FieldProfile,
+    RunReport,
+    RunStatus,
+    SamplingRound,
+    SourceProfile,
+    Verdict,
+)
 
 
 def flatten(payload: Mapping[str, object], prefix: str = "") -> dict[str, object]:
@@ -220,21 +231,139 @@ def _kind(value: object) -> str:
     return "mapping"
 
 
+ISO_8601 = re.compile(r"^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$")
+NUMERIC_TEXT = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")
+LEADING_ZERO = re.compile(r"^[+-]?0\d")
+"""Digits with a leading zero ("0123", "053306") are codes, not numbers."""
+COMPACT_DATE = re.compile(r"^\d{8}(\d{6})?$")
+EPOCH_UNITS = (1.0, 1e3, 1e6, 1e9)
+"""Seconds, milliseconds, microseconds and nanoseconds since 1970-01-01 UTC."""
+EPOCH_WINDOW_S = 400 * 86400
+"""An epoch number counts as a time only within this distance of the observation, so counters and
+identifiers that happen to be large numbers are not taken for times."""
+LATITUDE = frozenset({"lat", "latitude"})
+LONGITUDE = frozenset({"lon", "lng", "long", "longitude"})
+FREE_TEXT_CHARS = 30
+NATURAL_KEY_CANDIDATES = 20
+NATURAL_KEY_MAX_FIELDS = 3
+NATURAL_KEY_PREFERENCE = (
+    FieldClass.IDENTIFIER,
+    FieldClass.DATETIME,
+    FieldClass.LABEL,
+    FieldClass.CATEGORY,
+    FieldClass.NUMBER,
+    FieldClass.GEOGRAPHIC,
+    FieldClass.FREE_TEXT,
+)
+
+
+def category_limit(events: int) -> int:
+    """Most distinct values a category may have: max(20, 5 % of the events, rounded up)."""
+    return max(20, math.ceil(0.05 * events))
+
+
+def _number(value: object) -> float | None:
+    if _kind(value) == "number":
+        return float(value)  # type: ignore[arg-type]
+    if isinstance(value, str) and NUMERIC_TEXT.match(value) and not LEADING_ZERO.match(value):
+        return float(value)
+    return None
+
+
+def _near(moment: float, observed_at: float) -> bool:
+    return abs(moment - observed_at) <= EPOCH_WINDOW_S
+
+
+def _compact_date(value: object, observed_at: float) -> bool:
+    text = str(value) if isinstance(value, str) or _kind(value) == "number" else ""
+    if not COMPACT_DATE.match(text):
+        return False
+    try:
+        moment = dt.datetime.strptime(text, "%Y%m%d%H%M%S" if len(text) == 14 else "%Y%m%d").replace(tzinfo=dt.UTC)
+    except ValueError:
+        return False
+    return _near(moment.timestamp(), observed_at)
+
+
+def _is_epoch(numbers: Sequence[float], observed_at: float | None) -> bool:
+    if observed_at is None:
+        return False
+    return any(all(_near(n / unit, observed_at) for n in numbers) for unit in EPOCH_UNITS)
+
+
+def _partner(name: str, names: frozenset[str], wanted: frozenset[str]) -> bool:
+    prefix = name[: len(name) - len(name.rsplit(".", 1)[-1])]
+    return any(other.startswith(prefix) and other[len(prefix) :].lower() in wanted for other in names if "." not in other[len(prefix) :])
+
+
+def _geographic(name: str, numbers: Sequence[float], names: frozenset[str]) -> bool:
+    leaf = name.rsplit(".", 1)[-1].lower()
+    if leaf in LATITUDE:
+        return all(-90 <= n <= 90 for n in numbers) and _partner(name, names, LONGITUDE)
+    if leaf in LONGITUDE:
+        return all(-180 <= n <= 180 for n in numbers) and _partner(name, names, LATITUDE)
+    return False
+
+
+def classify_field(
+    name: str, present: Sequence[object], events: int, names: frozenset[str], observed_at: float | None
+) -> tuple[FieldClass, bool]:
+    """The field's class and whether its numbers are carried as text; rules apply in `FieldClass` order.
+
+    `present` are the field's non-empty values, `events` the sample size, `names` every field of the
+    sample (to find a coordinate's partner) and `observed_at` the epoch second of the observation.
+    """
+    if not present:
+        return FieldClass.EMPTY, False
+    kinds = {_kind(v) for v in present}
+    if kinds == {"text"} and all(ISO_8601.match(v) for v in present):  # type: ignore[arg-type]
+        return FieldClass.DATETIME, False
+    if observed_at is not None and kinds <= {"number", "text"} and all(_compact_date(v, observed_at) for v in present):
+        return FieldClass.DATETIME, False
+    numbers = [_number(v) for v in present]
+    if None not in numbers and kinds <= {"number", "text"}:
+        values = [n for n in numbers if n is not None]
+        as_text = "text" in kinds
+        if _is_epoch(values, observed_at):
+            return FieldClass.DATETIME, False
+        if _geographic(name, values, names):
+            return FieldClass.GEOGRAPHIC, as_text
+        return FieldClass.NUMBER, as_text
+    distinct = len({repr(v) for v in present})
+    if kinds == {"text"}:
+        texts = [str(v) for v in present]
+        spaced = sum(" " in t for t in texts)
+        if spaced == 0 and distinct > category_limit(events):
+            return FieldClass.IDENTIFIER, False
+        if statistics.fmean(map(len, texts)) >= FREE_TEXT_CHARS and 2 * distinct >= len(texts) and 2 * spaced >= len(texts):
+            return FieldClass.FREE_TEXT, False
+        if distinct > category_limit(events):
+            return FieldClass.LABEL, False
+    if kinds <= {"text", "boolean"} and distinct <= category_limit(events):
+        return FieldClass.CATEGORY, False
+    return FieldClass.NESTED, False
+
+
 def profile_fields(
-    payloads: Sequence[Mapping[str, object]], masker: PersonalDataMasker | None = None, example_chars: int = 80
+    payloads: Sequence[Mapping[str, object]],
+    masker: PersonalDataMasker | None = None,
+    example_chars: int = 80,
+    observed_at: float | None = None,
 ) -> tuple[FieldProfile, ...]:
-    """Per flattened field: share of events carrying it, distinct values, kinds and numeric range.
+    """Per flattened field: share of events carrying it, distinct values, kinds, numeric range and class.
 
     Statistics use the real values; the example value of a personal field is masked.
     """
     flats = [flatten(p) for p in payloads]
     names = sorted({k for f in flats for k in f})
+    every = frozenset(names)
     out = []
     for name in names:
         values = [f[name] for f in flats if name in f]
         present = [v for v in values if v is not None and v != ""]
         numbers = [float(v) for v in present if _kind(v) == "number"]
         kinds = tuple(sorted({_kind(v) for v in values}))
+        field_class, numeric_text = classify_field(name, present, len(flats), every, observed_at)
         if not present:
             example = ""
         elif masker is not None and masker.is_personal(name):
@@ -251,6 +380,52 @@ def profile_fields(
                 maximum=max(numbers) if numbers else None,
                 mean=round(statistics.fmean(numbers), 6) if numbers else None,
                 example=example,
+                field_class=field_class,
+                numeric_text=numeric_text,
             )
         )
     return tuple(out)
+
+
+def _canonical(payload: Mapping[str, object]) -> str:
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
+
+
+def natural_key(payloads: Sequence[Mapping[str, object]], fields: Sequence[FieldProfile]) -> tuple[str, ...]:
+    """Smallest set of fields (at most 3) whose values are unique across the sample.
+
+    Candidates are the fields present in every event whose class is neither nested nor empty,
+    ordered by class (`NATURAL_KEY_PREFERENCE`: identifiers and times before measurements, so a
+    coordinate pair that happens to be unique is not taken for a key), then by distinct values and
+    name; the first 20 are tried, smaller sets first.
+    Empty when the sample has fewer than 2 events or no such set exists (identical events included).
+    """
+    if len(payloads) < 2:
+        return ()
+    flats = [flatten(p) for p in payloads]
+    usable = [f for f in fields if f.present_ratio == 1.0 and f.field_class in NATURAL_KEY_PREFERENCE]
+    ordered = sorted(usable, key=lambda f: (NATURAL_KEY_PREFERENCE.index(f.field_class), -f.distinct, f.name))
+    candidates = [f.name for f in ordered[:NATURAL_KEY_CANDIDATES]]
+    for size in range(1, NATURAL_KEY_MAX_FIELDS + 1):
+        for combo in itertools.combinations(candidates, size):
+            if len({tuple(repr(flat[n]) for n in combo) for flat in flats}) == len(flats):
+                return combo
+    return ()
+
+
+def profile_sample(run: RunReport, payloads: Sequence[Mapping[str, object]], masker: PersonalDataMasker | None = None) -> SourceProfile:
+    """Everything `profile` reports about one source's sample; times are judged against the run's start."""
+    fields = profile_fields(payloads, masker, observed_at=run.started_at)
+    if not payloads:
+        return SourceProfile(run, 0, fields, None, None, None, ())
+    canonical = [_canonical(p) for p in payloads]
+    sizes = sorted(len(c.encode("utf-8")) for c in canonical)
+    return SourceProfile(
+        run=run,
+        events_inspected=len(payloads),
+        fields=fields,
+        bytes_mean=round(statistics.fmean(sizes), 1),
+        bytes_p95=sizes[math.ceil(0.95 * len(sizes)) - 1],
+        duplicate_ratio=round(1 - len(set(canonical)) / len(canonical), 4),
+        natural_key=natural_key(payloads, fields),
+    )

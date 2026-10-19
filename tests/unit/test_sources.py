@@ -50,11 +50,11 @@ def decoder_of(source_id: str) -> DecoderPort:
 
 
 class TestCatalog:
-    def test_67_sources_in_four_groups(self) -> None:
+    def test_66_sources_in_four_groups(self) -> None:
         groups = [f.descriptor.group for f in FACTORIES]
-        assert len(FACTORIES) == 67 == len(BY_ID)
+        assert len(FACTORIES) == 66 == len(BY_ID)
         counts = tuple(groups.count(g) for g in (Group.KEYLESS, Group.PROJECT_DOCUMENT, Group.FREE_KEY, Group.CANDIDATE))
-        assert counts == (50, 7, 9, 1)
+        assert counts == (49, 7, 9, 1)
 
     def test_required_keys_belong_to_measured_free_key_sources_or_candidates(self) -> None:
         required = {f.descriptor.id for f in FACTORIES if f.descriptor.credential and f.descriptor.credential.required}
@@ -231,7 +231,6 @@ EXPECTED = {
     "mta_bustime": [3],
     "mta_gtfsrt": [3],
     "ndov": [67, 66, 54, 119],
-    "ndbc": [3],
     "nta": [3],
     "okx": [0, 1, 1, 1, 1],
     "opensky": [3],
@@ -455,10 +454,6 @@ class TestDecoderBranches:
         assert decode("blockchain", {"op": "utx", "x": "not a transaction"}) == []
         assert decode("blockchain", {"op": "utx", "x": {"hash": "h"}}) == [{"hash": "h"}]
 
-    def test_ndbc_missing_values_and_lines_before_the_header(self) -> None:
-        table = "41001 34.7 -72.6\n#STN LAT LON WDIR\n#text deg deg degT\n\n41002 31.9 -74.9 MM\n"
-        assert decoder_of("ndbc").decode(RawMessage(table)) == [{"STN": "41002", "LAT": "31.9", "LON": "-74.9"}]
-
     def test_ukflood_answer_without_items(self) -> None:
         assert decode("ukflood", {"items": "x"}) == []
         assert decode("ukflood", {"items": [{"@id": "r"}, 3]}) == [{"@id": "r"}]
@@ -552,12 +547,11 @@ def test_fixtures_captured_with_a_key_say_when_and_that_the_key_is_not_stored(so
 def test_only_sources_that_need_a_longer_window_declare_one() -> None:
     # tfl: 60-s shared cache; nta: one call per 60 s; firms, sensorcomm: whole files before the first event;
     # coinpaprika, sharpe: snapshots refreshed about every 5 min (up to 10); ukflood: two polls 15 min apart;
-    # ndbc: file rewritten at irregular times (10-15 min apart seen); citibike: regenerated every 60 s
+    # citibike: regenerated every 60 s
     assert {f.descriptor.id: f.descriptor.min_window_s for f in FACTORIES if f.descriptor.min_window_s} == {
         "citibike": 150.0,
         "coinpaprika": 630.0,
         "firms": 600.0,
-        "ndbc": 960.0,
         "nta": 150.0,
         "sensorcomm": 600.0,
         "sharpe": 630.0,
