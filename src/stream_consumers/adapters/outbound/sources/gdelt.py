@@ -117,7 +117,7 @@ class GdeltFactory(BaseSourceFactory):
         endpoint="http://data.gdeltproject.org/gdeltv2/lastupdate.txt",
         docs_url="https://www.gdeltproject.org/data.html",
         terms_url="https://www.gdeltproject.org/about.html",
-        notes="One event export every 15 minutes; rate = rows in the newest export / 900 s. Measured median 0.977 events/s, kept because the project document lists it. Column names: https://data.gdeltproject.org/documentation/GDELT-Event_Codebook-V2.0.pdf",
+        notes="One event export every 15 minutes; rate = rows in the newest export / 900 s. Measured medians 0.977 events/s (2026-10-13) and 0.772 events/s (24 rounds, 2026-10-17/18), kept because the project document lists it. Column names: https://data.gdeltproject.org/documentation/GDELT-Event_Codebook-V2.0.pdf",
     )
 
     def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
