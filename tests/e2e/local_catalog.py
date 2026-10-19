@@ -440,16 +440,18 @@ BUILDERS: dict[str, tuple[Transport, Delivery, Builder]] = {
     "keyed": (Transport.HTTP, Delivery.PUSH, lambda d, deps: Replay(d, deps.clock, [{"key": "used"}])),
     "stalling": (Transport.HTTP, Delivery.PUSH, lambda d, deps: Stalling(d, deps.clock, 0.3)),
     "disguised_cancel": (Transport.HTTP, Delivery.PUSH, lambda d, deps: DisguisedCancellation(d, deps.clock)),
+    # each Kafka source has its own consumer group: in a shared group a consumer that joins later waits
+    # for a rebalance (up to the 3 s heartbeat) and its 2 s check window can end before its first message
     "kafka_json": (
         Transport.KAFKA,
         Delivery.PUSH,
-        lambda d, deps: KafkaSource(d, JsonDecoder(), deps.clock, str(endpoint("kafka")), ["e2e_json"], "e2e", start_at="earliest"),
+        lambda d, deps: KafkaSource(d, JsonDecoder(), deps.clock, str(endpoint("kafka")), ["e2e_json"], "e2e_json", start_at="earliest"),
     ),
     "kafka_avro": (
         Transport.KAFKA,
         Delivery.PUSH,
         lambda d, deps: KafkaSource(
-            d, AvroSchemaInKeyDecoder(), deps.clock, str(endpoint("kafka")), ["e2e_avro"], "e2e", start_at="earliest"
+            d, AvroSchemaInKeyDecoder(), deps.clock, str(endpoint("kafka")), ["e2e_avro"], "e2e_avro", start_at="earliest"
         ),
     ),
     "kafka_refused": (
