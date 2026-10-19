@@ -15,9 +15,15 @@
 - Inclusion rule: median measured rate of at least 1 event/s (GDELT is the
   documented exception). A source that needs a key nobody has configured is a
   candidate (`Group.CANDIDATE`): built and tested, but accepted only after its
-  measured median reaches 1 event/s, and transferred to `Group.LOW_RATE` otherwise.
-  Sources measured below 1 event/s are retained in code under `Group.LOW_RATE`
-  and documented in a dedicated low-rate catalog section.
+  measured median reaches 1 event/s, and moved to group E (`Group.LOW_RATE`)
+  otherwise. A source measured below 1 event/s is not deleted: it goes to group
+  E, keeps its tests, gets a row in the README section "Sources Below 1
+  Event/s" and in `docs/reference/2026-10-19-18-27-sub-threshold-sources.md`
+  with the evidence, and is left out of `check`, `sample` and `profile` unless
+  named (`Group.active`).
+- Every number or cause written in a document comes from a report under
+  `data/`, a descriptor, a research record or a live check, cited next to it;
+  never write an estimate or an explanation that no record supports.
 - Credentials and settings are declared in the descriptor (`Credential`,
   `Setting`); `.env.example` is generated with `stream-consumers keys --template`.
 - Never commit `.env`, API keys, or anything under `data/`.

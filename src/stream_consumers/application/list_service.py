@@ -15,3 +15,6 @@ class ListService(ListSourcesUseCase):
 
     def list_sources(self) -> Sequence[SourceDescriptor]:
         return sorted(self._registry.descriptors(), key=lambda d: d.id)
+
+    def default_sources(self) -> Sequence[SourceDescriptor]:
+        return [d for d in self._registry.descriptors() if d.group.active]
