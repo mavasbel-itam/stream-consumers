@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -166,6 +168,20 @@ def coinbase(v: Values) -> tuple[str, str, Mapping[str, str], None]:
     return get(f"https://{path}", bearer(coinbase_jwt(v["COINBASE_CDP_KEY_ID"], v["COINBASE_CDP_KEY_SECRET"], f"GET {path}")))
 
 
+def bitso(v: Values) -> tuple[str, str, Mapping[str, str], None]:
+    """Signed GET (https://docs.bitso.com/bitso-api/docs/create-signed-requests): HMAC-SHA256 of nonce + method + path."""
+    path = "/api/v3/balance/"
+    if v is None:
+        return get(f"https://api.bitso.com{path}")
+    nonce = str(time.time_ns() // 1_000_000)
+    signature = hmac.new(v["BITSO_API_SECRET"].encode(), f"{nonce}GET{path}".encode(), hashlib.sha256).hexdigest()
+    return get(f"https://api.bitso.com{path}", {"Authorization": f"Bitso {v['BITSO_API_KEY']}:{nonce}:{signature}"})
+
+
+def bitso_accepts(status: int, body: str) -> bool:
+    return status == 200 and json.loads(body)["success"] is True
+
+
 def cta_train_accepts(status: int, body: str) -> bool:
     return status == 200 and json.loads(body)["ctatt"]["errCd"] == "0"
 
@@ -238,6 +254,7 @@ PROBES: tuple[KeyProbe, ...] = (
     header_probe("WMATA_METRO_ALERTS_KEY", "https://api.wmata.com/gtfs/rail-gtfsrt-alerts.pb", "api_key"),
     header_probe("WMATA_METRO_ALERTS_KEY_SECONDARY", "https://api.wmata.com/gtfs/rail-gtfsrt-alerts.pb", "api_key"),
     HttpProbe(("COINBASE_CDP_KEY_ID", "COINBASE_CDP_KEY_SECRET"), coinbase),
+    HttpProbe(("BITSO_API_KEY", "BITSO_API_SECRET"), bitso, bitso_accepts),
     HttpProbe(
         ("LASAIR_API_TOKEN",),
         lambda v: get(

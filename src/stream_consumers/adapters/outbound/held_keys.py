@@ -81,6 +81,13 @@ HELD_KEYS: tuple[HeldKey, ...] = (
         "https://portal.cdp.coinbase.com/",
     ),
     HeldKey(
+        "bitso",
+        ("BITSO_API_KEY", "BITSO_API_SECRET"),
+        "Bitso",
+        "Private API key and secret (HMAC-SHA256 signed requests). The bitso source reads the public WebSocket and needs no key.",
+        "https://bitso.com/api_setup",
+    ),
+    HeldKey(
         "lasair",
         ("LASAIR_API_TOKEN",),
         "Lasair (LSST alert broker)",
