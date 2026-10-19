@@ -11,7 +11,11 @@
   `tests/fixtures/raw/<id>.json` (personal values masked) and a row in
   `tests/unit/test_sources.py::EXPECTED`. A candidate whose key is not available
   yet uses the provider's official documentation examples instead, with
-  `origin`, `documentation_url` and `corrections` recorded in the fixture.
+  `origin`, `documentation_url` and `corrections` recorded in the fixture, and
+  is replaced by a capture (`captured_at`, key not stored) once the key works.
+- A source's credentials get a row in the README key table and its settings a
+  place in the README settings list (`tests/unit/test_documentation.py`); a CLI
+  option with a default states it in its help (`tests/unit/test_cli.py`).
 - Inclusion rule: median measured rate of at least 1 event/s (GDELT is the
   documented exception). A source that needs a key nobody has configured is a
   candidate (`Group.CANDIDATE`): built and tested, but accepted only after its

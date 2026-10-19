@@ -233,7 +233,7 @@ EXPECTED = {
     "aisstream": [0, 1, 1, 1, 1],
     "cta_bus": [0, 3],
     "cta_train": [3],
-    "entsoe": [1824],
+    "entsoe": [60],
     "mastodon": [1, 1],
     "adsb_lol": [3],
     "albion": [1, 1, 1],
@@ -265,7 +265,7 @@ EXPECTED = {
     "eth_logs": [0, 1, 1, 1, 1],
     "firms": [3, 3, 3, 3],
     "gemini": [5, 1, 1, 1],
-    "gfw": [1],
+    "gfw": [3],
     "hsl": [1, 1, 1, 1],
     "hyperliquid": [0, 30, 30, 30, 1],
     "kraken": [0, 2, 1, 2, 1],
@@ -580,19 +580,21 @@ class TestDecoderBranches:
             assert decode(source_id, [{"a": 1}]) == [{"a": 1}]
 
 
-# ---------------------------------------------------------------- key-gated sources (documentation examples until a key exists)
+# ---------------------------------------------------------------- key-gated sources (documentation examples until a key works)
 def doc_fixture(source_id: str) -> dict[str, object]:
     return json.loads((ROOT / "tests" / "fixtures" / "raw" / f"{source_id}.json").read_text(encoding="utf-8"))
 
 
-@pytest.mark.parametrize("source_id", ["entsoe", "gfw", "lasair"])
+@pytest.mark.parametrize("source_id", ["lasair"])
 def test_documentation_fixtures_say_where_they_come_from(source_id: str) -> None:
     fixture = doc_fixture(source_id)
     assert str(fixture["origin"]).startswith("official documentation example")
     assert str(fixture["documentation_url"]).startswith("https://") and isinstance(fixture["corrections"], list)
 
 
-@pytest.mark.parametrize("source_id", ["aisstream", "cta_bus", "cta_train", "mastodon", "mbta_v3_stream", "mta_bustime", "nta", "wmata"])
+@pytest.mark.parametrize(
+    "source_id", ["aisstream", "cta_bus", "cta_train", "entsoe", "gfw", "mastodon", "mbta_v3_stream", "mta_bustime", "nta", "wmata"]
+)
 def test_fixtures_captured_with_a_key_say_when_and_that_the_key_is_not_stored(source_id: str) -> None:
     fixture = doc_fixture(source_id)
     assert datetime.fromisoformat(str(fixture["captured_at"])).tzinfo is not None
@@ -701,10 +703,15 @@ class TestKeyGatedDecoders:
     def test_entsoe_points_and_times(self) -> None:
         events = [e for m in messages("entsoe") for e in decoder_of("entsoe").decode(m)]
         first, second = events[0], events[1]
-        assert first["area"] == "10Y1001A1001A83F" and first["direction"] == "generation" and first["psr_type"] == "B01"
-        assert (first["position"], first["timestamp"], second["timestamp"]) == (1, "2023-08-15T22:00Z", "2023-08-15T22:15Z")
+        assert first["area"] == "10Y1001A1001A83F" and first["direction"] == "generation"
+        assert first["psr_type"] == "B02"  # captured 2026-10-19 with a key: Germany, 15:00-20:00Z, 3 of 16 series
+        assert (first["position"], first["timestamp"], second["timestamp"]) == (1, "2026-10-19T15:00Z", "2026-10-19T15:15Z")
         assert isinstance(first["quantity"], float) and first["unit"] == "MAW" and first["resolution"] == "PT15M"
-        assert len({(e["psr_type"], e["direction"]) for e in events}) == 19
+        assert sorted({(e["psr_type"], e["direction"]) for e in events}) == [
+            ("B02", "generation"),
+            ("B03", "generation"),
+            ("B04", "generation"),
+        ]
 
     @staticmethod
     def entsoe_doc(series: str) -> str:
@@ -741,6 +748,6 @@ class TestKeyGatedDecoders:
     def test_lasair_and_gfw_shapes(self) -> None:
         (alert,) = [e for m in messages("lasair") for e in decoder_of("lasair").decode(m)]
         assert set(alert) == {"diaObjectId", "decl", "ra", "UTC"}
-        (event,) = [e for m in messages("gfw") for e in decoder_of("gfw").decode(m)]
-        assert event["id"] == "718a4d93c16f78d9a54e9bc56d20c7e0" and event["type"] == "fishing"
+        event, *_ = [e for m in messages("gfw") for e in decoder_of("gfw").decode(m)]  # captured 2026-10-19 with a key
+        assert event["id"] == "9cb64e1ade3719916c43fd93b9cb8ecb" and event["type"] == "fishing"
         assert decode("gfw", {"entries": [1, {"id": "a"}]}) == [{"id": "a"}]

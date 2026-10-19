@@ -314,7 +314,7 @@ source from recorded rounds.
 uv sync                                    # Python 3.13, locked dependencies
 uv run stream-consumers list               # descriptors as JSON lines
 uv run stream-consumers consume hsl --seconds 60 --out data/hsl.jsonl
-uv run stream-consumers check              # every source of groups A–D for 30 s; exit 1 if any fails
+uv run stream-consumers check              # the 65 sources of groups A–C (D is empty) for 30 s; exit 1 if any fails
 uv run stream-consumers check ndbc --seconds 960   # a group E source runs only when named
 uv run stream-consumers sample --rounds 24 --interval 3600 --window 60 --reports data/reports/sampling
 uv run stream-consumers sample --stop-when-settled --reports data/reports/sampling/segment-2 \
@@ -384,6 +384,9 @@ uv run pytest tests/live/test_keys_live.py -m live    # KEYS_ENV_FILE=path/.env 
 | `CTA_BUS_KEY` | `cta_bus` | required | [Bus Tracker account](https://www.ctabustracker.com/bustime/login.jsp) → My Account → Developer API; e-mailed after approval | query `key` | 100,000 transactions/day |
 | `CTA_TRAIN_KEY` | `cta_train` | required | [Train Tracker application form](https://www.transitchicago.com/developers/traintrackerapply/); CTA reviews it | query `key` | 50,000 requests/day |
 | `ENTSOE_TOKEN` | `entsoe` | required | [Register](https://transparency.entsoe.eu/), then e-mail transparency@entsoe.eu for RESTful API access ("within 3 working days") | query `securityToken` | 400 requests/min |
+| `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` | `fink` (group E) | required | [Fink subscription form](https://forms.gle/2td4jysT4e9pkf889); the Fink team e-mails the Kafka server address and your `group.id` | Kafka bootstrap servers and `group.id` | none documented |
+| `GFW_API_TOKEN` | `gfw` (group E) | required | [Global Fishing Watch account](https://globalfishingwatch.org/our-apis/), then request an API token (self-service; up to 5 tokens, they do not expire); non-commercial use only | `Authorization: Bearer` | 50,000 requests/day, 1,500,000/month |
+| `LASAIR_KAFKA_TOPIC` | `lasair` (group E) | required | [Lasair account](https://lasair.lsst.ac.uk/), then build and save a filter with Kafka streaming enabled; its topic is `lasair_` + your user ID + the sanitised filter name | Kafka topic (the server needs no password) | none documented for Kafka |
 | `MASTODON_ACCESS_TOKEN` | `mastodon` | required | [Account on the instance](https://social.vivaldi.net/auth/sign_up) (the default `MASTODON_INSTANCE`; a token works only on the instance that issued it), then a user token with scope `read:statuses` | `Authorization: Bearer` | 300 REST calls per 5 min; streaming not stated |
 | `MTA_BUSTIME_KEY` | `mta_bustime` | required | [Web form](https://register.developer.obanyc.com/); e-mailed "within half an hour" | query `key` | no number; all-vehicle requests not under 30 s apart |
 | `NTA_API_KEY` | `nta` | required | [Developer portal](https://developer.nationaltransport.ie/signup), subscribe to "GTFS Realtime" | header `x-api-key` | one call every 60 s |
@@ -393,8 +396,9 @@ uv run pytest tests/live/test_keys_live.py -m live    # KEYS_ENV_FILE=path/.env 
 | `TFL_APP_KEY` | `tfl` | optional | [API portal](https://api-portal.tfl.gov.uk/signup), subscribe to the product "500 Requests per min" | query `app_key` | 500 requests per minute (subscription page, 2026-10-18) |
 
 Settings with defaults: `AISSTREAM_BOUNDING_BOXES`, `CROSSREF_MAILTO`,
-`ENTSOE_AREAS`, `MASTODON_INSTANCE`,
-`OPENSKY_POLL_SECONDS` (described in `.env.example`). NASA FIRMS needs no key:
+`ENTSOE_AREAS`, `FINK_TOPICS`, `GFW_DATASET`, `GFW_LOOKBACK_DAYS`, `GFW_PAGES`,
+`LASAIR_GROUP_ID`, `LASAIR_KAFKA_SERVER`, `MASTODON_INSTANCE`,
+`OPENSKY_POLL_SECONDS` (each described, with its default, in `.env.example`). NASA FIRMS needs no key:
 it reads the public 24 h files.
 
 Terms worth reading before use: OpenSky requires a written agreement for
@@ -464,15 +468,17 @@ The component and e2e tiers start a single-node Kafka broker with Docker
 Fixtures are real messages captured on 2026-10-13 (`velib` and `cta_bus` on
 2026-10-17; `cta_train`, `nta`, `mta_bustime`, `wmata`, `mastodon`, `aisstream`
 and the MBTA stream on 2026-10-18; `blockchain`, `citibike`, `coinpaprika`,
-`ogn`, `sharpe`, `ukflood` and `ndbc` on 2026-10-19), trimmed, with personal values replaced by `<masked>`; a test checks
-that no fixture leaks a personal value or an e-mail address. Sources not yet
-captured with a key (`entsoe`, `gfw`, `lasair`) have the providers' official documentation examples as fixtures, marked
-with `origin`, `documentation_url` and the `corrections` applied (PDF page footers,
-a typographic quote, a trailing comma); each is replaced by captured messages once
-its key works (done for `cta_bus`, `cta_train`, `nta`, `mta_bustime`, `wmata`,
-`mastodon`, `aisstream` and `mbta_v3_stream`, captured with a key and
-stored without it; a test checks that these say when they were captured and that
-the key is not stored).
+`ogn`, `sharpe`, `ukflood`, `ndbc`, `entsoe` and `gfw` on 2026-10-19), trimmed,
+with personal values replaced by `<masked>`; a test checks that no fixture leaks
+a personal value or an e-mail address. Fixtures of keyed sources (`aisstream`,
+`cta_bus`, `cta_train`, `entsoe`, `gfw`, `mastodon`, `mbta_v3_stream`,
+`mta_bustime`, `nta`, `wmata`) were captured with the key and stored without it;
+a test checks that they say when they were captured and that the key is not
+stored. `lasair`, whose filter topic is not set, still uses the provider's
+official documentation example, marked with `origin`, `documentation_url` and the
+`corrections` applied (a trailing comma removed), until a topic exists. `fink`
+has no fixture: its Avro decoder is tested with messages written to the local
+Kafka broker.
 
 ## Known behaviour
 
