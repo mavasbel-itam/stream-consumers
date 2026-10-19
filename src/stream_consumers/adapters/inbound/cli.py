@@ -60,24 +60,24 @@ def _parser() -> argparse.ArgumentParser:
     keys.add_argument("--template", action="store_true", help="print a .env template instead")
 
     consume = commands.add_parser("consume", help="write the events of one source as JSON lines")
-    consume.add_argument("source")
-    consume.add_argument("--seconds", type=float, default=60.0)
-    consume.add_argument("--max-events", type=int)
+    consume.add_argument("source", help="source id (see `list`)")
+    consume.add_argument("--seconds", type=float, default=60.0, help="seconds to consume, at least the source's minimum window")
+    consume.add_argument("--max-events", type=int, help="stop after this many events (default: no limit)")
     consume.add_argument("--out", default="-", help="output file, or - for standard output")
     consume.add_argument("--raw", action="store_true", help="do not mask personal fields")
 
     check = commands.add_parser("check", help="consume each source briefly and report whether events arrive")
     check.add_argument("sources", nargs="*", help="source ids (default: all)")
-    check.add_argument("--seconds", type=float, default=30.0)
-    check.add_argument("--reports", type=Path, default=Path("data/reports"))
+    check.add_argument("--seconds", type=float, default=30.0, help="seconds per source, at least its minimum window")
+    check.add_argument("--reports", type=Path, default=Path("data/reports"), help="directory for check-<time>.json")
     check.add_argument("--concurrency", type=int, default=16, help="sources consumed at the same time")
 
     sample = commands.add_parser("sample", help="measure every source once per round, rounds on wall-clock targets")
     sample.add_argument("sources", nargs="*", help="source ids (default: all)")
-    sample.add_argument("--rounds", type=int, default=24)
+    sample.add_argument("--rounds", type=int, default=24, help="number of rounds")
     sample.add_argument("--interval", type=float, default=3600.0, help="seconds between round starts")
-    sample.add_argument("--window", type=float, default=60.0, help="seconds each source is consumed per round")
-    sample.add_argument("--reports", type=Path, default=Path("data/reports"))
+    sample.add_argument("--window", type=float, default=60.0, help="seconds each source is consumed per round, at least its minimum window")
+    sample.add_argument("--reports", type=Path, default=Path("data/reports"), help="directory for round-NN-<time>.json")
     sample.add_argument("--concurrency", type=int, default=64, help="sources consumed at the same time")
     sample.add_argument(
         "--continue-from",
@@ -98,10 +98,10 @@ def _parser() -> argparse.ArgumentParser:
 
     profile = commands.add_parser("profile", help="keep a masked sample of events per source and describe their fields")
     profile.add_argument("sources", nargs="*", help="source ids (default: all)")
-    profile.add_argument("--max-events", type=int, default=500)
-    profile.add_argument("--seconds", type=float, default=120.0)
-    profile.add_argument("--out", type=Path, default=Path("data/profile"))
-    profile.add_argument("--reports", type=Path, default=Path("data/reports"))
+    profile.add_argument("--max-events", type=int, default=500, help="events kept per source")
+    profile.add_argument("--seconds", type=float, default=120.0, help="at most this long per source, at least its minimum window")
+    profile.add_argument("--out", type=Path, default=Path("data/profile"), help="directory for the masked samples, <source>.jsonl")
+    profile.add_argument("--reports", type=Path, default=Path("data/reports"), help="directory for profiles-<time>.json")
     profile.add_argument("--concurrency", type=int, default=64, help="sources consumed at the same time")
     return parser
 
