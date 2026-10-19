@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from stream_consumers.adapters.outbound.held_keys import HELD_KEYS, StaticHeldKeyCatalog
-from stream_consumers.adapters.outbound.registry import FactoryRegistry
-from stream_consumers.adapters.outbound.sources import FACTORIES
-from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
+from stream_consumers.adapters.outbound.providers.held_keys import HELD_KEYS, StaticHeldKeyCatalog
+from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
+from stream_consumers.adapters.outbound.providers.sources import FACTORIES
+from stream_consumers.adapters.outbound.providers.sources._base import BaseSourceFactory
 from stream_consumers.application.configuration_service import ConfigurationService
 from stream_consumers.domain.errors import MissingCredentialError
 from stream_consumers.domain.models import ConfigKind, Credential, HeldKey, Setting
 from stream_consumers.ports.inbound import DescribeConfigurationUseCase
-from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound.providers import Credentials, EventSourcePort, SourceDependencies
 from tests.support import FakeSecrets, ScriptedSource, deps, descriptor
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -192,7 +192,7 @@ def test_env_example_is_the_generated_template() -> None:
 
 
 def test_env_example_defines_only_known_variables() -> None:
-    from stream_consumers.adapters.outbound.system import EnvSecretProvider
+    from stream_consumers.adapters.outbound.system.environment import EnvSecretProvider
 
     example = EnvSecretProvider({}, ROOT / ".env.example")
     configuration = ConfigurationService(FactoryRegistry(FACTORIES, deps()), example, StaticHeldKeyCatalog())

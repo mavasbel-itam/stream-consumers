@@ -18,17 +18,17 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from stream_consumers.adapters.outbound.sources import FACTORIES
-from stream_consumers.adapters.outbound.sources.ct import CtEntryDecoder, CtLogPollSource
-from stream_consumers.adapters.outbound.sources.firms import FirmsFactory
-from stream_consumers.adapters.outbound.sources.gdelt import GDELT_EVENT_FIELDS, GdeltExportDecoder
-from stream_consumers.adapters.outbound.sources.polymarket import PolymarketDecoder, PolymarketSource
-from stream_consumers.adapters.outbound.sources.seedlink import MiniSeedHeaderDecoder, SeedLinkSource
-from stream_consumers.adapters.outbound.system import SystemClock
+from stream_consumers.adapters.outbound.providers.sources import FACTORIES
+from stream_consumers.adapters.outbound.providers.sources.ct import CtEntryDecoder, CtLogPollSource
+from stream_consumers.adapters.outbound.providers.sources.firms import FirmsFactory
+from stream_consumers.adapters.outbound.providers.sources.gdelt import GDELT_EVENT_FIELDS, GdeltExportDecoder
+from stream_consumers.adapters.outbound.providers.sources.polymarket import PolymarketDecoder, PolymarketSource
+from stream_consumers.adapters.outbound.providers.sources.seedlink import MiniSeedHeaderDecoder, SeedLinkSource
+from stream_consumers.adapters.outbound.system.clock import SystemClock
 from stream_consumers.domain.errors import DecodeError, TransportError
 from stream_consumers.domain.models import PublishedVolume, RawMessage
 from stream_consumers.domain.policy import Backoff
-from stream_consumers.ports.outbound import EventSourcePort, HttpResponse
+from stream_consumers.ports.outbound.providers import EventSourcePort, HttpResponse
 from tests.servers import tcp_server, ws_server
 from tests.support import FakeClock, FakeHttp, deps, descriptor, messages, ok
 

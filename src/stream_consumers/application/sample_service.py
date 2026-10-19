@@ -8,7 +8,8 @@ from collections.abc import Sequence
 from stream_consumers.domain.models import RunReport, SamplingRound, Verdict
 from stream_consumers.domain.policy import reports_by_source, verdict
 from stream_consumers.ports.inbound import ConsumeStreamUseCase, SampleSourcesUseCase
-from stream_consumers.ports.outbound import ClockPort, EventSinkPort, ReportSinkPort
+from stream_consumers.ports.outbound.outputs import EventSinkPort, ReportSinkPort
+from stream_consumers.ports.outbound.system import ClockPort
 
 WAIT_STEP_S = 30.0
 """Waits are split into short sleeps so a round missed while the host slept starts as soon as it wakes."""

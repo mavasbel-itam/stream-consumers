@@ -8,7 +8,7 @@ from collections.abc import Mapping
 import pytest
 from google.transit import gtfs_realtime_pb2
 
-from stream_consumers.adapters.outbound.decoders import BaseDecoder, CsvDecoder, GtfsRealtimeDecoder, JsonDecoder, LineDecoder
+from stream_consumers.adapters.outbound.providers.decoders import BaseDecoder, CsvDecoder, GtfsRealtimeDecoder, JsonDecoder, LineDecoder
 from stream_consumers.domain.errors import DecodeError
 from stream_consumers.domain.models import RawMessage
 

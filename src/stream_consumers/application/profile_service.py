@@ -8,7 +8,8 @@ from collections.abc import Mapping, Sequence
 from stream_consumers.domain.models import Event, SourceProfile
 from stream_consumers.domain.policy import PersonalDataMasker, profile_sample
 from stream_consumers.ports.inbound import ConsumeStreamUseCase, ProfileSourcesUseCase
-from stream_consumers.ports.outbound import EventSinkFactoryPort, EventSinkPort, ReportSinkPort, SourceRegistryPort
+from stream_consumers.ports.outbound.outputs import EventSinkFactoryPort, EventSinkPort, ReportSinkPort
+from stream_consumers.ports.outbound.providers import SourceRegistryPort
 
 
 class CollectingSink(EventSinkPort):

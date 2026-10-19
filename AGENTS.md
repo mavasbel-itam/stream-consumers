@@ -6,7 +6,16 @@
   class extends a port (an ABC); constructor arguments and return types use the
   abstractions; only `adapters/inbound/cli.py` names concrete classes.
   `tests/unit/test_architecture.py` enforces this.
-- A new source is one module in `adapters/outbound/sources/` exposing `FACTORY`,
+- Outbound ports and adapters are grouped by purpose, one group per port module:
+  `ports/outbound/providers.py` with `adapters/outbound/providers/` (the data
+  providers: sources, transports, decoders, HTTP, auth, registry, held keys),
+  `ports/outbound/outputs.py` with `adapters/outbound/outputs/` (event sinks,
+  reports, sampling history) and `ports/outbound/system.py` with
+  `adapters/outbound/system/` (clock, environment). An adapter implements a port
+  of its own group and never imports another group; sources are outbound
+  (driven) because the application opens them, pulls their events and stops
+  them. `tests/unit/test_architecture.py` enforces this.
+- A new source is one module in `adapters/outbound/providers/sources/` exposing `FACTORY`,
   added to `sources/__init__.py`, with captured real messages in
   `tests/fixtures/raw/<id>.json` (personal values masked) and a row in
   `tests/unit/test_sources.py::EXPECTED`. A candidate whose key is not available

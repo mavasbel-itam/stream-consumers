@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 from stream_consumers.adapters.inbound.cli import _parser
-from stream_consumers.adapters.outbound.sources import FACTORIES
+from stream_consumers.adapters.outbound.providers.sources import FACTORIES
 
 ROOT = Path(__file__).resolve().parents[2]
 README = (ROOT / "README.md").read_text(encoding="utf-8")

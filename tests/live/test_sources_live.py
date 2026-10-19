@@ -14,15 +14,16 @@ import pytest
 import pytest_asyncio
 
 from stream_consumers.adapters.inbound.cli import USER_AGENT
-from stream_consumers.adapters.outbound.http import AiohttpClient
-from stream_consumers.adapters.outbound.registry import FactoryRegistry
-from stream_consumers.adapters.outbound.sinks import NullEventSink
-from stream_consumers.adapters.outbound.sources import FACTORIES
-from stream_consumers.adapters.outbound.system import EnvSecretProvider, SystemClock
+from stream_consumers.adapters.outbound.outputs.sinks import NullEventSink
+from stream_consumers.adapters.outbound.providers.http import AiohttpClient
+from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
+from stream_consumers.adapters.outbound.providers.sources import FACTORIES
+from stream_consumers.adapters.outbound.system.clock import SystemClock
+from stream_consumers.adapters.outbound.system.environment import EnvSecretProvider
 from stream_consumers.application.check_service import CheckService
 from stream_consumers.application.consume_service import ConsumeService
 from stream_consumers.domain.models import RunReport, RunStatus
-from stream_consumers.ports.outbound import SourceDependencies
+from stream_consumers.ports.outbound.providers import SourceDependencies
 from tests.support import MemoryReports
 
 pytestmark = pytest.mark.live

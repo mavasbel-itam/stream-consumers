@@ -11,26 +11,26 @@ import pytest
 import websockets
 from aiohttp import web
 
-from stream_consumers.adapters.outbound.decoders import JsonDecoder, LineDecoder
-from stream_consumers.adapters.outbound.http import AiohttpClient
-from stream_consumers.adapters.outbound.system import SystemClock
-from stream_consumers.adapters.outbound.transports.base import (
+from stream_consumers.adapters.outbound.providers.decoders import JsonDecoder, LineDecoder
+from stream_consumers.adapters.outbound.providers.http import AiohttpClient
+from stream_consumers.adapters.outbound.providers.transports.base import (
     FileDropSource,
     FileLocation,
     MergedEventSource,
     PushEventSource,
 )
-from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
-from stream_consumers.adapters.outbound.transports.mqtt import MqttSource
-from stream_consumers.adapters.outbound.transports.nats import NatsSource
-from stream_consumers.adapters.outbound.transports.sse import SseSource
-from stream_consumers.adapters.outbound.transports.tcp import TcpLineSource, TcpRecordSource
-from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
-from stream_consumers.adapters.outbound.transports.zeromq import ZmqSubSource
+from stream_consumers.adapters.outbound.providers.transports.http_poll import HttpPollSource
+from stream_consumers.adapters.outbound.providers.transports.mqtt import MqttSource
+from stream_consumers.adapters.outbound.providers.transports.nats import NatsSource
+from stream_consumers.adapters.outbound.providers.transports.sse import SseSource
+from stream_consumers.adapters.outbound.providers.transports.tcp import TcpLineSource, TcpRecordSource
+from stream_consumers.adapters.outbound.providers.transports.websocket import WebSocketSource
+from stream_consumers.adapters.outbound.providers.transports.zeromq import ZmqSubSource
+from stream_consumers.adapters.outbound.system.clock import SystemClock
 from stream_consumers.domain.errors import TransportError
 from stream_consumers.domain.models import PublishedVolume, RawMessage
 from stream_consumers.domain.policy import Backoff, ChangeDetector
-from stream_consumers.ports.outbound import EventSourcePort
+from stream_consumers.ports.outbound.providers import EventSourcePort
 from tests.servers import MqttBroker, NatsServer, http_server, tcp_server, ws_server, zmq_publisher
 from tests.support import FakeClock, FakeHttp, ScriptedSource, descriptor, ok
 
@@ -618,7 +618,7 @@ class Stubborn(EventSourcePort):
 
 
 async def test_merged_close_cancels_again_until_every_child_has_stopped(monkeypatch: pytest.MonkeyPatch) -> None:
-    import stream_consumers.adapters.outbound.transports.base as base
+    import stream_consumers.adapters.outbound.providers.transports.base as base
 
     monkeypatch.setattr(base, "MERGED_CLOSE_GRACE_S", 0.05)
     child = Stubborn()

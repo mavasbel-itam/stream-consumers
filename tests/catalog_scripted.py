@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
+from stream_consumers.adapters.outbound.providers.sources._base import BaseSourceFactory
 from stream_consumers.domain.errors import TransportError
 from stream_consumers.domain.models import Credential, Group, HeldKey
-from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies, SourceFactoryPort
+from stream_consumers.ports.outbound.providers import Credentials, EventSourcePort, SourceDependencies, SourceFactoryPort
 from tests.support import ScriptedSource, descriptor
 
 

@@ -9,17 +9,18 @@ from pathlib import Path
 
 import pytest
 
-from stream_consumers.adapters.outbound.history import JsonSamplingHistory
-from stream_consumers.adapters.outbound.registry import FactoryRegistry
-from stream_consumers.adapters.outbound.sinks import (
+from stream_consumers.adapters.outbound.outputs.history import JsonSamplingHistory
+from stream_consumers.adapters.outbound.outputs.sinks import (
     JsonlFileEventSink,
     JsonlFileSinkFactory,
     JsonReportSink,
     NullEventSink,
     TextStreamEventSink,
 )
-from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
-from stream_consumers.adapters.outbound.system import EnvSecretProvider, SystemClock
+from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
+from stream_consumers.adapters.outbound.providers.sources._base import BaseSourceFactory
+from stream_consumers.adapters.outbound.system.clock import SystemClock
+from stream_consumers.adapters.outbound.system.environment import EnvSecretProvider
 from stream_consumers.domain.errors import UnknownSourceError
 from stream_consumers.domain.models import (
     Event,
@@ -31,7 +32,7 @@ from stream_consumers.domain.models import (
     SamplingRound,
     SourceProfile,
 )
-from stream_consumers.ports.outbound import Credentials, EventSourcePort, SourceDependencies
+from stream_consumers.ports.outbound.providers import Credentials, EventSourcePort, SourceDependencies
 from tests.support import FakeClock, ScriptedSource, deps, descriptor
 
 

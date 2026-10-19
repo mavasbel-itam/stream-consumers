@@ -11,12 +11,12 @@ include =
     */stream_consumers/adapters/inbound/*
     */stream_consumers/application/*
     */stream_consumers/ports/*
-    */stream_consumers/adapters/outbound/registry.py
-    */stream_consumers/adapters/outbound/sinks.py
-    */stream_consumers/adapters/outbound/system.py
-    */stream_consumers/adapters/outbound/http.py
-    */stream_consumers/adapters/outbound/auth.py
-    */stream_consumers/adapters/outbound/transports/*
+    */stream_consumers/adapters/outbound/providers/registry.py
+    */stream_consumers/adapters/outbound/providers/http.py
+    */stream_consumers/adapters/outbound/providers/auth.py
+    */stream_consumers/adapters/outbound/providers/transports/*
+    */stream_consumers/adapters/outbound/outputs/sinks.py
+    */stream_consumers/adapters/outbound/system/*
 
 [report]
 fail_under = 100
