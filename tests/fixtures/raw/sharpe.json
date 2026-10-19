@@ -1,0 +1,13 @@
+{
+ "source": "sharpe",
+ "captured_at": "2026-10-19T01:54:22+00:00",
+ "note": "one funding-rates answer, trimmed to its first 3 rows",
+ "messages": [
+  {
+   "body_text": "[{\"exchange\": \"ApeX\", \"symbol\": \"0G-USDT\", \"base_coin\": \"0G\", \"rate\": 1.25e-05, \"predicted_rate\": null, \"interval_hours\": 1, \"next_funding_time\": \"2026-10-19T02:00:00+00:00\", \"updated_at\": \"2026-10-19T01:50:47.381+00:00\", \"margin_type\": \"linear\", \"asset_class\": \"crypto\", \"mark_price\": 0.2273, \"mark_price_updated_at\": \"2026-10-19T01:50:47.381+00:00\", \"open_interest\": 7385.809112, \"market_cap_rank\": 228, \"asset_id\": \"zero-gravity\", \"asset_symbol\": \"0G\", \"lot_multiplier\": 1, \"instrument_status\": \"trading\", \"is_live\": true, \"age_seconds\": 162, \"data_source\": \"supabase\", \"freshness_sla_seconds\": 600, \"is_stale\": false, \"rate_8h\": 0.0001, \"apr\": 0.1095, \"rate_kind\": \"estimate\"}, {\"exchange\": \"Aster\", \"symbol\": \"0GUSDT\", \"base_coin\": \"0G\", \"rate\": 5e-05, \"predicted_rate\": null, \"interval_hours\": 4, \"next_funding_time\": \"2026-10-19T04:00:00+00:00\", \"updated_at\": \"2026-10-19T01:50:47.381+00:00\", \"margin_type\": \"linear\", \"asset_class\": \"crypto\", \"mark_price\": 0.2273, \"mark_price_updated_at\": \"2026-10-19T01:50:47.381+00:00\", \"open_interest\": null, \"market_cap_rank\": 228, \"asset_id\": \"zero-gravity\", \"asset_symbol\": \"0G\", \"lot_multiplier\": 1, \"instrument_status\": \"trading\", \"is_live\": true, \"age_seconds\": 162, \"data_source\": \"supabase\", \"freshness_sla_seconds\": 600, \"is_stale\": false, \"rate_8h\": 0.0001, \"apr\": 0.1095, \"rate_kind\": \"estimate\"}, {\"exchange\": \"Backpack\", \"symbol\": \"0G_USDC_PERP\", \"base_coin\": \"0G\", \"rate\": 2.353260586778566e-05, \"predicted_rate\": null, \"interval_hours\": 1, \"next_funding_time\": \"2026-10-19T02:00:00+00:00\", \"updated_at\": \"2026-10-19T01:50:47.381+00:00\", \"margin_type\": \"linear\", \"asset_class\": \"crypto\", \"mark_price\": 0.2273, \"mark_price_updated_at\": \"2026-10-19T01:50:47.381+00:00\", \"open_interest\": 7441.06, \"market_cap_rank\": 228, \"asset_id\": \"zero-gravity\", \"asset_symbol\": \"0G\", \"lot_multiplier\": 1, \"instrument_status\": \"trading\", \"is_live\": true, \"age_seconds\": 162, \"data_source\": \"supabase\", \"freshness_sla_seconds\": 600, \"is_stale\": false, \"rate_8h\": 0.00018826084694228528, \"apr\": 0.2061456274018024, \"rate_kind\": \"estimate\"}]",
+   "attributes": {
+    "url": "https://www.sharpe.ai/api/funding/rates?type=current"
+   }
+  }
+ ]
+}

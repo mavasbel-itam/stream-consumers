@@ -1,0 +1,13 @@
+{
+ "source": "citibike",
+ "captured_at": "2026-10-19T01:52:26+00:00",
+ "note": "one station_status answer, trimmed to its first 3 stations",
+ "messages": [
+  {
+   "body_text": "{\"data\": {\"stations\": [{\"station_id\": \"3eb10c63-ea4c-4161-b07d-a29034f7367a\", \"num_bikes_available\": 0, \"num_bikes_disabled\": 0, \"num_docks_available\": 0, \"num_docks_disabled\": 0, \"is_installed\": 0, \"is_renting\": 0, \"is_returning\": 0, \"last_reported\": 86400, \"legacy_id\": \"3950\", \"num_ebikes_available\": 0, \"eightd_has_available_keys\": false}, {\"station_id\": \"ba33c334-e17d-4478-ae3c-9c2f4dbfbb51\", \"num_bikes_available\": 0, \"num_bikes_disabled\": 0, \"num_docks_available\": 0, \"num_docks_disabled\": 0, \"is_installed\": 0, \"is_renting\": 0, \"is_returning\": 0, \"last_reported\": 86400, \"legacy_id\": \"4826\", \"num_ebikes_available\": 0, \"eightd_has_available_keys\": false}, {\"station_id\": \"06439006-11b6-44f0-8545-c9d39035f32a\", \"num_bikes_available\": 0, \"num_bikes_disabled\": 0, \"num_docks_available\": 0, \"num_docks_disabled\": 0, \"is_installed\": 0, \"is_renting\": 0, \"is_returning\": 0, \"last_reported\": 86400, \"legacy_id\": \"4648\", \"num_ebikes_available\": 0, \"eightd_has_available_keys\": false}]}, \"last_updated\": 1792374740, \"ttl\": 60, \"version\": \"1.1\"}",
+   "attributes": {
+    "url": "https://gbfs.lyft.com/gbfs/1.1/bkn/en/station_status.json"
+   }
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "source": "ogn",
+ "captured_at": "2026-10-19T01:52:25+00:00",
+ "note": "the server's login answer, then the first four aircraft position beacons without the stealth or no-tracking flag",
+ "messages": [
+  {
+   "body_text": "# logresp N0CALL unverified, server GLIDERN2",
+   "attributes": {}
+  },
+  {
+   "body_text": "ICA39D2A2>OGADSB,qAS,Wimp:/015225h4804.72N/01504.52E^287/457/A=040743 !W69! id2539D2A2 +0fpm FL400.00 A5:AFR185 Sq3216",
+   "attributes": {}
+  },
+  {
+   "body_text": "ICA010291>OGADSB,qAS,AVX1418:/015225h5058.37N/00719.67E^294/303/A=008902 !W40! id25010291 -1664fpm FL085.00 A3:MSC2918 Sq3120",
+   "attributes": {}
+  },
+  {
+   "body_text": "ICA34805A>OGADSB,qAS,LEIG2:/015225h4110.02N/00200.70E^263/382/A=015834 !W64! id2534805A +2304fpm FL154.73 A3:ECOET Sq4553",
+   "attributes": {}
+  },
+  {
+   "body_text": "ICA408027>OGADSB,qAS,Montabaur:/015225h5125.01N/00743.51E^310/468/A=038768 !W14! id25408027 +0fpm FL380.00 A3:TOM495 Sq3125",
+   "attributes": {}
+  }
+ ]
+}
