@@ -218,8 +218,9 @@ has is kept in it. Keys that no source reads are **held keys**, declared in
 catalog next to `FACTORIES`) and listed by `keys` as `held`: secondary keys
 (NTA, WMATA, TfL), WMATA and TfL products the sources do not read, the
 Mastodon applications' client id and secret and the tokens of other instances
-(mastodon.world, mastodon.social), the Coinbase CDP key, and the tokens of the
-removed `lasair` and `gfw`. A new key is added to `HELD_KEYS` (or to a source's
+(mastodon.world, mastodon.social), the Coinbase CDP key, the Bitso and Binance
+key pairs (reading permission only; the Binance probe also fails if the key
+can trade or withdraw), and the tokens of the removed `lasair` and `gfw`. A new key is added to `HELD_KEYS` (or to a source's
 `Credential`) and to `tests/live/test_keys_live.py`, which fails if a key has
 no probe. That test sends, for each key, one read-only request with the stored
 value (must be accepted), one with its last four characters changed (must be
