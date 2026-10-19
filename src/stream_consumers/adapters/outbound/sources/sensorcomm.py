@@ -48,10 +48,10 @@ class SensorcommFactory(BaseSourceFactory):
         min_interval_s=150.0,
         notes=(
             "All sensors, last 5 minutes, polled every 150 s; an event is a new measurement id. The 8.5 MB file "
-            "must arrive whole before the first event (up to 50 s in the rounds of 2026-10-17/18), so windows are "
-            "at least 150 s."
+            "must arrive whole before the first event: up to 50 s in the rounds of 2026-10-17/18, 155 s in a "
+            "600-s check on 2026-10-19 (the 8.5 MB file took 175 s at 0.05 MB/s), so windows are at least 600 s."
         ),
-        min_window_s=150.0,
+        min_window_s=600.0,
     )
     URL = "https://data.sensor.community/static/v2/data.json"
 

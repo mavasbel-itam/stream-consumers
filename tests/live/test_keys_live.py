@@ -213,7 +213,8 @@ def cta_bus_accepts(status: int, body: str) -> bool:
 
 
 def mastodon_instance() -> str:
-    return ENV.get("MASTODON_INSTANCE") or "mastodon.social"
+    (default,) = (s.default for f in FACTORIES if f.descriptor.id == "mastodon" for s in f.descriptor.settings)
+    return ENV.get("MASTODON_INSTANCE") or default
 
 
 PROBES: tuple[KeyProbe, ...] = (

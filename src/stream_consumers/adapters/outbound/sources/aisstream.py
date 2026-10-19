@@ -47,7 +47,7 @@ class AisStreamFactory(BaseSourceFactory):
         name="aisstream.io — global AIS ship positions and static data",
         category="Transport",
         provider="aisstream.io",
-        group=Group.CANDIDATE,
+        group=Group.PROJECT_DOCUMENT,
         delivery=Delivery.PUSH,
         transport=Transport.WEBSOCKET,
         endpoint="wss://stream.aisstream.io/v0/stream",

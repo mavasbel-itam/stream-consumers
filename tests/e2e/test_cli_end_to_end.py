@@ -17,6 +17,7 @@ import pytest
 import websockets
 from aiohttp import web
 
+from stream_consumers.application.consume_service import ATTRIBUTE_SAMPLE
 from tests.servers import MqttBroker, NatsServer, http_server, kafka_broker, kafka_produce, tcp_server, ws_server, zmq_publisher
 
 AVRO_SCHEMA = {"type": "record", "name": "alert", "fields": [{"name": "objectId", "type": "string"}, {"name": "cutout", "type": "bytes"}]}
@@ -171,7 +172,7 @@ async def environment() -> AsyncIterator[dict[str, object]]:
         addresses["nats"] = await stack.enter_async_context(tcp_server(NatsServer([b'{"a": 1}', b'{"a": 2}'], close_after=False).handle))
         addresses["nats_silent"] = await stack.enter_async_context(tcp_server(NatsServer([], close_after=False).handle))
         addresses["zmq"] = await stack.enter_async_context(zmq_publisher([b"/env", b"body"]))
-        addresses["zmq_fast"] = await stack.enter_async_context(zmq_publisher([b"/fast", b"x"], every_s=0.0002))
+        addresses["zmq_fast"] = await stack.enter_async_context(zmq_publisher([b"/fast", b"x"], every_s=0.01, burst=100))
         addresses["tcp_lines"] = await stack.enter_async_context(tcp_server(tcp_lines))
         addresses["tcp_silent"] = await stack.enter_async_context(tcp_server(hold))
         addresses["tcp_records"] = await stack.enter_async_context(tcp_server(sends(b"abcdefg")))
@@ -276,7 +277,7 @@ async def test_check_every_transport(tmp_path: Path) -> None:
     assert rows["poll_get"]["rate_basis"] == "published" and rows["sse_ok"]["rate_basis"] == "observed"
     assert "gave up" in rows["poll_404"]["detail"] and "every child source failed" in rows["merged_dead"]["detail"]
     assert rows["poll_snapshot"]["rate_basis"] == "published" and rows["bad_interval"]["detail"].startswith("ValueError")
-    assert rows["zmq_fast"]["events"] > 1000 and rows["merged_finite"]["events"] == 2
+    assert rows["zmq_fast"]["events"] > ATTRIBUTE_SAMPLE and rows["merged_finite"]["events"] == 2
     assert rows["kafka_json"]["events"] == 2 and rows["kafka_avro"]["events"] == 1
     assert "topics must not be empty" in rows["kafka_no_topics"]["detail"] and "start_at" in rows["kafka_bad_start"]["detail"]
     assert "token request refused: HTTP 401" in rows["oauth_denied"]["detail"]

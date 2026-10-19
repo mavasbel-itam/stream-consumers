@@ -15,7 +15,7 @@ class MtaBustimeFactory(GtfsRealtimeFactory):
         name="MTA Bus Time GTFS-Realtime vehicle positions — every New York City bus",
         category="Transport",
         provider="Metropolitan Transportation Authority (MTA)",
-        group=Group.CANDIDATE,
+        group=Group.FREE_KEY,
         delivery=Delivery.POLL,
         transport=Transport.HTTP,
         endpoint="https://gtfsrt.prod.obanyc.com/vehiclePositions?key=<MTA_BUSTIME_KEY>",

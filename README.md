@@ -20,13 +20,18 @@ and is left out (`round_rate`). The exceptions and pending cases:
 - Free-key providers whose keyless route was measured at ≥ 1 event/s are included
   (MBTA V3, TfL, NASA FIRMS); the key is optional for MBTA V3 and TfL, and FIRMS
   uses its keyless public files.
-- **Candidates** (group D, 8 sources) need a free key; until their own sampling
-  with the key finishes, their rate is not measured. They are built and tested against the
+- **Candidates** (group D) need a free key; until their own sampling with the
+  key finishes, their rate is not measured. They are built and tested against the
   providers' official documentation examples so that adding the key to `.env` is
   enough to run them. A candidate is accepted (group C, or B for aisstream.io)
-  only after its own sampling gives a median of at least 1 event/s with the key,
-  and is removed otherwise. Until then it reports `key-pending` and counts for
-  nothing.
+  when its own sampling gives a median of at least 1 event/s with the key, and is
+  removed otherwise. Until then it reports `key-pending` and counts for nothing.
+  Seven of the eight were measured with their keys on 2026-10-17/19 and accepted
+  on 2026-10-19: `cta_bus`, `cta_train`, `mastodon`, `mta_bustime`, `nta` and
+  `wmata` (group C) and `aisstream` (group B); `aisstream` and `mastodon` were
+  accepted while their samplings were still running (provisional, see
+  [Sampling results](#sampling-results)). ENTSO-E (`entsoe`) is still waiting for
+  its key.
 - Measured below 1 event/s and therefore excluded: Nostr, Stellar,
   ENA, PyPI, Hacker News, MLB; not measurable as configured: BitMEX, APRS-IS,
   Kystverket AIS, zKillboard.
@@ -66,9 +71,9 @@ The rate list will be re-checked with this repository's own `sample` command
 
 ## Sources (67)
 
-Groups: **keyless** (50), **project document** (6, the sources the project
-document lists), **free key** (3, key optional), **candidate** (8, key
-required, rate not yet measured).
+Groups: **keyless** (50), **project document** (7, the sources the project
+document lists), **free key** (9: key optional for 3, required for 6, rate
+measured with the key), **candidate** (1, key required, rate not yet measured).
 
 | id | Source | Provider | Group | Transport | Delivery |
 |---|---|---|---|---|---|
@@ -128,16 +133,16 @@ required, rate not yet measured).
 | `gdelt` | [GDELT 2.0 Event Database — 15-minute event exports](https://www.gdeltproject.org/data.html) | The GDELT Project | project document | http | file-drop |
 | `wikimedia` | [Wikimedia EventStreams — recent changes on all Wikimedia wikis](https://wikitech.wikimedia.org/wiki/Event_Platform/EventStreams_HTTP_Service) | Wikimedia Foundation | project document | sse | push |
 | `opensky` | [OpenSky Network state vectors — aircraft over Mexico](https://openskynetwork.github.io/opensky-api/rest.html) | OpenSky Network | project document | http | poll |
+| `aisstream` | [aisstream.io — global AIS ship positions and static data](https://aisstream.io/documentation) | aisstream.io | project document | websocket | push |
 | `mbta_v3` | [MBTA V3 API vehicles (Boston subway, bus, commuter rail, ferry)](https://www.mbta.com/developers/v3-api) | Massachusetts Bay Transportation Authority (MBTA) | free key (optional) | http | poll |
 | `tfl` | [Transport for London Unified API — Tube arrival predictions](https://api-portal.tfl.gov.uk/) | Transport for London (TfL) | free key (optional) | http | poll |
 | `firms` | [NASA FIRMS — satellite active-fire detections (VIIRS ×3, MODIS), global 24 h files](https://firms.modaps.eosdis.nasa.gov/active_fire/) | NASA Earth Science Data Systems (LANCE FIRMS) | free key (optional) | http | poll |
-| `mastodon` | [Mastodon federated public timeline (statuses, edits, deletions)](https://docs.joinmastodon.org/methods/streaming/) | Mastodon (default instance mastodon.social, Mastodon gGmbH) | candidate (key required) | sse | push |
-| `aisstream` | [aisstream.io — global AIS ship positions and static data](https://aisstream.io/documentation) | aisstream.io | candidate (key required) | websocket | push |
-| `cta_bus` | [CTA Bus Tracker vehicles — every Chicago bus](https://www.transitchicago.com/developers/bustracker/) | Chicago Transit Authority (CTA) | candidate (key required) | http | poll |
-| `cta_train` | [CTA Train Tracker locations — every Chicago 'L' train](https://www.transitchicago.com/developers/traintracker/) | Chicago Transit Authority (CTA) | candidate (key required) | http | poll |
-| `mta_bustime` | [MTA Bus Time GTFS-Realtime vehicle positions — every New York City bus](https://bustime.mta.info/developers/gtfs-realtime/) | Metropolitan Transportation Authority (MTA) | candidate (key required) | http | poll |
-| `nta` | [NTA Ireland GTFS-Realtime vehicle positions — Dublin Bus, Bus Éireann, Go-Ahead Ireland](https://developer.nationaltransport.ie/) | National Transport Authority (NTA), Ireland | candidate (key required) | http | poll |
-| `wmata` | [WMATA GTFS-Realtime vehicle positions — Washington DC Metrobus and Metrorail](https://developer.wmata.com/) | Washington Metropolitan Area Transit Authority (WMATA) | candidate (key required) | http | poll |
+| `cta_bus` | [CTA Bus Tracker vehicles — every Chicago bus](https://www.transitchicago.com/developers/bustracker/) | Chicago Transit Authority (CTA) | free key (required) | http | poll |
+| `cta_train` | [CTA Train Tracker locations — every Chicago 'L' train](https://www.transitchicago.com/developers/traintracker/) | Chicago Transit Authority (CTA) | free key (required) | http | poll |
+| `mastodon` | [Mastodon federated public timeline (statuses, edits, deletions)](https://docs.joinmastodon.org/methods/streaming/) | Mastodon (default instance social.vivaldi.net, funded by Vivaldi Technologies) | free key (required) | sse | push |
+| `mta_bustime` | [MTA Bus Time GTFS-Realtime vehicle positions — every New York City bus](https://bustime.mta.info/developers/gtfs-realtime/) | Metropolitan Transportation Authority (MTA) | free key (required) | http | poll |
+| `nta` | [NTA Ireland GTFS-Realtime vehicle positions — Dublin Bus, Bus Éireann, Go-Ahead Ireland](https://developer.nationaltransport.ie/) | National Transport Authority (NTA), Ireland | free key (required) | http | poll |
+| `wmata` | [WMATA GTFS-Realtime vehicle positions — Washington DC Metrobus and Metrorail](https://developer.wmata.com/) | Washington Metropolitan Area Transit Authority (WMATA) | free key (required) | http | poll |
 | `entsoe` | [ENTSO-E Transparency Platform — actual electricity generation per production type](https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API) | European Network of Transmission System Operators for Electricity (ENTSO-E) | candidate (key required) | http | poll |
 
 Three links cannot be checked by a script: `www.binance.com/en/terms` answers
@@ -147,6 +152,90 @@ text was retrieved with a browser-like fetch on 2026-10-13). Every other
 documentation, terms and sign-up link in the descriptors, this README and the
 documentation fixtures (108 of 111) answered HTTP 200 on 2026-10-13; the 13
 links of the sources added on 2026-10-19 answered HTTP 200 that day.
+
+## Sampling results
+
+One sampling run decides each source: the all-source run of 2026-10-17/18
+(24 hourly rounds, 60-s windows) unless a later run measured the source with
+its key or with a changed consumer (`mbta_v3`, `firms`, `sensorcomm`, `tfl`:
+run `d2`, after the minimum windows and the `mbta_v3` opening-snapshot fix).
+Values come from `uv run stream-consumers verdict data/reports/<run> --planned 24`.
+**passes (certain)** means the median of 24 rounds is at least 1 event/s
+whatever the missing rounds show; **provisional (open)** means the run is still
+going and the source is included on its rounds so far. Read at
+<!-- results-read-at -->2026-10-19 04:27 UTC; the table is replaced with the final results when
+the runs end, and a source whose final median is below 1 event/s is removed.
+
+<!-- results-table -->
+| id | Group | Run (`data/reports/sampling-…`) | Rounds | Rounds ≥ 1/s | Median (events/s) | Rounds span (UTC) | Result |
+|---|---|---|---|---|---|---|---|
+| `adsb_fi` | keyless | 20261017 | 24/24 | 21 | 3.350 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `adsb_lol` | keyless | 20261017 | 24/24 | 12 | 1.727 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `aisstream` | project document | aisstream-20261018 | 12/24 | 12 | 74.209 | 10-18 17:20–10-19 04:20 | passes (certain) |
+| `albion` | keyless | 20261017 | 24/24 | 20 | 6.225 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `atlas` | keyless | 20261017 | 24/24 | 24 | 870.392 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `base_logs` | keyless | 20261017 | 24/24 | 24 | 298.250 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `bicing` | keyless | 20261017 | 24/24 | 24 | 3.681 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `binance` | project document | 20261017 | 24/24 | 24 | 42.585 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `bitfinex` | keyless | 20261017 | 24/24 | 16 | 1.338 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `bitso` | keyless | 20261017 | 24/24 | 24 | 26.812 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `blockchain` | keyless | bytewax-20261019 | 2/24 | 2 | 4.122 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `bluesky` | project document | 20261017 | 24/24 | 24 | 275.843 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `bsc_logs` | keyless | 20261017 | 24/24 | 24 | 372.913 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `bybit` | keyless | 20261017 | 24/24 | 24 | 5.499 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `citibike` | keyless | bytewax-20261019 | 2/24 | 2 | 23.563 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `coinbase` | keyless | 20261017 | 24/24 | 24 | 5.696 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `coinpaprika` | keyless | bytewax-20261019 | 2/24 | 2 | 6.661 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `crossref` | keyless | 20261017 | 24/24 | 23 | 7.983 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `ct` | keyless | 20261017 | 24/24 | 24 | 263.575 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `cta_bus` | free key | 20261017 | 24/24 | 23 | 17.379 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `cta_train` | free key | keyed-20261018 | 22/24 | 17 | 1.424 | 10-18 03:23–10-19 00:23 | passes (certain) |
+| `deribit` | keyless | 20261017 | 24/24 | 24 | 3.935 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `dt_marine` | keyless | 20261017 | 24/24 | 24 | 31.041 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `dt_rail` | keyless | 20261017 | 24/24 | 24 | 48.622 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `dt_road` | keyless | 20261017 | 24/24 | 24 | 274.221 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `ecobici` | keyless | 20261017 | 24/24 | 15 | 1.465 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `entsoe` | candidate | — | 0 | — | — | — | key not set; not measured |
+| `entur` | keyless | 20261017 | 24/24 | 24 | 28.648 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `eth_logs` | keyless | 20261017 | 24/24 | 21 | 43.822 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `firms` | free key | d2-20261018 | 6/24 | 3 | 1.863 | 10-18 22:35–10-19 03:35 | provisional (open) |
+| `gdelt` | project document | 20261017 | 24/24 | 2 | 0.772 | 10-17 21:00–10-18 19:44 | kept below 1/s: the project document lists it |
+| `gemini` | keyless | 20261017 | 24/24 | 24 | 286.996 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `gharchive` | keyless | 20261017 | 24/24 | 24 | 2.939 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `hsl` | keyless | 20261017 | 24/24 | 24 | 648.168 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `hyperliquid` | keyless | 20261017 | 24/24 | 24 | 4.390 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `kraken` | keyless | 20261017 | 24/24 | 23 | 2.968 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `mastodon` | free key | mastodon-vivaldi-20261018 | 13/24 | 13 | 2.383 | 10-18 15:37–10-19 03:37 | passes (certain) |
+| `mbta_gtfsrt` | keyless | 20261017 | 24/24 | 24 | 24.620 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `mbta_v3` | free key | d2-20261018 | 6/24 | 6 | 45.927 | 10-18 22:35–10-19 03:35 | provisional (open) |
+| `mempool` | project document | 20261017 | 24/24 | 24 | 3.554 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `metar` | keyless | 20261017 | 24/24 | 23 | 1.386 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `mta_bustime` | free key | mta_bustime-20261018 | 20/24 | 20 | 50.567 | 10-18 04:56–10-18 23:56 | passes (certain) |
+| `mta_gtfsrt` | keyless | 20261017 | 24/24 | 24 | 10.106 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `ndbc` | keyless | bytewax-20261019 | 2/24 | 0 | 0.418 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `ndov` | keyless | 20261017 | 24/24 | 24 | 67.944 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `nta` | free key | nta-20261018 | 21/24 | 21 | 11.474 | 10-18 04:28–10-19 00:28 | passes (certain) |
+| `ogn` | keyless | bytewax-20261019 | 2/24 | 2 | 99.007 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `okx` | keyless | 20261017 | 24/24 | 24 | 30.451 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `opensky` | project document | opensky-20261018 | 12/24 | 12 | 30.477 | 10-18 15:53–10-19 02:53 | passes (certain) |
+| `osm` | keyless | 20261017 | 24/24 | 24 | 30.275 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `polygon_logs` | keyless | 20261017 | 24/24 | 24 | 353.452 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `polymarket` | keyless | 20261017 | 24/24 | 24 | 328.189 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `pskreporter` | keyless | 20261017 | 24/24 | 24 | 414.680 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `rbn` | keyless | 20261017 | 24/24 | 24 | 23.200 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `ris` | keyless | 20261017 | 24/24 | 24 | 2921.520 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `seedlink` | keyless | 20261017 | 24/24 | 23 | 1.873 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `sensorcomm` | keyless | d2-20261018 | 6/24 | 4 | 58.703 | 10-18 22:35–10-19 03:35 | provisional (open) |
+| `sharpe` | keyless | bytewax-20261019 | 2/24 | 2 | 40.419 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `solana` | keyless | 20261017 | 24/24 | 24 | 1391.347 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `tfl` | free key | d2-20261018 | 6/24 | 4 | 1.716 | 10-18 22:35–10-19 03:35 | provisional (open) |
+| `twitch` | keyless | 20261017 | 24/24 | 24 | 5.275 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `ukflood` | keyless | bytewax-20261019 | 2/24 | 2 | 4.883 | 10-19 02:45–10-19 03:45 | provisional (open) |
+| `usgs_water` | keyless | 20261017 | 24/24 | 24 | 2.402 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `velib` | keyless | 20261017 | 24/24 | 24 | 4.578 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `wikimedia` | project document | 20261017 | 24/24 | 24 | 29.034 | 10-17 21:00–10-18 19:44 | passes (certain) |
+| `wmata` | free key | wmata-20261018 | 20/24 | 20 | 47.679 | 10-18 04:56–10-18 23:56 | passes (certain) |
+| `xrpl` | keyless | 20261017 | 24/24 | 24 | 23.440 | 10-17 21:00–10-18 19:44 | passes (certain) |
 
 ## How rates are measured
 
@@ -237,7 +326,7 @@ uv run pytest tests/live/test_keys_live.py -m live    # KEYS_ENV_FILE=path/.env 
 | `CTA_BUS_KEY` | `cta_bus` | required | [Bus Tracker account](https://www.ctabustracker.com/bustime/login.jsp) → My Account → Developer API; e-mailed after approval | query `key` | 100,000 transactions/day |
 | `CTA_TRAIN_KEY` | `cta_train` | required | [Train Tracker application form](https://www.transitchicago.com/developers/traintrackerapply/); CTA reviews it | query `key` | 50,000 requests/day |
 | `ENTSOE_TOKEN` | `entsoe` | required | [Register](https://transparency.entsoe.eu/), then e-mail transparency@entsoe.eu for RESTful API access ("within 3 working days") | query `securityToken` | 400 requests/min |
-| `MASTODON_ACCESS_TOKEN` | `mastodon` | required | [Account on the instance](https://mastodon.social/auth/sign_up), then a user token with scope `read:statuses` | `Authorization: Bearer` | 300 REST calls per 5 min; streaming not stated |
+| `MASTODON_ACCESS_TOKEN` | `mastodon` | required | [Account on the instance](https://social.vivaldi.net/auth/sign_up) (the default `MASTODON_INSTANCE`; a token works only on the instance that issued it), then a user token with scope `read:statuses` | `Authorization: Bearer` | 300 REST calls per 5 min; streaming not stated |
 | `MTA_BUSTIME_KEY` | `mta_bustime` | required | [Web form](https://register.developer.obanyc.com/); e-mailed "within half an hour" | query `key` | no number; all-vehicle requests not under 30 s apart |
 | `NTA_API_KEY` | `nta` | required | [Developer portal](https://developer.nationaltransport.ie/signup), subscribe to "GTFS Realtime" | header `x-api-key` | one call every 60 s |
 | `WMATA_API_KEY` | `wmata` | required | [Developer account](https://developer.wmata.com/signup), subscribe to a Transit Data tier | header `api_key` | not published on an official page |
@@ -328,6 +417,18 @@ the key is not stored).
 
 - Digitraffic road sensors (`dt_road`) publish in bursts; a short window can see
   none.
+- Albion Online market orders (`albion`) arrive in bursts: on 2026-10-19 the
+  subject `marketorders.deduped` was silent for 50 s and then carried 350
+  orders in 30 s, so 60-s windows at 03:53 and 04:10 UTC read 0 events and
+  one at 04:24 UTC read 4.1 events/s (1 of the 24 rounds of 2026-10-17/18 read
+  0).
+- PublicNode's Ethereum endpoint (`eth_logs`) can acknowledge the unfiltered
+  `eth_subscribe("logs")` and then send no logs: on 2026-10-19 it sent none
+  in 60-s windows at 03:53, 04:10 and 04:24 UTC, while `eth_getLogs` returned
+  666 logs for the latest block, a subscription filtered by one contract
+  address received 252 logs in 40 s, and
+  the BSC, Base and Polygon endpoints delivered (3 of the 24 rounds of
+  2026-10-17/18 read 0; median 43.8 events/s).
 - With `MBTA_API_KEY`, `mbta_v3` streams: the first `reset` message lists
   every vehicle (245 on 2026-10-18 04:54 UTC). It is the starting state, not a
   change, so it yields no events, like the first poll of a polled feed (until
@@ -335,22 +436,32 @@ the key is not stored).
 - `mta_bustime`'s GTFS-Realtime feed answered the same with no key or a wrong
   key on 2026-10-18 (its SIRI API refuses them: 401 / 403); the source still
   sends the key, as the provider's documentation requires.
-- mastodon.social (the default `MASTODON_INSTANCE`) reports
+- The default `MASTODON_INSTANCE` is social.vivaldi.net (since 2026-10-19;
+  measured with its token since 2026-10-18). mastodon.social reports
   `configuration.timelines_access.live_feeds` local and remote `disabled`
   (`GET /api/v2/instance`, 2026-10-18), so its public stream carries only
-  `delete` events. Use a token from an instance whose live feeds are `public`
-  (social.vivaldi.net, used since 2026-10-18) and set `MASTODON_INSTANCE` to it.
+  `delete` events; social.vivaldi.net and mastodon.world report both `public`.
+  A token works only on the instance that issued it (the social.vivaldi.net
+  token got HTTP 401 on mastodon.world), so changing `MASTODON_INSTANCE` needs a
+  token from that instance. mastodon.world was measured as a second option
+  (median 1.833 events/s over its first 5 rounds, 2026-10-18/19).
 - TfL answers carry `Cache-Control: ... s-maxage=60` and a shared cache serves
   them with or without a key, so a poll 30 s after a fresh answer can return
   the same copy (`X-Cache: HIT`); a 60-s round then measures 0 events/s
   (5 of 24 rounds on 2026-10-17/18).
 - Sources declare a minimum measuring window (`SourceDescriptor.min_window_s`);
   `check`, `sample` and `profile` extend a shorter `--seconds`/`--window` to it.
-  150 s for `tfl` (the 60-s cache), `nta` (one call per 60 s, so two polls need
-  more than 60 s), `firms` and `sensorcomm` (whole files must arrive before
-  the first event: up to 73 s and 50 s in the rounds of 2026-10-17/18; both
-  delivered nothing in 6 consecutive rounds, 2026-10-18 00:01–04:45 UTC, while
-  other sources were unaffected). `citibike` is regenerated every 60 s (`ttl`
+  150 s for `tfl` (the 60-s cache) and `nta` (one call per 60 s, so two polls
+  need more than 60 s). 600 s for `firms` and `sensorcomm`: their whole files
+  must arrive before the first event, and on 2026-10-19 the servers sent them
+  at 0.05–0.09 MB/s (first event after 462 s and 297 s for `firms`, 155 s for
+  `sensorcomm`, in 600-s checks), while the 2026-10-17/18 rounds needed at most
+  73 s and 50 s. Until 2026-10-19 the HTTP client also cut every request at
+  120 s in total, so a slow but steady download (Sensor.Community's 8.5 MB in
+  175 s) failed and the round counted 0 events/s (both sources: 6 consecutive
+  rounds on 2026-10-18 00:01–04:45 UTC, and 3 rounds of the `d2` run on
+  2026-10-19 01:35–02:35 UTC). The 120 s now bound connecting and each wait for
+  bytes; a whole request is capped at 900 s. `citibike` is regenerated every 60 s (`ttl`
   60) behind a CloudFront cache: a 60-s check on 2026-10-19 02:13 UTC polled
   only copies of one version and measured 0 events/s, so its window is 150 s.
   `coinpaprika` and `sharpe` refresh their whole

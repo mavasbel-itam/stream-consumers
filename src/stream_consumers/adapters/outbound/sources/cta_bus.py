@@ -88,7 +88,7 @@ class CtaBusFactory(BaseSourceFactory):
         name="CTA Bus Tracker vehicles — every Chicago bus",
         category="Transport",
         provider="Chicago Transit Authority (CTA)",
-        group=Group.CANDIDATE,
+        group=Group.FREE_KEY,
         delivery=Delivery.POLL,
         transport=Transport.HTTP,
         endpoint="https://www.ctabustracker.com/bustime/api/v3/getvehicles?key=<CTA_BUS_KEY>&rt=<up to 10 routes>&format=json",

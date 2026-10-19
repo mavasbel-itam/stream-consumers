@@ -15,7 +15,7 @@ class NtaFactory(GtfsRealtimeFactory):
         name="NTA Ireland GTFS-Realtime vehicle positions — Dublin Bus, Bus Éireann, Go-Ahead Ireland",
         category="Transport",
         provider="National Transport Authority (NTA), Ireland",
-        group=Group.CANDIDATE,
+        group=Group.FREE_KEY,
         delivery=Delivery.POLL,
         transport=Transport.HTTP,
         endpoint="https://api.nationaltransport.ie/gtfsr/v2/Vehicles",
