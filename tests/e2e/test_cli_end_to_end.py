@@ -241,7 +241,6 @@ EXPECTED = {
     "merged_finite": "ok",
     "merged_empty": "error",
     "keyed": "key-pending",
-    "stalling": "ok",
     "disguised_cancel": "ok",
     "kafka_json": "ok",
     "kafka_avro": "ok",
@@ -318,7 +317,7 @@ async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
         code, _, err = await cli(addresses, "consume", "poll_404", "--seconds", "2")
         assert code == 1 and json.loads(err)["status"] == "error"
 
-        code, _, err = await cli(addresses, "consume", "stalling", "--seconds", "0.5")
+        code, _, err = await cli(addresses, "--catalog", "tests.e2e.stalling_catalog", "consume", "stalling", "--seconds", "0.5")
         assert code == 0 and json.loads(err)["events"] == 2
 
         code, _, err = await cli(addresses, "consume", "nope")

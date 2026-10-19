@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import asyncio
+from collections.abc import AsyncGenerator, Callable, Mapping, Sequence
 
 import pytest
 
 import stream_consumers.application.consume_service as consume_module
 from stream_consumers.adapters.outbound.registry import FactoryRegistry
 from stream_consumers.adapters.outbound.sources._base import BaseSourceFactory
+from stream_consumers.adapters.outbound.system import SystemClock
+from stream_consumers.adapters.outbound.transports.base import BaseEventSource
 from stream_consumers.application.check_service import CheckService
 from stream_consumers.application.consume_service import ConsumeService
 from stream_consumers.application.list_service import ListService
@@ -183,6 +186,35 @@ class TestConsume:
         factory, _ = scripted("s", [], clock)
         with pytest.raises(ValueError):
             await ConsumeService(registry(clock, factory), clock).consume("s", seconds, ListSink(), max_events)
+
+
+class AlwaysReady(BaseEventSource):
+    """Has its next record ready at every request, so reading it never suspends."""
+
+    async def events(self) -> AsyncGenerator[Mapping[str, object]]:
+        while True:
+            yield {"n": 1}
+
+
+class Paced(BaseEventSource):
+    """One record every 10 ms of real time."""
+
+    async def events(self) -> AsyncGenerator[Mapping[str, object]]:
+        while True:
+            await asyncio.sleep(0.01)
+            yield {"n": 1}
+
+
+class TestFairness:
+    async def test_a_source_that_is_always_ready_does_not_starve_the_others(self) -> None:
+        clock = SystemClock()
+        factories = (
+            Scripted("paced", lambda d: Paced(descriptor("paced"), d.clock)),
+            Scripted("ready", lambda d: AlwaysReady(descriptor("ready"), d.clock)),
+        )
+        service = ConsumeService(FactoryRegistry(factories, deps(clock=clock)), clock)
+        paced, ready = await asyncio.gather(service.consume("paced", 0.5, ListSink()), service.consume("ready", 0.5, ListSink()))
+        assert ready.events > 1000 and paced.events >= 20  # 10 ms apart: about 50 in 0.5 s when it gets its turns
 
 
 class TestCheck:
