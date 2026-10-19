@@ -21,9 +21,11 @@ File names follow `YYYY-MM-DD-HH-MM-<name>.md` (UTC time of writing).
   in sample events are shown as `‹redacted›` or `<masked>`.
 
 These files were written in the course repository and moved here on
-2026-10-19 15:00 UTC, unchanged except for the key page's status update and the
-dated addendum of the Bytewax screening. Paths inside them that name the course
-repository, its worktrees or `/tmp/opencode/` refer to where the work was done
-at the time. The evidence they cite under `data/` is in this repository's
+2026-10-19 15:00 UTC, unchanged except for the key page's status update, the
+dated addendum of the Bytewax screening and the course repository's current name
+(`non-relational-dbs`, renamed from `2026-02-non-relational-dbs` on 2026-10-18)
+in the stream-consumers record. Paths inside them that name the course
+repository, its worktree or branch `claude-course-streams` (deleted on
+2026-10-19) or `/tmp/opencode/` refer to where the work was done at the time. The evidence they cite under `data/` is in this repository's
 git-ignored `data/` directory, except `data/credentials/`, removed on 2026-10-18
 when every key moved into `.env` (key page, section 11).
