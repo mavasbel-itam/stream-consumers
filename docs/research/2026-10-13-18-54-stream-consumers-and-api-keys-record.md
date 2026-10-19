@@ -11,7 +11,7 @@ Written 2026-10-13 18:56 CST (2026-10-14 00:56 UTC) by the streams session (`ses
 | HEAD at writing | `f4af707`, working tree clean |
 | Pull request | https://github.com/non-relational-dbs/stream-consumers/pull/1 (merged into `main` at `f4af707` on 2026-10-14 01:16 UTC), comment with the `f4af707` summary: https://github.com/non-relational-dbs/stream-consumers/pull/1#issuecomment-6154053047 |
 | CI | GitHub Actions `test` workflow: run 38368548940 on `e719191` success; run 38458568897 on `f4af707` success |
-| This record | course repository `2026-02-non-relational-dbs` (a different repository), worktree `worktrees/claude-course-streams`, branch `claude-course-streams` |
+| This record | course repository `non-relational-dbs` (a different repository), worktree `worktrees/claude-course-streams`, branch `claude-course-streams` |
 | Earlier records (unchanged) | `docs/research/2026-10-12-21-37-public-data-streams-survey.md` (`1dba0b7`), `docs/research/2026-10-12-22-41-public-data-streams-full-report.md` (`5a34175`) |
 
 ## 1. Summary
