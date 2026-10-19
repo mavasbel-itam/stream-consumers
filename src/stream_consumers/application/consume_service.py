@@ -60,10 +60,14 @@ class ConsumeService(ConsumeStreamUseCase):
                     payload = await asyncio.wait_for(anext(iterator), remaining)
                 except (TimeoutError, StopAsyncIteration):
                     break
+                except Exception as exc:  # a provider failure is a measured result, never a crash
+                    failed, detail = True, f"{type(exc).__name__}: {exc}"[:500]
+                    break
                 if first is None:
                     first = round(self._clock.monotonic() - start, 3)
                 if masker is not None:
                     payload = masker.mask(payload)
+                # a failing sink (a closed pipe, a full disk) is not the provider's failure: it ends the run
                 sink.write(Event(source_id, self._clock.now(), payload))
                 events += 1
                 if len(counts) < ATTRIBUTE_SAMPLE:
@@ -71,8 +75,6 @@ class ConsumeService(ConsumeStreamUseCase):
                 # A source whose next record is always ready never suspends; without this turn it would hold
                 # the event loop for its whole window and the sources consumed beside it would get nothing.
                 await asyncio.sleep(0)
-        except Exception as exc:  # a provider failure is a measured result, never a crash
-            failed, detail = True, f"{type(exc).__name__}: {exc}"[:500]
         finally:
             await iterator.aclose()
         elapsed = round(self._clock.monotonic() - start, 3)

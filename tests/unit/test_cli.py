@@ -5,13 +5,14 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import runpy
 import sys
 from pathlib import Path
 
 import pytest
 
-from stream_consumers.adapters.inbound.cli import DEFAULT_CATALOG, _parser, main
+from stream_consumers.adapters.inbound.cli import DEFAULT_CATALOG, SIGPIPE_EXIT, _parser, main
 
 CATALOG = ["--catalog", "tests.catalog_scripted"]
 
@@ -35,6 +36,14 @@ def test_default_catalog_lists_the_73_sources_8_of_them_low_rate() -> None:
     assert main(["list"], out, io.StringIO()) == 0
     groups = [json.loads(line)["group"] for line in out.getvalue().splitlines()]
     assert len(groups) == 73 and groups.count("E") == 8 and DEFAULT_CATALOG.endswith(".sources")
+
+
+def test_a_reader_that_closed_the_pipe_ends_the_command_without_a_traceback() -> None:
+    read_end, write_end = os.pipe()
+    os.close(read_end)
+    with os.fdopen(write_end, "w") as out:
+        assert main([*CATALOG, "list"], out, io.StringIO()) == SIGPIPE_EXIT == 141
+        out.write("buffered text now goes to /dev/null\n")
 
 
 class TestConsume:

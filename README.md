@@ -14,6 +14,36 @@ how this repository was built, the screening of the Bytewax list and the status
 of every API key
 ([`docs/reference/2026-10-17-15-13-api-key-gated-sources.md`](docs/reference/2026-10-17-15-13-api-key-gated-sources.md)).
 
+## Quick start
+
+Requires [uv](https://docs.astral.sh/uv/), which also installs the Python 3.13
+the project pins if it is missing. Run every command from the repository root.
+
+```bash
+uv sync                                                     # create .venv with the locked dependencies
+cp .env.example .env                                        # then fill in the keys you have (API keys and configuration)
+uv run stream-consumers keys                                # which keys are set, missing or held; values are never shown
+uv run stream-consumers consume wikimedia --max-events 5    # needs no key: five events as JSON lines
+```
+
+[Running the consumers](#running-the-consumers) explains every command, its
+options and its output.
+
+## Contents
+
+- [Quick start](#quick-start)
+- [Inclusion rule](#inclusion-rule)
+- [Sources (65)](#sources-65)
+- [Sources Below 1 Event/s (Measured & Low-Rate Catalog)](#sources-below-1-events-measured--low-rate-catalog)
+- [Sampling results](#sampling-results)
+- [How rates are measured](#how-rates-are-measured)
+- [Running the consumers](#running-the-consumers)
+- [API keys and configuration](#api-keys-and-configuration)
+- [Architecture](#architecture)
+- [Tests](#tests)
+- [Known behaviour](#known-behaviour)
+- [Reference links](#reference-links)
+
 ## Inclusion rule
 
 A source is included when its **median measured rate is at least 1 event per
@@ -186,14 +216,6 @@ with their group. The measurements and the evidence behind each row are in
 | `ndbc` | [NOAA National Data Buoy Center latest observations](https://www.ndbc.noaa.gov/faq/rt_data_access.shtml) | http / poll | — | median **0.268**; 3 rounds of 960 s: 0.268, 0.569, 0.045 (`sampling-bytewax-20261019`, stopped early) | About 840 stations, one observation each per file rewrite; rewrites seen 9 min 59 s and 14 min 51 s apart |
 | `npm` | [npm registry replication changes](https://github.com/npm/registry-follower-tutorial) | http / poll | — | median **0.790**; 24/24 rounds, 9 at ≥ 1/s, min 0.259, max 1.616 (`sampling-20261017`) | Polled every 5 s; the feed returns each changed package once per request, so several updates of one package between polls count once |
 
-Three links cannot be checked by a script: `www.binance.com/en/terms` answers
-HTTP 202 with a JavaScript challenge, and `www.mta.info/developers` and
-`www.mta.info/developers/terms-and-conditions` answer HTTP 403 to scripts (their
-text was retrieved with a browser-like fetch on 2026-10-13). Every other
-documentation, terms and sign-up link in the descriptors, this README and the
-documentation fixtures (108 of 111) answered HTTP 200 on 2026-10-13; the 13
-links of the sources added on 2026-10-19 answered HTTP 200 that day.
-
 ## Sampling results
 
 One sampling run decides each source: the all-source run of 2026-10-17/18
@@ -308,20 +330,103 @@ earlier (12 rounds of at least 2 events/s already give a lowest median of 1).
 ends when every source is settled; `verdict` gives the median and verdict of each
 source from recorded rounds.
 
-## Use
+## Running the consumers
+
+Every command is `uv run stream-consumers <command>`, run from the repository
+root after `uv sync` ([Quick start](#quick-start)); `--help` after a command
+lists its options with their defaults. Source ids are the `id` column of the
+tables above, or the `id` field of `list`.
+
+| Command | What it does | Output | Exit code |
+|---|---|---|---|
+| `list` | Every source of the catalog (73), one JSON object per line: id, name, group, transport, delivery, endpoint, documentation and terms links, credential, settings, personal fields, minimum window | standard output | 0 |
+| `keys` | One line per variable: source, variable, kind (`secret`, `setting`, `held`), required or optional, state (`set`, `MISSING`, `not-set`, `default`), sign-up page or default; never a value | standard output | 1 if `.env` holds a variable that no source reads and no held key declares |
+| `keys --template` | The `.env.example` template, with how to get each key | standard output | 0 |
+| `consume <id>` | Reads one source and writes each event as one JSON line | `--out` (standard output by default); a run report as one JSON line on standard error | 0 when the source delivered events or its key is missing (`key-pending`), 1 when it failed or delivered nothing |
+| `check [<id> …]` | Reads each source for a short window and reports whether events arrive | one line per source and a total on standard output; `check-<time>.json` in `--reports` | 1 if any source failed or delivered nothing |
+| `sample [<id> …]` | The measurement behind the inclusion rule: reads every source once per round, rounds started on wall-clock targets | `round-NN-<time>.json` per round in `--reports`; the latest result and the verdict of each source on standard output | 1 if any source failed or delivered nothing in its latest round |
+| `verdict <dir> [<id> …]` | Median rate and verdict (`passes`, `fails`, `open`) of each source from recorded `round-*.json` files (searched recursively) | standard output | 0 |
+| `profile [<id> …]` | Keeps a masked sample of events per source and describes their fields | `<source>.jsonl` in `--out`; `profiles-<time>.json` in `--reports`; one line per source on standard output | 1 if any source failed or delivered nothing |
+
+`check`, `sample` and `profile` without source ids read the 65 sources of
+groups A–C; a group E source runs only when named. Every command exits 2 on an
+invalid argument or an unknown source id, and 141 (128 + SIGPIPE, as `head`
+or `grep -m` cause) when the program reading its output closes the pipe early.
+
+### Options and defaults
+
+| Command | Option | Default | Meaning |
+|---|---|---|---|
+| every command | `--env-file <path>` (before the command) | `.env` | File with keys and settings; a variable already set in the process environment wins |
+| every command | `--catalog <module>` (before the command) | built-in sources | Module exposing `FACTORIES`; the tests use it to load a local catalog |
+| `keys` | `--template` | off | Print the `.env` template instead of the status |
+| `consume` | `--seconds` | 60 | Reading time, extended to the source's minimum window |
+| `consume` | `--max-events` | no limit | Stop after this many events |
+| `consume` | `--out` | `-` (standard output) | Output file |
+| `consume` | `--raw` | off | Do not mask personal fields |
+| `check` | `--seconds` | 30 | Reading time per source, extended to its minimum window |
+| `check` | `--reports` | `data/reports` | Directory for `check-<time>.json` |
+| `check` | `--concurrency` | 16 | Sources read at the same time |
+| `sample` | `--rounds` | 24 | Number of rounds |
+| `sample` | `--interval` | 3600 | Seconds between round starts |
+| `sample` | `--window` | 60 | Reading time per source and round, extended to its minimum window |
+| `sample` | `--reports` | `data/reports` | Directory for `round-NN-<time>.json` |
+| `sample` | `--concurrency` | 64 | Sources read at the same time |
+| `sample` | `--continue-from <dir>` | none | Reports directory of an interrupted run; its rounds count toward `--rounds` and are not repeated |
+| `sample` | `--stop-when-settled` | off | Stop reading a source once its median over `--rounds` is fixed on one side of 1 event/s |
+| `verdict` | `--planned` | 24 | Rounds in the plan the verdict is about |
+| `profile` | `--max-events` | 500 | Events kept per source |
+| `profile` | `--seconds` | 120 | Longest reading time per source, extended to its minimum window |
+| `profile` | `--out` | `data/profile` | Directory for the masked samples |
+| `profile` | `--reports` | `data/reports` | Directory for `profiles-<time>.json` |
+| `profile` | `--concurrency` | 64 | Sources read at the same time |
+
+### Examples
 
 ```bash
-uv sync                                    # Python 3.13, locked dependencies
-uv run stream-consumers list               # descriptors as JSON lines
+uv run stream-consumers list                                      # the 73 sources
 uv run stream-consumers consume hsl --seconds 60 --out data/hsl.jsonl
-uv run stream-consumers check              # the 65 sources of groups A–C (D is empty) for 30 s; exit 1 if any fails
-uv run stream-consumers check ndbc --seconds 960   # a group E source runs only when named
+uv run stream-consumers consume coinbase --max-events 100         # to the terminal
+uv run stream-consumers check                                     # the 65 sources of groups A–C (D is empty) for 30 s
+uv run stream-consumers check wikimedia coinbase --seconds 10     # only these two
+uv run stream-consumers check ndbc --seconds 960                  # a group E source runs only when named
 uv run stream-consumers sample --rounds 24 --interval 3600 --window 60 --reports data/reports/sampling
 uv run stream-consumers sample --stop-when-settled --reports data/reports/sampling/segment-2 \
-    --continue-from data/reports/sampling   # resume an interrupted run; stop each source once settled
-uv run stream-consumers verdict data/reports/sampling --planned 24   # passes / fails / open per source
+    --continue-from data/reports/sampling                         # resume an interrupted run; stop each source once settled
+uv run stream-consumers verdict data/reports/sampling --planned 24
 uv run stream-consumers profile --max-events 500 --seconds 120 --out data/profile
+uv run stream-consumers --env-file /path/to/other.env keys
 ```
+
+### What the output looks like
+
+`consume coinbase --max-events 2` on 2026-10-19 at 23:10 UTC wrote these two
+events to standard output (`received_at` is Unix time in seconds; `payload` is
+the provider's message with nested fields flattened to dotted names, as
+masking does; with `--raw` it is written as decoded, unflattened):
+
+```json
+{"source": "coinbase", "received_at": 1792451429.0183232, "payload": {"type": "ticker", "sequence": 33222444004, "product_id": "SOL-USD", "price": "104.93", "open_24h": "103.97", "volume_24h": "404714.89067842", "low_24h": "103.44", "high_24h": "106.11", "volume_30d": "23266608.11904641", "best_bid": "104.910", "best_bid_size": "60.94180712", "best_ask": "104.930", "best_ask_size": "97.50987129", "side": "buy", "time": "2026-10-19T23:10:25.601474Z", "trade_id": 358224642, "last_size": "0.13555312"}}
+{"source": "coinbase", "received_at": 1792451429.02297, "payload": {"type": "ticker", "sequence": 24472285875, "product_id": "DOGE-USD", "price": "0.07954", "open_24h": "0.07933", "volume_24h": "60654047.70000000", "low_24h": "0.07854", "high_24h": "0.0802", "volume_30d": "5285390369.80000000", "best_bid": "0.07952", "best_bid_size": "12614.0", "best_ask": "0.07954", "best_ask_size": "57061.8", "side": "buy", "time": "2026-10-19T23:10:24.975242Z", "trade_id": 175642876, "last_size": "74.1"}}
+```
+
+and this run report to standard error:
+
+```json
+{"source_id": "coinbase", "status": "ok", "events": 2, "seconds": 1.284, "rate": 1.558, "rate_basis": "observed", "attributes_median": 17.0, "first_event_s": 1.119, "started_at": 1792451427.899483, "detail": ""}
+```
+
+`check wikimedia coinbase --seconds 10` on 2026-10-19 at 23:15 UTC printed:
+
+```text
+coinbase         ok          events=91      rate=8.944/s      observed   
+wikimedia        ok          events=290     rate=28.997/s     observed   
+2 sources, 2 delivered or key pending, 0 failed
+```
+
+`status` is `ok`, `no-events`, `error` (with the reason in `detail`) or
+`key-pending`; `rate_basis` is explained in
+[How rates are measured](#how-rates-are-measured).
 
 Personal fields declared by each source (`personal_fields`) and any e-mail
 address are masked in everything written, unless `consume --raw` is given.
@@ -541,3 +646,122 @@ Kafka broker.
 - The USGS legacy Water Services announce their retirement on 2027-02-22.
 - Branch protection is not available for private repositories on the GitHub Free
   plan; work reaches `main` through pull requests by convention.
+
+## Reference links
+
+Every documentation, terms-of-use and sign-up page of the 73 sources, as the
+catalog declares them (`list` prints the same fields: `docs_url`, `terms_url`
+and `credential.sign_up_url`). `tests/unit/test_documentation.py` fails if one
+is missing here.
+
+| id | Group | Documentation | Terms of use | Sign-up (keyed sources) |
+|---|---|---|---|---|
+| `adsb_fi` | keyless | <https://github.com/adsbfi/opendata> | <https://raw.githubusercontent.com/adsbfi/opendata/main/README.md> | — |
+| `adsb_lol` | keyless | <https://www.adsb.lol/docs/open-data/api/> | <https://www.adsb.lol/docs/open-data/api/> | — |
+| `albion` | keyless | <https://www.albion-online-data.com/> | <https://github.com/ao-data/albiondata-client> | — |
+| `atlas` | keyless | <https://atlas.ripe.net/docs/apis/streaming-api> | <https://atlas.ripe.net/legal/terms-conditions/> | — |
+| `base_logs` | keyless | <https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub> | <https://www.publicnode.com/> | — |
+| `bicing` | keyless | <https://opendata-ajuntament.barcelona.cat/data/en/dataset/estat-estacions-bicing> | <https://opendata-ajuntament.barcelona.cat/data/en/dataset/estat-estacions-bicing> | — |
+| `bitfinex` | keyless | <https://docs.bitfinex.com/docs/ws-public> | <https://docs.bitfinex.com/docs/ws-public> | — |
+| `bitso` | keyless | <https://docs.bitso.com/bitso-api/docs> | <https://docs.bitso.com/bitso-api/docs> | — |
+| `blockchain` | keyless | <https://www.blockchain.com/api/api_websocket> | <https://www.blockchain.com/legal/api-terms> | — |
+| `bsc_logs` | keyless | <https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub> | <https://www.publicnode.com/> | — |
+| `bybit` | keyless | <https://bybit-exchange.github.io/docs/v5/websocket/public/ticker> | <https://bybit-exchange.github.io/docs/v5/websocket/public/ticker> | — |
+| `citibike` | keyless | <https://citibikenyc.com/system-data> | <https://citibikenyc.com/data-sharing-policy> | — |
+| `coinbase` | keyless | <https://docs.cdp.coinbase.com/exchange/websocket-feed/overview> | <https://docs.cdp.coinbase.com/exchange/websocket-feed/overview> | — |
+| `coinpaprika` | keyless | <https://docs.coinpaprika.com/api-reference/rest-api/introduction> | <https://docs.coinpaprika.com/api-plans> | — |
+| `crossref` | keyless | <https://www.crossref.org/documentation/retrieve-metadata/rest-api/> | <https://www.crossref.org/documentation/retrieve-metadata/rest-api/> | — |
+| `ct` | keyless | <https://www.rfc-editor.org/rfc/rfc6962> | <https://www.rfc-editor.org/rfc/rfc6962> | — |
+| `deribit` | keyless | <https://docs.deribit.com/> | <https://docs.deribit.com/> | — |
+| `dt_marine` | keyless | <https://www.digitraffic.fi/en/marine-traffic/> | <https://www.digitraffic.fi/en/terms-of-service/> | — |
+| `dt_rail` | keyless | <https://www.digitraffic.fi/en/railway-traffic/> | <https://www.digitraffic.fi/en/terms-of-service/> | — |
+| `dt_road` | keyless | <https://www.digitraffic.fi/en/road-traffic/> | <https://www.digitraffic.fi/en/terms-of-service/> | — |
+| `ecobici` | keyless | <https://ecobici.cdmx.gob.mx/datos-abiertos/> | <https://ecobici.cdmx.gob.mx/datos-abiertos/> | — |
+| `entur` | keyless | <https://developer.entur.org/pages-real-time-intro> | <https://developer.entur.org/pages-intro-setup-and-access/> | — |
+| `eth_logs` | keyless | <https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub> | <https://www.publicnode.com/> | — |
+| `gemini` | keyless | <https://developer.gemini.com/websocket/streams.md> | <https://developer.gemini.com/websocket/streams.md> | — |
+| `gharchive` | keyless | <https://www.gharchive.org/> | <https://www.gharchive.org/> | — |
+| `hsl` | keyless | <https://raw.githubusercontent.com/HSLdevcom/digitransit-site/master/src/pages/en/developers/apis/5-realtime-api/vehicle-positions/high-frequency-positioning/index.md> | <https://raw.githubusercontent.com/HSLdevcom/digitransit-site/master/src/pages/en/developers/apis/7-terms-of-use/index.md> | — |
+| `hyperliquid` | keyless | <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions> | <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions> | — |
+| `kraken` | keyless | <https://docs.kraken.com/api/docs/websocket-v2/trade> | <https://docs.kraken.com/api/docs/websocket-v2/trade> | — |
+| `mbta_gtfsrt` | keyless | <https://www.mbta.com/developers/gtfs-realtime> | <https://www.mbta.com/developers/gtfs-realtime> | — |
+| `metar` | keyless | <https://aviationweather.gov/data/api/> | <https://aviationweather.gov/data/api/> | — |
+| `mta_gtfsrt` | keyless | <https://api.mta.info/> | <https://www.mta.info/developers> | — |
+| `ndov` | keyless | <https://ndovloket.nl/> | <https://ndovloket.nl/> | — |
+| `ogn` | keyless | <https://wiki.glidernet.org/wiki:subscribe-to-ogn-data> | <https://www.glidernet.org/ogn-data-usage/> | — |
+| `okx` | keyless | <https://www.okx.com/docs-v5/en/> | <https://www.okx.com/docs-v5/en/> | — |
+| `osm` | keyless | <https://wiki.openstreetmap.org/wiki/Planet.osm/diffs> | <https://www.openstreetmap.org/copyright> | — |
+| `polygon_logs` | keyless | <https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub> | <https://www.publicnode.com/> | — |
+| `polymarket` | keyless | <https://docs.polymarket.com/developers/CLOB/websocket/market-channel> | <https://docs.polymarket.com/developers/CLOB/websocket/market-channel> | — |
+| `pskreporter` | keyless | <https://www.mqtt.pskreporter.info/> | <https://www.mqtt.pskreporter.info/> | — |
+| `rbn` | keyless | <https://www.reversebeacon.net/> | <https://www.reversebeacon.net/> | — |
+| `ris` | keyless | <https://ris-live.ripe.net/manual/> | <https://www.ripe.net/about-us/legal/ripe-data-repository-terms-and-conditions> | — |
+| `seedlink` | keyless | <https://ds.iris.edu/ds/nodes/dmc/services/seedlink/> | <https://ds.iris.edu/ds/nodes/dmc/services/seedlink/> | — |
+| `sensorcomm` | keyless | <https://github.com/opendata-stuttgart/meta/wiki/EN-APIs> | <https://sensor.community/en/> | — |
+| `sharpe` | keyless | <https://www.sharpe.ai/docs/free-api> | <https://www.sharpe.ai/docs/free-api> | — |
+| `solana` | keyless | <https://solana.com/docs/rpc/websocket/logssubscribe> | <https://solana.com/docs/references/clusters> | — |
+| `twitch` | keyless | <https://dev.twitch.tv/docs/chat/irc/> | <https://legal.twitch.com/legal/developer-agreement/> | — |
+| `ukflood` | keyless | <https://environment.data.gov.uk/flood-monitoring/doc/reference> | <https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/> | — |
+| `usgs_water` | keyless | <https://waterservices.usgs.gov/> | <https://waterservices.usgs.gov/> | — |
+| `velib` | keyless | <https://www.data.gouv.fr/datasets/velib-velos-et-bornes-disponibilite-temps-reel> | <https://www.data.gouv.fr/datasets/velib-velos-et-bornes-disponibilite-temps-reel> | — |
+| `xrpl` | keyless | <https://xrpl.org/docs/references/http-websocket-apis/public-api-methods/subscription-methods/subscribe> | <https://xrpl.org/docs/tutorials/public-servers> | — |
+| `aisstream` | project document | <https://aisstream.io/documentation> | <https://aisstream.io/privacypolicy> | <https://aisstream.io/account> |
+| `binance` | project document | <https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md> | <https://www.binance.com/en/terms> | — |
+| `bluesky` | project document | <https://github.com/bluesky-social/jetstream> | <https://bsky.social/about/support/tos> | — |
+| `gdelt` | project document | <https://www.gdeltproject.org/data.html> | <https://www.gdeltproject.org/about.html> | — |
+| `mempool` | project document | <https://mempool.space/docs/api/websocket> | <https://mempool.space/terms-of-service> | — |
+| `opensky` | project document | <https://openskynetwork.github.io/opensky-api/rest.html> | <https://opensky-network.org/about/terms-of-use> | <https://opensky-network.org/my-opensky/account> |
+| `wikimedia` | project document | <https://wikitech.wikimedia.org/wiki/Event_Platform/EventStreams_HTTP_Service> | <https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use> | — |
+| `cta_bus` | free key | <https://www.transitchicago.com/developers/bustracker/> | <https://www.transitchicago.com/developers/terms/> | <https://www.ctabustracker.com/bustime/login.jsp> |
+| `cta_train` | free key | <https://www.transitchicago.com/developers/traintracker/> | <https://www.transitchicago.com/developers/terms/> | <https://www.transitchicago.com/developers/traintrackerapply/> |
+| `firms` | free key | <https://firms.modaps.eosdis.nasa.gov/active_fire/> | <https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance> | — |
+| `mastodon` | free key | <https://docs.joinmastodon.org/methods/streaming/> | <https://social.vivaldi.net/terms-of-service> | <https://social.vivaldi.net/auth/sign_up> |
+| `mbta_v3` | free key | <https://www.mbta.com/developers/v3-api> | <https://www.mbta.com/developers/v3-api> | <https://api-v3.mbta.com/register> |
+| `mta_bustime` | free key | <https://bustime.mta.info/developers/gtfs-realtime/> | <https://www.mta.info/developers/terms-and-conditions> | <https://register.developer.obanyc.com/> |
+| `nta` | free key | <https://developer.nationaltransport.ie/> | <https://developer.nationaltransport.ie/usagepolicy> | <https://developer.nationaltransport.ie/signup> |
+| `tfl` | free key | <https://api-portal.tfl.gov.uk/> | <https://api-portal.tfl.gov.uk/> | <https://api-portal.tfl.gov.uk/signup> |
+| `wmata` | free key | <https://developer.wmata.com/> | <https://developer.wmata.com/license> | <https://developer.wmata.com/signup> |
+| `bitstamp` | low-rate (E) | <https://www.bitstamp.net/websocket/v2/> | <https://www.bitstamp.net/websocket/v2/> | — |
+| `dt_rail_trains` | low-rate (E) | <https://www.digitraffic.fi/en/railway-traffic/> | <https://www.digitraffic.fi/en/terms-of-service/> | — |
+| `entsoe` | low-rate (E) | <https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API> | <https://transparencyplatform.zendesk.com/hc/en-us/articles/40921911218961-Legal-Terms-and-Conditions> | <https://transparency.entsoe.eu/> |
+| `fink` | low-rate (E) | <https://doc.lsst.fink-broker.org/services/livestream/> | <https://github.com/astrolabsoftware/fink-client> | <https://forms.gle/2td4jysT4e9pkf889> |
+| `gfw` | low-rate (E) | <https://globalfishingwatch.org/our-apis/documentation> | <https://globalfishingwatch.org/our-apis/documentation/docs/license-rate-limits> | <https://globalfishingwatch.org/our-apis/> |
+| `lasair` | low-rate (E) | <https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html> | <https://lasair.lsst.ac.uk/privacy> | <https://lasair.lsst.ac.uk/> |
+| `ndbc` | low-rate (E) | <https://www.ndbc.noaa.gov/faq/rt_data_access.shtml> | <https://www.weather.gov/disclaimer> | — |
+| `npm` | low-rate (E) | <https://github.com/npm/registry-follower-tutorial> | <https://docs.npmjs.com/policies/open-source-terms> | — |
+
+Link check of 2026-10-19 23:18 UTC: of the 123 distinct external links in
+this README, 115 answered HTTP 200 to a script. The other eight are live pages
+that refuse or could not serve a script at that moment:
+
+- `github.com/mavasbel-itam/stream-consumers` answers 404 to anyone not signed
+  in, because the repository is private; the GitHub API confirms it exists.
+- The two ENTSO-E Help Center pages answer 403 to scripts; the Zendesk Help
+  Center API returned both (HTTP 200, titles "Legal Terms and Conditions" and
+  "Restful API integration guide").
+- `www.binance.com/en/terms` answers 202 with a JavaScript challenge.
+- `www.mta.info/developers` and its terms page answer 403 to scripts; their text
+  was retrieved with a browser-like fetch on 2026-10-13.
+- `www.earthdata.nasa.gov` (the FIRMS terms) answered 403 to every request from
+  this host, its home page included; the Internet Archive captured the page
+  with HTTP 200 on 2026-10-18.
+- `www.adsb.lol` answered 503 "no healthy upstream" for the whole website while
+  its API (`api.adsb.lol`, which `adsb_lol` reads) answered 200; the Internet
+  Archive captured the page with HTTP 200 on 2026-10-03.
+
+Earlier checks: 108 of 111 links answered HTTP 200 on 2026-10-13 (the
+Binance and MTA pages above were the three exceptions), and the 13 links of the
+sources added on 2026-10-19 answered HTTP 200 that day.
+
+Decision records in [`docs/`](docs/README.md), all linked here:
+
+| Page | Kind | What it holds |
+|---|---|---|
+| [`docs/README.md`](docs/README.md) | index | What each record holds, naming, and which records are historical |
+| [`docs/research/2026-10-12-21-37-public-data-streams-survey.md`](docs/research/2026-10-12-21-37-public-data-streams-survey.md) | research | First survey of public real-time streams: endpoints, access, terms, measured rates, sample events |
+| [`docs/research/2026-10-12-22-41-public-data-streams-full-report.md`](docs/research/2026-10-12-22-41-public-data-streams-full-report.md) | research | Full report of the same survey, with the measurement code and every field of every sample event |
+| [`docs/research/2026-10-13-18-54-stream-consumers-and-api-keys-record.md`](docs/research/2026-10-13-18-54-stream-consumers-and-api-keys-record.md) | research | How this repository was built and validated, and the record of the API keys |
+| [`docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md`](docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md) | research | Screening of the 69 free entries of Bytewax's real-time data list |
+| [`docs/plans/2026-10-19-03-07-stream-consumers-provisional-release-plan.md`](docs/plans/2026-10-19-03-07-stream-consumers-provisional-release-plan.md) | plan | Plan for releasing while the last sampling runs were still going |
+| [`docs/reference/2026-10-17-15-13-api-key-gated-sources.md`](docs/reference/2026-10-17-15-13-api-key-gated-sources.md) | reference | Status of every API key and keyed source, how to get each key, test results, change log |
+| [`docs/reference/2026-10-19-18-27-sub-threshold-sources.md`](docs/reference/2026-10-19-18-27-sub-threshold-sources.md) | reference | Group E and every other stream measured or screened below 1 event/s, with evidence and change log |
