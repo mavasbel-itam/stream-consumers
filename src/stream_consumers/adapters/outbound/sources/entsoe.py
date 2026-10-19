@@ -137,7 +137,7 @@ class EntsoeFactory(BaseSourceFactory):
         name="ENTSO-E Transparency Platform — actual electricity generation per production type",
         category="Weather & environment",
         provider="European Network of Transmission System Operators for Electricity (ENTSO-E)",
-        group=Group.CANDIDATE,
+        group=Group.LOW_RATE,
         delivery=Delivery.POLL,
         transport=Transport.HTTP,
         endpoint="https://web-api.tp.entsoe.eu/api?securityToken=<ENTSOE_TOKEN>&documentType=A75&processType=A16&in_Domain=<EIC>&periodStart=<yyyyMMddHHmm>&periodEnd=<yyyyMMddHHmm>",

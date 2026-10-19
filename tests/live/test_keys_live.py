@@ -217,6 +217,28 @@ def mastodon_instance() -> str:
     return ENV.get("MASTODON_INSTANCE") or default
 
 
+class FinkKafkaProbe(KeyProbe):
+    def __init__(self) -> None:
+        super().__init__(("FINK_KAFKA_SERVERS", "FINK_GROUP_ID"))
+
+    async def attempt(self, session: aiohttp.ClientSession, values: Values) -> Answer:
+        if values is None:
+            return Answer(False, "missing Fink credentials")
+        try:
+            from aiokafka import AIOKafkaConsumer
+
+            consumer = AIOKafkaConsumer(
+                group_id=values["FINK_GROUP_ID"],
+                bootstrap_servers=values["FINK_KAFKA_SERVERS"],
+                request_timeout_ms=5000,
+            )
+            await consumer.start()
+            await consumer.stop()
+            return Answer(True, "Fink Kafka connected")
+        except Exception as exc:
+            return Answer(False, f"Fink Kafka error: {exc}")
+
+
 PROBES: tuple[KeyProbe, ...] = (
     AisstreamProbe(("AISSTREAM_API_KEY",)),
     HttpProbe(
@@ -294,6 +316,7 @@ PROBES: tuple[KeyProbe, ...] = (
             {} if v is None else bearer(v["GFW_API_TOKEN"]),
         ),
     ),
+    FinkKafkaProbe(),
 )
 
 

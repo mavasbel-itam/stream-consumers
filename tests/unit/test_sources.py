@@ -19,6 +19,7 @@ from stream_consumers.adapters.outbound.sources.mbta_v3 import MbtaStreamDecoder
 from stream_consumers.adapters.outbound.sources.wmata import FeedTaggedGtfsRealtimeDecoder
 from stream_consumers.adapters.outbound.transports.base import DecodingEventSource, MergedEventSource
 from stream_consumers.adapters.outbound.transports.http_poll import HttpPollSource
+from stream_consumers.adapters.outbound.transports.kafka import KafkaSource
 from stream_consumers.adapters.outbound.transports.sse import SseSource
 from stream_consumers.domain.errors import DecodeError, MissingCredentialError, TransportError
 from stream_consumers.domain.models import Credential, Group, RawMessage
@@ -50,16 +51,40 @@ def decoder_of(source_id: str) -> DecoderPort:
 
 
 class TestCatalog:
-    def test_66_sources_in_four_groups(self) -> None:
+    def test_73_sources_in_five_groups(self) -> None:
         groups = [f.descriptor.group for f in FACTORIES]
-        assert len(FACTORIES) == 66 == len(BY_ID)
-        counts = tuple(groups.count(g) for g in (Group.KEYLESS, Group.PROJECT_DOCUMENT, Group.FREE_KEY, Group.CANDIDATE))
-        assert counts == (49, 7, 9, 1)
+        assert len(FACTORIES) == 73 == len(BY_ID)
+        counts = tuple(groups.count(g) for g in (Group.KEYLESS, Group.PROJECT_DOCUMENT, Group.FREE_KEY, Group.CANDIDATE, Group.LOW_RATE))
+        assert counts == (49, 7, 9, 0, 8)
 
-    def test_required_keys_belong_to_measured_free_key_sources_or_candidates(self) -> None:
+    def test_low_rate_sources(self) -> None:
+        assert {f.descriptor.id for f in FACTORIES if f.descriptor.group is Group.LOW_RATE} == {
+            "bitstamp",
+            "dt_rail_trains",
+            "entsoe",
+            "fink",
+            "gfw",
+            "lasair",
+            "ndbc",
+            "npm",
+        }
+
+    def test_required_keys_belong_to_measured_free_key_sources_or_low_rate(self) -> None:
         required = {f.descriptor.id for f in FACTORIES if f.descriptor.credential and f.descriptor.credential.required}
-        assert required == {"aisstream", "cta_bus", "cta_train", "entsoe", "mastodon", "mta_bustime", "nta", "wmata"}
-        assert {f.descriptor.id for f in FACTORIES if f.descriptor.group is Group.CANDIDATE} == {"entsoe"}
+        assert required == {
+            "aisstream",
+            "cta_bus",
+            "cta_train",
+            "entsoe",
+            "fink",
+            "gfw",
+            "lasair",
+            "mastodon",
+            "mta_bustime",
+            "nta",
+            "wmata",
+        }
+        assert {f.descriptor.id for f in FACTORIES if f.descriptor.group is Group.CANDIDATE} == set()
         assert {f.descriptor.id for f in FACTORIES if f.descriptor.group is Group.FREE_KEY} == {
             "cta_bus",
             "cta_train",
@@ -157,6 +182,7 @@ class TestCredentials:
         assert train._urls[0] == "https://lapi.transitchicago.com/api/1.0/ttpositions.aspx?key=k&rt=Red&outputType=JSON"
         assert len(train._urls) == 8 and train._interval_s == 30.0
         assert poll("cta_bus", CTA_BUS_KEY="k")._urls == ("https://www.ctabustracker.com/bustime/api/v3/getroutes?key=k&format=json",)
+        assert poll("gfw", GFW_API_TOKEN="t")._headers == {"Authorization": "Bearer t"}
 
     def test_opensky_uses_oauth_only_when_both_values_are_set(self) -> None:
         assert BY_ID["opensky"].create(deps())._auth is None  # type: ignore[attr-defined]
@@ -176,6 +202,22 @@ class TestCredentials:
     def test_entsoe_areas_must_not_be_empty(self) -> None:
         with pytest.raises(ValueError, match="EIC"):
             BY_ID["entsoe"].create(deps(secrets={"ENTSOE_TOKEN": "t", "ENTSOE_AREAS": " , "}))
+
+    def test_gfw_rejects_non_positive_lookback_and_pages(self) -> None:
+        for name in ("GFW_LOOKBACK_DAYS", "GFW_PAGES"):
+            with pytest.raises(ValueError, match="at least 1"):
+                BY_ID["gfw"].create(deps(secrets={"GFW_API_TOKEN": "t", name: "0"}))
+
+    def test_kafka_sources_read_their_settings(self) -> None:
+        lasair = BY_ID["lasair"].create(deps(secrets={"LASAIR_API_TOKEN": "tok", "LASAIR_KAFKA_TOPIC": "lasair_1demo"}))
+        assert isinstance(lasair, KafkaSource)
+        assert (lasair._servers, lasair._topics, lasair._group_id) == (
+            "lasair-lsst-kafka.lsst.ac.uk:9092",
+            ("lasair_1demo",),
+            "stream-consumers",
+        )
+        fink = BY_ID["fink"].create(deps(secrets={"FINK_KAFKA_SERVERS": "h:9092", "FINK_GROUP_ID": "g", "FINK_TOPICS": "a, b,"}))
+        assert isinstance(fink, KafkaSource) and (fink._servers, fink._topics, fink._group_id) == ("h:9092", ("a", "b"), "g")
 
     def test_tfl_key_goes_in_the_query(self) -> None:
         assert BY_ID["tfl"].create(deps())._urls == ("https://api.tfl.gov.uk/Mode/tube/Arrivals",)  # type: ignore[attr-defined]
@@ -201,6 +243,7 @@ EXPECTED = {
     "binance": [1, 1, 1, 1],
     "bitfinex": None,
     "bitso": [0, 1, 1, 1, 1],
+    "bitstamp": [0, 1, 1, 1, 1],
     "blockchain": [0, 1, 1, 1, 1],
     "citibike": [3],
     "coinpaprika": [3],
@@ -215,22 +258,27 @@ EXPECTED = {
     "deribit": [0, 1, 1, 1, 1],
     "dt_marine": [1, 1, 1, 1],
     "dt_rail": [1, 1, 1, 1],
+    "dt_rail_trains": [1, 1, 1, 1],
     "dt_road": [0, 0, 1, 1],
     "ecobici": [3],
     "entur": [3],
     "eth_logs": [0, 1, 1, 1, 1],
     "firms": [3, 3, 3, 3],
     "gemini": [5, 1, 1, 1],
+    "gfw": [1],
     "hsl": [1, 1, 1, 1],
     "hyperliquid": [0, 30, 30, 30, 1],
     "kraken": [0, 2, 1, 2, 1],
+    "lasair": [1],
     "mbta_gtfsrt": [3],
     "mbta_v3": [3],
     "mempool": [0, 5, 5, 5, 5],
     "metar": [3],
     "mta_bustime": [3],
     "mta_gtfsrt": [3],
+    "ndbc": [3],
     "ndov": [67, 66, 54, 119],
+    "npm": [3],
     "nta": [3],
     "okx": [0, 1, 1, 1, 1],
     "opensky": [3],
@@ -278,10 +326,12 @@ ENVELOPE_DECODERS = [
     "aisstream",
     "cta_bus",
     "cta_train",
+    "gfw",
     "atlas",
     "base_logs",
     "binance",
     "bitso",
+    "bitstamp",
     "blockchain",
     "bluesky",
     "bybit",
@@ -295,6 +345,7 @@ ENVELOPE_DECODERS = [
     "kraken",
     "mbta_v3",
     "mempool",
+    "npm",
     "okx",
     "opensky",
     "polymarket",
@@ -458,6 +509,10 @@ class TestDecoderBranches:
         assert decode("ukflood", {"items": "x"}) == []
         assert decode("ukflood", {"items": [{"@id": "r"}, 3]}) == [{"@id": "r"}]
 
+    def test_ndbc_missing_values_and_lines_before_the_header(self) -> None:
+        table = "41001 34.7 -72.6\n#STN LAT LON WDIR\n#text deg deg degT\n\n41002 31.9 -74.9 MM\n"
+        assert decoder_of("ndbc").decode(RawMessage(table)) == [{"STN": "41002", "LAT": "31.9", "LON": "-74.9"}]
+
     # Beacons below are real lines from aprs.glidernet.org:14580 (2026-10-19 00:52 UTC)
     OGN_FLARM = (
         "FNT043EA0>OGNFNT,qAS,AVX1300:/005251h5000.00N/02000.00E'000/000/A=000820 !W00! id07043EA0 +000fpm +0.0rot "
@@ -530,7 +585,7 @@ def doc_fixture(source_id: str) -> dict[str, object]:
     return json.loads((ROOT / "tests" / "fixtures" / "raw" / f"{source_id}.json").read_text(encoding="utf-8"))
 
 
-@pytest.mark.parametrize("source_id", ["entsoe"])
+@pytest.mark.parametrize("source_id", ["entsoe", "gfw", "lasair"])
 def test_documentation_fixtures_say_where_they_come_from(source_id: str) -> None:
     fixture = doc_fixture(source_id)
     assert str(fixture["origin"]).startswith("official documentation example")
@@ -547,11 +602,12 @@ def test_fixtures_captured_with_a_key_say_when_and_that_the_key_is_not_stored(so
 def test_only_sources_that_need_a_longer_window_declare_one() -> None:
     # tfl: 60-s shared cache; nta: one call per 60 s; firms, sensorcomm: whole files before the first event;
     # coinpaprika, sharpe: snapshots refreshed about every 5 min (up to 10); ukflood: two polls 15 min apart;
-    # citibike: regenerated every 60 s
+    # ndbc: file rewritten at irregular times (10-15 min apart seen); citibike: regenerated every 60 s
     assert {f.descriptor.id: f.descriptor.min_window_s for f in FACTORIES if f.descriptor.min_window_s} == {
         "citibike": 150.0,
         "coinpaprika": 630.0,
         "firms": 600.0,
+        "ndbc": 960.0,
         "nta": 150.0,
         "sensorcomm": 600.0,
         "sharpe": 630.0,
@@ -681,3 +737,10 @@ class TestKeyGatedDecoders:
         assert decode("entsoe", ack.format("No matching data found for Data item ACTUAL_GENERATION")) == []
         with pytest.raises(TransportError, match=r"999 Authentication failed\."):
             decode("entsoe", ack.format("Authentication failed."))
+
+    def test_lasair_and_gfw_shapes(self) -> None:
+        (alert,) = [e for m in messages("lasair") for e in decoder_of("lasair").decode(m)]
+        assert set(alert) == {"diaObjectId", "decl", "ra", "UTC"}
+        (event,) = [e for m in messages("gfw") for e in decoder_of("gfw").decode(m)]
+        assert event["id"] == "718a4d93c16f78d9a54e9bc56d20c7e0" and event["type"] == "fishing"
+        assert decode("gfw", {"entries": [1, {"id": "a"}]}) == [{"id": "a"}]

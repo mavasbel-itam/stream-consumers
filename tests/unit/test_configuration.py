@@ -204,4 +204,4 @@ def test_every_declared_variable_is_unique_and_upper_case() -> None:
     names += [s.env_var for f in FACTORIES for s in f.descriptor.settings]
     names += [n for k in HELD_KEYS for n in k.env_vars]
     assert len(names) == len(set(names)) and all(n.isupper() for n in names)
-    assert {k.owner for k in HELD_KEYS} - {f.descriptor.id for f in FACTORIES} == {"gfw", "lasair"}  # the removed sources
+    assert {k.owner for k in HELD_KEYS} - {f.descriptor.id for f in FACTORIES} == set()  # every held key belongs to a known source
