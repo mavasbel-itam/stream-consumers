@@ -6,6 +6,13 @@ final project of COM-22102 *Bases de Datos No Relacionales* (ITAM, Otoño 2026).
 **Private, instructor-only repository.** Students build their own ingestion
 consumer as part of the project; do not share this repository with them.
 
+The decision records live in the course repository `non-relational-dbs`
+(local only, branch `claude-course-streams` until it is merged): the stream
+surveys of 2026-10-12 and the stream-consumers and API keys record of
+2026-10-13 (`docs/research/`), the screening of the Bytewax list
+(`docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md`) and the
+status of every API key (`docs/reference/2026-10-17-15-13-api-key-gated-sources.md`).
+
 ## Inclusion rule
 
 A source is included when its **median measured rate is at least 1 event per
@@ -367,10 +374,10 @@ Hexagonal (ports and adapters) with split inbound and outbound ports:
 src/stream_consumers/
   domain/        models, pure rules (rates, change detection, back-off, masking, field profiles), errors
   ports/
-    inbound.py   use cases: ListSources, ConsumeStream, CheckSources, SampleSources, ProfileSources,
-                 DescribeConfiguration
+    inbound.py   use cases: ListSources, ConsumeStream, CheckSources, SampleSources, JudgeSampling,
+                 ProfileSources, DescribeConfiguration
     outbound.py  Clock, SecretProvider, HttpClient, RequestAuth, Decoder, EventSource, SourceFactory,
-                 SourceRegistry, EventSink, EventSinkFactory, ReportSink
+                 HeldKeyCatalog, SourceRegistry, EventSink, EventSinkFactory, SamplingHistory, ReportSink
   application/   one service per inbound port; depends on ports and domain only
   adapters/
     inbound/cli.py            the composition root: the only module that names concrete classes
@@ -379,6 +386,8 @@ src/stream_consumers/
     outbound/decoders.py      DecoderPort → BaseDecoder → Json / Line / Csv / GtfsRealtime / AvroSchemaInKey
     outbound/auth.py          RequestAuthPort → OAuthClientCredentials
     outbound/sources/         one module per source (descriptor + decoder + factory), families in _families.py
+    outbound/held_keys.py     HeldKeyCatalogPort → StaticHeldKeyCatalog (keys kept in .env that no source reads)
+    outbound/history.py       SamplingHistoryPort → JsonSamplingHistory (reads round-*.json for `verdict`)
     outbound/{http,sinks,system,registry}.py
 
 Transports: WebSocket, SSE, MQTT, NATS, ZeroMQ, TCP, HTTP polling, file drops and
@@ -417,7 +426,8 @@ The component and e2e tiers start a single-node Kafka broker with Docker
 
 Fixtures are real messages captured on 2026-10-13 (`velib` and `cta_bus` on
 2026-10-17; `cta_train`, `nta`, `mta_bustime`, `wmata`, `mastodon`, `aisstream`
-and the MBTA stream on 2026-10-18), trimmed, with personal values replaced by `<masked>`; a test checks
+and the MBTA stream on 2026-10-18; `blockchain`, `citibike`, `coinpaprika`,
+`ogn`, `sharpe` and `ukflood` on 2026-10-19), trimmed, with personal values replaced by `<masked>`; a test checks
 that no fixture leaks a personal value or an e-mail address. Candidates without a
 key yet have the providers' official documentation examples as fixtures, marked
 with `origin`, `documentation_url` and the `corrections` applied (PDF page footers,
@@ -443,7 +453,9 @@ the key is not stored).
   666 logs for the latest block, a subscription filtered by one contract
   address received 252 logs in 40 s, and
   the BSC, Base and Polygon endpoints delivered (3 of the 24 rounds of
-  2026-10-17/18 read 0; median 43.8 events/s).
+  2026-10-17/18 read 0; median 43.8 events/s). It recovered without any change
+  here: on 2026-10-19 14:44 UTC the unfiltered subscription delivered 58.5 logs/s
+  over 40 s and `check eth_logs` read 96.3 events/s.
 - With `MBTA_API_KEY`, `mbta_v3` streams: the first `reset` message lists
   every vehicle (245 on 2026-10-18 04:54 UTC). It is the starting state, not a
   change, so it yields no events, like the first poll of a polled feed (until
