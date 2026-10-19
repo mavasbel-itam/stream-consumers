@@ -14,8 +14,9 @@ second** over the sampling rounds (`stream_consumers.domain.policy.MINIMUM_RATE`
 or failed (`error`) counts as 0 events/s; a `key-pending` round measures nothing
 and is left out (`round_rate`). The exceptions and pending cases:
 
-- **GDELT is kept** although its measured median was 0.977 events/s, because the
-  project document lists it (decision of 2026-10-13).
+- **GDELT is kept** although its measured medians were 0.977 events/s (2026-10-13)
+  and 0.772 events/s (24 rounds, 2026-10-17/18), because the project document
+  lists it (decision of 2026-10-13).
 - Free-key providers whose keyless route was measured at ≥ 1 event/s are included
   (MBTA V3, TfL, NASA FIRMS); the key is optional for MBTA V3 and TfL, and FIRMS
   uses its keyless public files.
