@@ -50,11 +50,11 @@ def decoder_of(source_id: str) -> DecoderPort:
 
 
 class TestCatalog:
-    def test_60_sources_in_four_groups(self) -> None:
+    def test_67_sources_in_four_groups(self) -> None:
         groups = [f.descriptor.group for f in FACTORIES]
-        assert len(FACTORIES) == 60 == len(BY_ID)
+        assert len(FACTORIES) == 67 == len(BY_ID)
         counts = tuple(groups.count(g) for g in (Group.KEYLESS, Group.PROJECT_DOCUMENT, Group.FREE_KEY, Group.CANDIDATE))
-        assert counts == (43, 6, 3, 8)
+        assert counts == (50, 6, 3, 8)
 
     def test_candidates_are_exactly_the_sources_whose_key_is_required(self) -> None:
         required = {f.descriptor.id for f in FACTORIES if f.descriptor.credential and f.descriptor.credential.required}
@@ -202,6 +202,12 @@ EXPECTED = {
     "binance": [1, 1, 1, 1],
     "bitfinex": None,
     "bitso": [0, 1, 1, 1, 1],
+    "blockchain": [0, 1, 1, 1, 1],
+    "citibike": [3],
+    "coinpaprika": [3],
+    "ogn": [0, 1, 1, 1, 1],
+    "sharpe": [3],
+    "ukflood": [3],
     "bluesky": [1, 1, 1, 1],
     "bsc_logs": [0, 1, 1, 1, 1],
     "bybit": [0, 1, 1, 1, 1],
@@ -226,6 +232,7 @@ EXPECTED = {
     "mta_bustime": [3],
     "mta_gtfsrt": [3],
     "ndov": [67, 66, 54, 119],
+    "ndbc": [3],
     "nta": [3],
     "okx": [0, 1, 1, 1, 1],
     "opensky": [3],
@@ -277,6 +284,7 @@ ENVELOPE_DECODERS = [
     "base_logs",
     "binance",
     "bitso",
+    "blockchain",
     "bluesky",
     "bybit",
     "coinbase",
@@ -299,8 +307,11 @@ ENVELOPE_DECODERS = [
     "xrpl",
     "bicing",
     "velib",
+    "citibike",
     "adsb_fi",
     "bitfinex",
+    "ogn",
+    "ukflood",
 ]
 
 
@@ -440,11 +451,82 @@ class TestDecoderBranches:
     def test_mempool_without_added(self) -> None:
         assert decode("mempool", {"mempool-transactions": {"removed": ["x"]}}) == []
 
+    def test_blockchain_operations_other_than_utx_are_not_events(self) -> None:
+        assert decode("blockchain", {"op": "pong"}) == []
+        assert decode("blockchain", {"op": "utx", "x": "not a transaction"}) == []
+        assert decode("blockchain", {"op": "utx", "x": {"hash": "h"}}) == [{"hash": "h"}]
+
+    def test_ndbc_missing_values_and_lines_before_the_header(self) -> None:
+        table = "41001 34.7 -72.6\n#STN LAT LON WDIR\n#text deg deg degT\n\n41002 31.9 -74.9 MM\n"
+        assert decoder_of("ndbc").decode(RawMessage(table)) == [{"STN": "41002", "LAT": "31.9", "LON": "-74.9"}]
+
+    def test_ukflood_answer_without_items(self) -> None:
+        assert decode("ukflood", {"items": "x"}) == []
+        assert decode("ukflood", {"items": [{"@id": "r"}, 3]}) == [{"@id": "r"}]
+
+    # Beacons below are real lines from aprs.glidernet.org:14580 (2026-10-19 00:52 UTC)
+    OGN_FLARM = (
+        "FNT043EA0>OGNFNT,qAS,AVX1300:/005251h5000.00N/02000.00E'000/000/A=000820 !W00! id07043EA0 +000fpm +0.0rot "
+        "FNT14 sF1 cr4 4.9dB +3.6kHz 1e"
+    )
+    OGN_ADSL = "PAWE5A900>OGADSL,qAS,AVX1126:/005251h5333.01N/01009.52Ez071/000/A=000000 !W67! id03E5A900 +059fpm 51.5dB +4.2kHz gps63x63"
+    OGN_SHORT = "ICA342345>OGADSB,qAS,Paracuell:/005253h4030.10N/00334.83W^000/000 !W39! id01342345 C0:TXLU01"
+
+    def test_ogn_flarm_beacon_fields(self) -> None:
+        (event,) = decode("ogn", self.OGN_FLARM)
+        assert event == {
+            "callsign": "FNT043EA0",
+            "dstcall": "OGNFNT",
+            "receiver": "AVX1300",
+            "relay": "qAS",
+            "timestamp_hhmmss": "005251",
+            "latitude": 50.0,
+            "longitude": 20.0,
+            "symbol": "/'",
+            "address": "043EA0",
+            "address_type": 3,
+            "aircraft_type": 1,
+            "course_deg": 0,
+            "ground_speed_kt": 0,
+            "altitude_ft": 820,
+            "climb_rate_fpm": 0,
+            "turn_rate_rot": 0.0,
+            "signal_quality_db": 4.9,
+            "frequency_offset_khz": 3.6,
+            "error_count": 1,
+            "other": "FNT14 sF1 cr4",
+        }
+
+    def test_ogn_precision_hemispheres_and_optional_parts(self) -> None:
+        (adsl,) = decode("ogn", self.OGN_ADSL)
+        assert adsl["latitude"] == round(53 + 33.016 / 60, 6) and adsl["longitude"] == round(10 + 9.527 / 60, 6)
+        assert adsl["gps_quality"] == "63x63" and "other" not in adsl
+        (short,) = decode("ogn", self.OGN_SHORT)
+        assert short["longitude"] == -round(3 + 34.839 / 60, 6) and short["flight_id"] == "TXLU01"
+        assert "altitude_ft" not in short
+        (still,) = decode("ogn", "X>OGFLR,qAS,R:/005251h4000.00S/00100.00W'id0A123456 h0F s7.07 rABCDEF Sq1200 FL010.5 -1.2rot 2e")
+        assert (still["latitude"], still["longitude"]) == (-40.0, -1.0) and "course_deg" not in still
+        assert (still["hardware_version"], still["software_version"], still["real_address"]) == ("0F", "7.07", "ABCDEF")
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "# aprsc 2.1.20-gf.5-g0178a1b 19 Oct 2026 00:53:13 GMT GLIDERN3 85.188.1.173:14580",
+            "GrundNW>OGNFNT,TCPIP*,qAC,GLIDERN2:/005252h5058.22NI00807.91E&/A=001315",
+            "AVX1300>OGNSDR,TCPIP*,qAC,GLIDERN3:>005250h v0.3.2 CPU:0.4",
+            "FLRDDA5BA>OGFLR,qAS,LFMX:/160828h4415.41N/00600.03E'342/049/A=005524 id8ADDA5BA -454fpm",
+            "FLRDDA5BA>OGFLR,qAS,LFMX:/160828h4415.41N/00600.03E'342/049/A=005524 id4ADDA5BA -454fpm",
+        ],
+        ids=["server-comment", "receiver-beacon", "status", "stealth", "no-tracking"],
+    )
+    def test_ogn_lines_that_are_not_published_aircraft_beacons(self, line: str) -> None:
+        assert decode("ogn", line) == []
+
     def test_gemini_update_without_events(self) -> None:
         assert decode("gemini", {"type": "update"}) == []
 
     def test_plain_json_sources_keep_every_mapping(self) -> None:
-        for source_id in ("pskreporter", "wikimedia", "tfl"):
+        for source_id in ("pskreporter", "wikimedia", "tfl", "coinpaprika", "sharpe"):
             assert isinstance(decoder_of(source_id), JsonDecoder)
             assert decode(source_id, [{"a": 1}]) == [{"a": 1}]
 
@@ -469,12 +551,19 @@ def test_fixtures_captured_with_a_key_say_when_and_that_the_key_is_not_stored(so
 
 
 def test_only_sources_that_need_a_longer_window_declare_one() -> None:
-    # tfl: 60-s shared cache; nta: one call per 60 s; firms, sensorcomm: whole files before the first event
+    # tfl: 60-s shared cache; nta: one call per 60 s; firms, sensorcomm: whole files before the first event;
+    # coinpaprika, sharpe: snapshots refreshed about every 5 min (up to 10); ukflood: two polls 15 min apart;
+    # ndbc: file rewritten at irregular times (10-15 min apart seen); citibike: regenerated every 60 s
     assert {f.descriptor.id: f.descriptor.min_window_s for f in FACTORIES if f.descriptor.min_window_s} == {
+        "citibike": 150.0,
+        "coinpaprika": 630.0,
         "firms": 150.0,
+        "ndbc": 960.0,
         "nta": 150.0,
         "sensorcomm": 150.0,
+        "sharpe": 630.0,
         "tfl": 150.0,
+        "ukflood": 960.0,
     }
 
 

@@ -51,13 +51,22 @@ The rate list will be re-checked with this repository's own `sample` command
   round. The totals of all four event datasets over a fixed date range did not
   grow at all in 18 hourly readings (2026-10-18 03:24–21:24 UTC), so the median
   arrival rate is 0 events/s.
+- **Added on 2026-10-19 from the Bytewax "Awesome Public Real-Time Datasets"
+  list** (all 69 free entries screened): `blockchain`, `citibike`, `coinpaprika`,
+  `ndbc`, `ogn`, `sharpe` and `ukflood`, each keyless and measured at ≥ 1
+  event/s in one screening window. They stay only if their own sampling
+  (`sample --stop-when-settled`) gives a median of at least 1 event/s. Not
+  added from that list: EPA AirNow (its hourly file lists 4,415 sites but only
+  1,980 reported in the hour 2026-10-18 22:00 UTC, 0.55 events/s), Yahoo
+  Finance (its terms forbid automated collection) and GitHub's REST events
+  (the same events as `gharchive`).
 - **Vélib' Paris was re-added on 2026-10-17**: it had been excluded at 0.983
   events/s on its earliest (night-time) rounds, but its median over 15 earlier
   cross-check rounds was 4.4 events/s; the 24-hour sampling decides.
 
-## Sources (60)
+## Sources (67)
 
-Groups: **keyless** (43), **project document** (6, the sources the project
+Groups: **keyless** (50), **project document** (6, the sources the project
 document lists), **free key** (3, key optional), **candidate** (8, key
 required, rate not yet measured).
 
@@ -66,9 +75,11 @@ required, rate not yet measured).
 | `base_logs` | [Base (L2) contract event logs (PublicNode RPC)](https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub) | Allnodes (PublicNode RPC) | keyless | websocket | push |
 | `bitfinex` | [Bitfinex trades + ticker (public v2)](https://docs.bitfinex.com/docs/ws-public) | Bitfinex | keyless | websocket | push |
 | `bitso` | [Bitso (Mexico) trades + order-book diffs (BTC/MXN, USD/MXN, ETH/MXN)](https://docs.bitso.com/bitso-api/docs) | Bitso (Mexico) | keyless | websocket | push |
+| `blockchain` | [Blockchain.com — unconfirmed Bitcoin transactions](https://www.blockchain.com/api/api_websocket) | Blockchain.com | keyless | websocket | push |
 | `bsc_logs` | [BNB Smart Chain contract event logs (PublicNode RPC)](https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub) | Allnodes (PublicNode RPC) | keyless | websocket | push |
 | `bybit` | [Bybit spot tickers](https://bybit-exchange.github.io/docs/v5/websocket/public/ticker) | Bybit | keyless | websocket | push |
 | `coinbase` | [Coinbase Exchange ticker](https://docs.cdp.coinbase.com/exchange/websocket-feed/overview) | Coinbase | keyless | websocket | push |
+| `coinpaprika` | [CoinPaprika — prices and market data of the 2,000 top-ranked crypto assets](https://docs.coinpaprika.com/api-reference/rest-api/introduction) | CoinPaprika | keyless | http | poll |
 | `deribit` | [Deribit perpetual futures ticker](https://docs.deribit.com/) | Deribit | keyless | websocket | push |
 | `eth_logs` | [Ethereum mainnet contract event logs (PublicNode RPC)](https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub) | Allnodes (PublicNode RPC) | keyless | websocket | push |
 | `gemini` | [Gemini market data v1 (order-book changes + trades)](https://developer.gemini.com/websocket/streams.md) | Gemini Trust Company | keyless | websocket | push |
@@ -77,6 +88,7 @@ required, rate not yet measured).
 | `okx` | [OKX public tickers](https://www.okx.com/docs-v5/en/) | OKX | keyless | websocket | push |
 | `polygon_logs` | [Polygon PoS contract event logs (PublicNode RPC)](https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub) | Allnodes (PublicNode RPC) | keyless | websocket | push |
 | `polymarket` | [Polymarket CLOB market channel (prediction-market prices)](https://docs.polymarket.com/developers/CLOB/websocket/market-channel) | Polymarket | keyless | websocket | push |
+| `sharpe` | [Sharpe — perpetual-futures funding rates of 37 derivatives exchanges](https://www.sharpe.ai/docs/free-api) | Sharpe AI (Sharpe Terminal) | keyless | http | poll |
 | `solana` | [Solana program logs (public mainnet RPC)](https://solana.com/docs/rpc/websocket/logssubscribe) | Solana Foundation (public mainnet-beta RPC) | keyless | websocket | push |
 | `xrpl` | [XRP Ledger transactions](https://xrpl.org/docs/references/http-websocket-apis/public-api-methods/subscription-methods/subscribe) | XRP Ledger Foundation (public cluster xrplcluster.com) | keyless | websocket | push |
 | `albion` | [Albion Online Data Project market orders](https://www.albion-online-data.com/) | Albion Online Data Project (community) | keyless | nats | push |
@@ -95,7 +107,7 @@ required, rate not yet measured).
 | `adsb_fi` | [adsb.fi open data aircraft — 250 NM around Mexico City airport](https://github.com/adsbfi/opendata) | adsb.fi | keyless | http | poll |
 | `adsb_lol` | [adsb.lol aircraft (ADS-B) — 250 NM around Mexico City airport](https://www.adsb.lol/docs/open-data/api/) | adsb.lol | keyless | http | poll |
 | `bicing` | [Bicing Barcelona bike-share station status (GBFS)](https://opendata-ajuntament.barcelona.cat/data/en/dataset/estat-estacions-bicing) | Barcelona City Council (Bicing) | keyless | http | poll |
-| `velib` | [Vélib' Métropole Paris bike-share station status (GBFS)](https://www.data.gouv.fr/datasets/velib-velos-et-bornes-disponibilite-temps-reel) | Vélib' Métropole (Smovengo) | keyless | http | poll |
+| `citibike` | [Citi Bike New York bike-share station status (GBFS)](https://citibikenyc.com/system-data) | Citi Bike (Lyft, Inc.) | keyless | http | poll |
 | `dt_marine` | [Digitraffic Finland marine AIS vessel locations](https://www.digitraffic.fi/en/marine-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
 | `dt_rail` | [Digitraffic Finland train GPS locations](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
 | `dt_road` | [Digitraffic Finland road traffic (TMS) and road-weather sensors](https://www.digitraffic.fi/en/road-traffic/) | Fintraffic (Digitraffic) | keyless | mqtt | push |
@@ -105,7 +117,11 @@ required, rate not yet measured).
 | `mbta_gtfsrt` | [MBTA Boston GTFS-Realtime VehiclePositions](https://www.mbta.com/developers/gtfs-realtime) | Massachusetts Bay Transportation Authority (MBTA) | keyless | http | poll |
 | `mta_gtfsrt` | [MTA New York City Subway GTFS-Realtime (A/C/E feed)](https://api.mta.info/) | Metropolitan Transportation Authority (MTA) | keyless | http | poll |
 | `ndov` | [NDOV Loket Netherlands public transport KV6 (all operators)](https://ndovloket.nl/) | NDOV Loket (Netherlands) | keyless | zeromq | push |
+| `ogn` | [Open Glider Network — live positions of gliders, light aircraft and ADS-B traffic](https://wiki.glidernet.org/wiki:subscribe-to-ogn-data) | Open Glider Network | keyless | tcp | push |
+| `velib` | [Vélib' Métropole Paris bike-share station status (GBFS)](https://www.data.gouv.fr/datasets/velib-velos-et-bornes-disponibilite-temps-reel) | Vélib' Métropole (Smovengo) | keyless | http | poll |
 | `metar` | [NOAA aviationweather.gov METAR observations (global airports)](https://aviationweather.gov/data/api/) | NOAA National Weather Service — Aviation Weather Center | keyless | http | poll |
+| `ndbc` | [NOAA National Data Buoy Center — latest observation of every buoy and coastal station](https://www.ndbc.noaa.gov/faq/rt_data_access.shtml) | NOAA National Data Buoy Center (NDBC) | keyless | http | poll |
+| `ukflood` | [Environment Agency (England) — real-time flood-monitoring readings: river level, flow, rainfall, tide](https://environment.data.gov.uk/flood-monitoring/doc/reference) | Environment Agency (England) | keyless | http | poll |
 | `binance` | [Binance spot trades + 24 h tickers](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md) | Binance | project document | websocket | push |
 | `mempool` | [mempool.space — Bitcoin transactions entering the mempool](https://mempool.space/docs/api/websocket) | The Mempool Open Source Project (mempool.space) | project document | websocket | push |
 | `bluesky` | [Bluesky Jetstream — firehose of AT Protocol commits (posts, likes, follows, reposts)](https://github.com/bluesky-social/jetstream) | Bluesky Social PBC | project document | websocket | push |
@@ -129,7 +145,8 @@ HTTP 202 with a JavaScript challenge, and `www.mta.info/developers` and
 `www.mta.info/developers/terms-and-conditions` answer HTTP 403 to scripts (their
 text was retrieved with a browser-like fetch on 2026-10-13). Every other
 documentation, terms and sign-up link in the descriptors, this README and the
-documentation fixtures (108 of 111) answered HTTP 200 on 2026-10-13.
+documentation fixtures (108 of 111) answered HTTP 200 on 2026-10-13; the 13
+links of the sources added on 2026-10-19 answered HTTP 200 that day.
 
 ## How rates are measured
 
@@ -332,7 +349,14 @@ the key is not stored).
   more than 60 s), `firms` and `sensorcomm` (whole files must arrive before
   the first event: up to 73 s and 50 s in the rounds of 2026-10-17/18; both
   delivered nothing in 6 consecutive rounds, 2026-10-18 00:01–04:45 UTC, while
-  other sources were unaffected).
+  other sources were unaffected). `citibike` is regenerated every 60 s (`ttl`
+  60) behind a CloudFront cache: a 60-s check on 2026-10-19 02:13 UTC polled
+  only copies of one version and measured 0 events/s, so its window is 150 s.
+  `coinpaprika` and `sharpe` refresh their whole
+  snapshot together about every 5 min (CoinPaprika: "up to 10 min"; Sharpe's
+  freshness SLA is 600 s), so their windows are 630 s; `ndbc` rewrites its
+  file at irregular times (consecutive rewrites seen 14 min 51 s and 9 min 59 s
+  apart on 2026-10-19) and `ukflood` is polled every 15 min, so theirs are 960 s.
 - The USGS legacy Water Services announce their retirement on 2027-02-22.
 - Branch protection is not available for private repositories on the GitHub Free
   plan; work reaches `main` through pull requests by convention.
