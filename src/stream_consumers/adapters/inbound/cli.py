@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TextIO
 
 from stream_consumers.adapters.outbound.held_keys import StaticHeldKeyCatalog
+from stream_consumers.adapters.outbound.history import JsonSamplingHistory
 from stream_consumers.adapters.outbound.http import AiohttpClient
 from stream_consumers.adapters.outbound.registry import FactoryRegistry
 from stream_consumers.adapters.outbound.sinks import (
@@ -30,8 +31,9 @@ from stream_consumers.application.consume_service import ConsumeService
 from stream_consumers.application.list_service import ListService
 from stream_consumers.application.profile_service import ProfileService
 from stream_consumers.application.sample_service import SampleService
+from stream_consumers.application.verdict_service import VerdictService
 from stream_consumers.domain.errors import StreamConsumersError
-from stream_consumers.domain.models import ConfigKind, RunReport, RunStatus
+from stream_consumers.domain.models import ConfigKind, RateVerdict, RunReport, RunStatus, Verdict
 from stream_consumers.ports.outbound import (
     ClockPort,
     EventSinkPort,
@@ -77,6 +79,22 @@ def _parser() -> argparse.ArgumentParser:
     sample.add_argument("--window", type=float, default=60.0, help="seconds each source is consumed per round")
     sample.add_argument("--reports", type=Path, default=Path("data/reports"))
     sample.add_argument("--concurrency", type=int, default=64, help="sources consumed at the same time")
+    sample.add_argument(
+        "--continue-from",
+        type=Path,
+        default=None,
+        help="reports directory of an interrupted run: its rounds count toward --rounds and are not repeated",
+    )
+    sample.add_argument(
+        "--stop-when-settled",
+        action="store_true",
+        help="stop reading a source once its median over --rounds is fixed on one side of 1 event/s",
+    )
+
+    verdict = commands.add_parser("verdict", help="median rate and verdict per source from recorded sampling rounds")
+    verdict.add_argument("reports_dir", type=Path, help="directory holding round-*.json files (searched recursively)")
+    verdict.add_argument("sources", nargs="*", help="source ids (default: every source in the rounds)")
+    verdict.add_argument("--planned", type=int, default=24, help="rounds in the plan the verdict is about")
 
     profile = commands.add_parser("profile", help="keep a masked sample of events per source and describe their fields")
     profile.add_argument("sources", nargs="*", help="source ids (default: all)")
@@ -110,6 +128,14 @@ def _summary(reports: Sequence[RunReport], stream: TextIO) -> int:
     return 1 if failed else 0
 
 
+def _verdicts(verdicts: Sequence[RateVerdict], stream: TextIO) -> None:
+    for v in verdicts:
+        median = "-" if v.median is None else f"{v.median:.3f}/s"
+        stream.write(f"{v.source_id:16} rounds={v.rounds:>3}/{v.planned:<3} median={median:<12} {v.verdict.value}\n")
+    counts = {kind: sum(v.verdict is kind for v in verdicts) for kind in Verdict}
+    stream.write(", ".join(f"{n} {kind.value}" for kind, n in counts.items()) + "\n")
+
+
 async def _run(args: argparse.Namespace, registry: SourceRegistryPort, clock: ClockPort, out: TextIO, err: TextIO) -> int:
     consume = ConsumeService(registry, clock)
     ids = list(getattr(args, "sources", None) or [d.id for d in registry.descriptors()])
@@ -132,7 +158,12 @@ async def _run(args: argparse.Namespace, registry: SourceRegistryPort, clock: Cl
         if args.command == "check":
             return _summary(await CheckService(consume, discard, reports_sink, args.concurrency).check(ids, args.seconds), out)
         sampler = SampleService(consume, discard, reports_sink, clock, args.concurrency)
-        return _summary((await sampler.sample(ids, args.rounds, args.interval, args.window))[-1].reports, out)
+        prior = JsonSamplingHistory(args.continue_from).read_rounds() if args.continue_from else ()
+        rounds = [*prior, *await sampler.sample(ids, args.rounds, args.interval, args.window, prior, args.stop_when_settled)]
+        latest = {r.source_id: r for sampling_round in rounds for r in sampling_round.reports}
+        code = _summary([latest[s] for s in ids if s in latest], out)
+        _verdicts(VerdictService().verdicts(rounds, args.rounds, ids), out)
+        return code
     finally:
         discard.close()
 
@@ -148,6 +179,9 @@ def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: Text
         if args.command == "list":
             for descriptor in ListService(registry).list_sources():
                 out.write(json.dumps(asdict(descriptor), default=lambda v: getattr(v, "value", str(v)), ensure_ascii=False) + "\n")
+            return 0
+        if args.command == "verdict":
+            _verdicts(VerdictService().verdicts(JsonSamplingHistory(args.reports_dir).read_rounds(), args.planned, args.sources), out)
             return 0
         if args.command == "keys":
             configuration = ConfigurationService(registry, deps.secrets, _held_keys(args.catalog))

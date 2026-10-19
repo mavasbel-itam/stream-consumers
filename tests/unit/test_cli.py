@@ -93,6 +93,47 @@ def test_sample_writes_one_report_per_round(tmp_path: Path) -> None:
     assert sorted(p.name[:8] for p in tmp_path.glob("round-*.json")) == ["round-01", "round-02"]
 
 
+def test_sample_stops_settled_sources_and_prints_their_verdicts(tmp_path: Path) -> None:
+    argv = ["alpha", "broken", "--rounds", "5", "--interval", "0.05", "--window", "0.05", "--reports", str(tmp_path)]
+    code, out, _ = run("sample", *argv, "--stop-when-settled")
+    assert code == 1  # broken's last round failed
+    assert sorted(p.name[:8] for p in tmp_path.glob("round-*.json")) == ["round-01", "round-02", "round-03"]
+    lines = out.splitlines()
+    assert any(line.startswith("alpha") and "rounds=  3/5" in line and line.endswith("passes") for line in lines)
+    assert any(line.startswith("broken") and "median=0.000/s" in line and line.endswith("fails") for line in lines)
+    assert lines[-1] == "1 passes, 1 fails, 0 open"
+
+
+def test_sample_continues_an_interrupted_run_and_verdict_reads_every_segment(tmp_path: Path) -> None:
+    first, second = tmp_path / "segment-1", tmp_path / "segment-2"
+    assert run("sample", "alpha", "--rounds", "2", "--interval", "0.05", "--window", "0.05", "--reports", str(first))[0] == 0
+    code, out, _ = run(
+        "sample",
+        "alpha",
+        "--rounds",
+        "3",
+        "--interval",
+        "0.05",
+        "--window",
+        "0.05",
+        "--reports",
+        str(second),
+        "--continue-from",
+        str(tmp_path),
+    )
+    assert code == 0 and [p.name[:8] for p in second.glob("round-*.json")] == ["round-03"]
+    assert "rounds=  3/3" in out
+    code, out, _ = run("verdict", str(tmp_path), "--planned", "24")
+    assert (
+        code == 0
+        and out.splitlines()[0].startswith("alpha")
+        and "rounds=  3/24" in out
+        and out.splitlines()[-1] == "0 passes, 0 fails, 1 open"
+    )
+    code, _, err = run("verdict", str(tmp_path / "missing"))
+    assert code == 2 and "no such reports directory" in err
+
+
 def test_profile_writes_masked_events_and_field_statistics(tmp_path: Path) -> None:
     code, _, _ = run("profile", "alpha", "--max-events", "5", "--seconds", "0.1", "--out", str(tmp_path / "p"), "--reports", str(tmp_path))
     assert code == 0

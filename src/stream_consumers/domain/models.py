@@ -196,6 +196,23 @@ class SourceProfile:
     fields: tuple[FieldProfile, ...]
 
 
+class Verdict(Enum):
+    """Where the median of a planned number of rounds stands against the minimum rate."""
+
+    PASSES = "passes"  # at or above the minimum whatever the missing rounds measure
+    FAILS = "fails"  # below the minimum whatever the missing rounds measure
+    OPEN = "open"  # the missing rounds can still decide it
+
+
+@dataclass(frozen=True)
+class RateVerdict:
+    source_id: str
+    rounds: int
+    planned: int
+    median: float | None
+    verdict: Verdict
+
+
 @dataclass(frozen=True)
 class SamplingRound:
     number: int

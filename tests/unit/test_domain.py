@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from stream_consumers.domain.errors import MissingCredentialError, UnknownSourceError
-from stream_consumers.domain.models import RateBasis, RunReport, RunStatus
+from stream_consumers.domain.models import RateBasis, RunReport, RunStatus, SamplingRound, Verdict
 from stream_consumers.domain.policy import (
     MASK,
     MINIMUM_RATE,
@@ -19,7 +19,9 @@ from stream_consumers.domain.policy import (
     meets_minimum_rate,
     profile_fields,
     rate,
+    reports_by_source,
     round_rate,
+    verdict,
 )
 
 
@@ -176,6 +178,54 @@ class TestInclusionRule:
         assert median_rate([report(RunStatus.KEY_PENDING, None)]) is None
         assert not meets_minimum_rate([report(RunStatus.KEY_PENDING, None)])
         assert not meets_minimum_rate([])
+
+
+class TestVerdict:
+    """The median of a planned number of rounds is fixed once no missing rounds can move it across 1 event/s."""
+
+    def test_thirteen_of_twenty_four_at_or_above_one_passes_whatever_follows(self) -> None:
+        assert verdict([report(value=1.0)] * 13, 24) is Verdict.PASSES
+
+    def test_twelve_of_twenty_four_at_one_point_five_is_still_open(self) -> None:
+        """Negative control: twelve zeros to come would give a median of (0 + 1.5) / 2 = 0.75."""
+        assert verdict([report(value=1.5)] * 12, 24) is Verdict.OPEN
+
+    def test_twelve_at_two_already_pass_because_the_lowest_median_is_exactly_one(self) -> None:
+        assert verdict([report(value=2.0)] * 12, 24) is Verdict.PASSES
+
+    def test_thirteen_below_one_fails_and_twelve_do_not_yet(self) -> None:
+        assert verdict([report(value=0.99)] * 13, 24) is Verdict.FAILS
+        assert verdict([report(value=0.99)] * 12, 24) is Verdict.OPEN
+
+    def test_silent_and_failed_rounds_count_as_zero(self) -> None:
+        silent = [report(RunStatus.NO_EVENTS, None)] * 7 + [report(RunStatus.ERROR, None)] * 6
+        assert verdict(silent, 24) is Verdict.FAILS
+
+    def test_rounds_without_a_measurement_use_up_the_plan_without_a_rate(self) -> None:
+        pending = report(RunStatus.KEY_PENDING, None)
+        assert verdict([pending, pending], 3) is Verdict.OPEN
+        assert verdict([pending, pending, pending], 3) is Verdict.FAILS
+        assert verdict([report(value=None), report(value=1.5)], 3) is Verdict.OPEN  # one zero to come: (1.5 + 0) / 2
+        assert verdict([report(value=None), report(value=1.5), report(value=1.5)], 4) is Verdict.PASSES
+
+    def test_a_complete_plan_is_the_inclusion_rule(self) -> None:
+        mixed = [report(value=v) for v in (0.5, 2.0, 3.0)]
+        assert verdict(mixed, 3) is Verdict.PASSES and meets_minimum_rate(mixed)
+        low = [report(value=v) for v in (0.5, 0.9, 3.0)]
+        assert verdict(low, 3) is Verdict.FAILS and not meets_minimum_rate(low)
+        assert verdict(low + [report(value=9.0)] * 3, 3) is Verdict.PASSES  # rounds beyond the plan still count
+
+    def test_nothing_measured_is_open_until_the_plan_ends(self) -> None:
+        assert verdict([], 24) is Verdict.OPEN
+
+    def test_the_plan_needs_a_round(self) -> None:
+        with pytest.raises(ValueError):
+            verdict([], 0)
+
+    def test_reports_are_grouped_by_source_in_round_order(self) -> None:
+        a1, a2 = report(value=1.0), report(value=2.0)
+        b = RunReport("b", RunStatus.OK, 1, 1.0, 3.0, RateBasis.OBSERVED, 1.0, 0.1, 0.0)
+        assert reports_by_source([SamplingRound(1, 0.0, (a1, b)), SamplingRound(2, 1.0, (a2,))]) == {"s": [a1, a2], "b": [b]}
 
 
 class TestProfileFields:

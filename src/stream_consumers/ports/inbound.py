@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
-from stream_consumers.domain.models import ConfigStatus, RunReport, SamplingRound, SourceDescriptor, SourceProfile
+from stream_consumers.domain.models import ConfigStatus, RateVerdict, RunReport, SamplingRound, SourceDescriptor, SourceProfile
 from stream_consumers.ports.outbound import EventSinkPort
 
 
@@ -35,8 +35,26 @@ class CheckSourcesUseCase(ABC):
 
 class SampleSourcesUseCase(ABC):
     @abstractmethod
-    async def sample(self, source_ids: Sequence[str], rounds: int, interval_s: float, window_s: float) -> Sequence[SamplingRound]:
-        """Measure every source once per round, rounds `interval_s` apart on wall-clock targets."""
+    async def sample(
+        self,
+        source_ids: Sequence[str],
+        rounds: int,
+        interval_s: float,
+        window_s: float,
+        prior: Sequence[SamplingRound] = (),
+        stop_when_settled: bool = False,
+    ) -> Sequence[SamplingRound]:
+        """Measure every source once per round, rounds `interval_s` apart on wall-clock targets.
+
+        `rounds` is the whole plan: rounds already in `prior` (an interrupted run) are not repeated
+        and numbering continues after them. With `stop_when_settled` a source is no longer read once
+        its verdict over `rounds` can no longer change, and sampling ends when every source is settled."""
+
+
+class JudgeSamplingUseCase(ABC):
+    @abstractmethod
+    def verdicts(self, rounds: Sequence[SamplingRound], planned: int, source_ids: Sequence[str] = ()) -> Sequence[RateVerdict]:
+        """Median rate and verdict of each source (default: every source in `rounds`) over a plan of `planned` rounds."""
 
 
 class ProfileSourcesUseCase(ABC):

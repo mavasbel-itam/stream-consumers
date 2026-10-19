@@ -14,12 +14,14 @@ from stream_consumers.application.consume_service import ConsumeService
 from stream_consumers.application.list_service import ListService
 from stream_consumers.application.profile_service import CollectingSink, ProfileService
 from stream_consumers.application.sample_service import SampleService
+from stream_consumers.application.verdict_service import VerdictService
 from stream_consumers.domain.errors import TransportError, UnknownSourceError
-from stream_consumers.domain.models import Credential, PublishedVolume, RateBasis, RunStatus
+from stream_consumers.domain.models import Credential, PublishedVolume, RateBasis, RateVerdict, RunReport, RunStatus, SamplingRound, Verdict
 from stream_consumers.domain.policy import MASK, PersonalDataMasker
 from stream_consumers.ports.inbound import (
     CheckSourcesUseCase,
     ConsumeStreamUseCase,
+    JudgeSamplingUseCase,
     ListSourcesUseCase,
     ProfileSourcesUseCase,
     SampleSourcesUseCase,
@@ -220,10 +222,79 @@ class TestSample:
         with pytest.raises(ValueError):
             await service.sample([], rounds, interval, window)
 
+    async def test_settled_sources_stop_and_sampling_ends_when_none_is_open(self) -> None:
+        clock = FakeClock()
+        fast, fast_made = scripted("fast", [{"a": 1}] * 10, clock, gap=1.0)  # 10 events/s in a 1 s window
+        silent, _ = scripted("silent", [], clock, hang=True)  # no events: 0 events/s
+        keyed, keyed_made = scripted("keyed", [], clock)
+        keyed.DESCRIPTOR = descriptor("keyed", credential=Credential(("KEY",), "https://sign.up"))  # type: ignore[misc]
+        reports = MemoryReports()
+        service = SampleService(ConsumeService(registry(clock, fast, silent, keyed), clock), ListSink(), reports, clock)
+        rounds = await service.sample(["fast", "silent", "keyed"], rounds=5, interval_s=100, window_s=1, stop_when_settled=True)
+        assert [[r.source_id for r in sampling_round.reports] for sampling_round in rounds] == [
+            ["fast", "silent", "keyed"],
+            ["fast", "silent", "keyed"],
+            ["fast", "silent", "keyed"],  # fast passes and silent fails after 3 of 5
+            ["keyed"],  # key pending: nothing measured, open until the plan ends
+            ["keyed"],
+        ]
+        assert len(fast_made) == 3 and len(keyed_made) == 0 and reports.rounds == list(rounds)
+
+    async def test_without_the_option_every_round_reads_every_source(self) -> None:
+        """Negative control: a settled source is read in every planned round by default."""
+        clock = FakeClock()
+        fast, fast_made = scripted("fast", [{"a": 1}] * 10, clock, gap=0.1)
+        service = SampleService(ConsumeService(registry(clock, fast), clock), ListSink(), MemoryReports(), clock)
+        rounds = await service.sample(["fast"], rounds=4, interval_s=100, window_s=1)
+        assert len(rounds) == 4 and len(fast_made) == 4
+
+    async def test_an_interrupted_run_continues_with_the_missing_rounds(self) -> None:
+        clock = FakeClock()
+        fast, fast_made = scripted("fast", [{"a": 1}] * 10, clock, gap=0.1)
+        service = SampleService(ConsumeService(registry(clock, fast), clock), ListSink(), MemoryReports(), clock)
+        earlier = await service.sample(["fast"], rounds=2, interval_s=100, window_s=1)
+        rounds = await service.sample(["fast"], rounds=5, interval_s=100, window_s=1, prior=earlier)
+        assert [r.number for r in rounds] == [3, 4, 5] and len(fast_made) == 5
+        assert await service.sample(["fast"], rounds=5, interval_s=100, window_s=1, prior=[*earlier, *rounds]) == []
+
+    async def test_sources_settled_before_the_interruption_are_not_read_again(self) -> None:
+        clock = FakeClock()
+        fast, fast_made = scripted("fast", [{"a": 1}] * 10, clock, gap=0.1)
+        slow, slow_made = scripted("slow", [{"a": 1}] * 10, clock, gap=0.1)
+        service = SampleService(ConsumeService(registry(clock, fast, slow), clock), ListSink(), MemoryReports(), clock)
+        passed = RunReport("fast", RunStatus.OK, 50, 5.0, 10.0, RateBasis.OBSERVED, 1.0, 0.1, 0.0)
+        earlier = [SamplingRound(n, float(n), (passed,)) for n in (1, 2, 3)]
+        rounds = await service.sample(["fast", "slow"], rounds=5, interval_s=100, window_s=1, prior=earlier, stop_when_settled=True)
+        assert [[r.source_id for r in sampling_round.reports] for sampling_round in rounds] == [["slow"], ["slow"]]
+        assert len(fast_made) == 0 and len(slow_made) == 2
+
     def test_rejects_zero_concurrency(self) -> None:
         clock = FakeClock()
         with pytest.raises(ValueError):
             SampleService(ConsumeService(registry(clock), clock), ListSink(), MemoryReports(), clock, concurrency=0)
+
+
+class TestVerdicts:
+    def ok(self, source_id: str, value: float) -> RunReport:
+        return RunReport(source_id, RunStatus.OK, 1, 1.0, value, RateBasis.OBSERVED, 1.0, 0.1, 0.0)
+
+    def test_every_source_in_the_rounds_by_default_sorted(self) -> None:
+        rounds = [SamplingRound(n, float(n), (self.ok("b", 0.5), self.ok("a", 3.0))) for n in (1, 2, 3)]
+        assert list(VerdictService().verdicts(rounds, 3)) == [
+            RateVerdict("a", 3, 3, 3.0, Verdict.PASSES),
+            RateVerdict("b", 3, 3, 0.5, Verdict.FAILS),
+        ]
+
+    def test_selected_sources_including_one_never_measured(self) -> None:
+        rounds = [SamplingRound(1, 1.0, (self.ok("a", 3.0),))]
+        assert list(VerdictService().verdicts(rounds, 24, ["new", "a"])) == [
+            RateVerdict("new", 0, 24, None, Verdict.OPEN),
+            RateVerdict("a", 1, 24, 3.0, Verdict.OPEN),
+        ]
+
+    def test_the_plan_needs_a_round(self) -> None:
+        with pytest.raises(ValueError):
+            VerdictService().verdicts([], 0)
 
 
 class TestProfile:
@@ -278,4 +349,5 @@ def test_services_implement_their_inbound_ports() -> None:
     assert isinstance(ListService(reg), ListSourcesUseCase)
     assert isinstance(CheckService(consume, ListSink(), MemoryReports()), CheckSourcesUseCase)
     assert isinstance(SampleService(consume, ListSink(), MemoryReports(), clock), SampleSourcesUseCase)
+    assert isinstance(VerdictService(), JudgeSamplingUseCase)
     assert isinstance(ProfileService(consume, ListSinkFactory(), MemoryReports(), reg), ProfileSourcesUseCase)

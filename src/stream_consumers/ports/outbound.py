@@ -163,6 +163,12 @@ class EventSinkFactoryPort(ABC):
     def open(self, source_id: str) -> EventSinkPort: ...
 
 
+class SamplingHistoryPort(ABC):
+    @abstractmethod
+    def read_rounds(self) -> Sequence[SamplingRound]:
+        """Sampling rounds written earlier, oldest first."""
+
+
 class ReportSinkPort(ABC):
     @abstractmethod
     def write_check(self, reports: Sequence[RunReport]) -> None: ...
