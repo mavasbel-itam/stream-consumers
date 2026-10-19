@@ -209,7 +209,7 @@ class TestCredentials:
                 BY_ID["gfw"].create(deps(secrets={"GFW_API_TOKEN": "t", name: "0"}))
 
     def test_kafka_sources_read_their_settings(self) -> None:
-        lasair = BY_ID["lasair"].create(deps(secrets={"LASAIR_API_TOKEN": "tok", "LASAIR_KAFKA_TOPIC": "lasair_1demo"}))
+        lasair = BY_ID["lasair"].create(deps(secrets={"LASAIR_KAFKA_TOPIC": "lasair_1demo"}))
         assert isinstance(lasair, KafkaSource)
         assert (lasair._servers, lasair._topics, lasair._group_id) == (
             "lasair-lsst-kafka.lsst.ac.uk:9092",

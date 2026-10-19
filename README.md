@@ -3,7 +3,10 @@
 Consumers and subscribers for the public real-time data streams evaluated for the
 final project of COM-22102 *Bases de Datos No Relacionales* (ITAM, Otoño 2026).
 
-**Private, instructor-only repository.** Students build their own ingestion
+**Private, instructor-only repository**
+([`mavasbel-itam/stream-consumers`](https://github.com/mavasbel-itam/stream-consumers)
+on GitHub; it was `non-relational-dbs/stream-consumers` until 2026-10-19, and
+older records still use that name). Students build their own ingestion
 consumer as part of the project; do not share this repository with them.
 
 The decision records are in [`docs/`](docs/README.md): the stream surveys,
@@ -34,10 +37,11 @@ and is left out (`round_rate`). The exceptions and pending cases:
   Seven of the eight were measured with their keys on 2026-10-17/19 and accepted
   on 2026-10-19: `cta_bus`, `cta_train`, `mastodon`, `mta_bustime`, `nta` and
   `wmata` (group C) and `aisstream` (group B), each with a certain median of at
-  least 1 event/s (see [Sampling results](#sampling-results)). ENTSO-E
-  (`entsoe`) token was received and tested on 2026-10-19: its measured rate
-  (0.010 events/s; theoretical all-Europe ceiling ~0.33) is below 1 event/s, so
-  it is retained in code under `Group.LOW_RATE` in the low-rate catalog.
+  least 1 event/s (see [Sampling results](#sampling-results)). The ENTSO-E
+  (`entsoe`) token arrived and was tested on 2026-10-19; the source measured
+  0.010 events/s and cannot reach 1 event/s even reading every European area
+  (under 0.4 points/s), so it went to group E
+  ([Sources Below 1 Event/s](#sources-below-1-events-measured--low-rate-catalog)).
 - Measured below 1 event/s and therefore excluded: Nostr, Stellar,
   ENA, PyPI, Hacker News, MLB; not measurable as configured: BitMEX, APRS-IS,
   Kystverket AIS, zKillboard.
@@ -45,29 +49,37 @@ and is left out (`round_rate`). The exceptions and pending cases:
 Every rate in the source list was then re-checked with this repository's own
 `sample` command; the results are in [Sampling results](#sampling-results).
 
-- **Lasair and Fink were removed on 2026-10-18**: both relay alerts of the
-  Rubin Observatory LSST, and neither had published a single alert since
-  2026-07-14 (Lasair's latest detection 2026-07-14 10:03 UTC, 0 objects in the
-  last 30 days; Fink's last alert night 2026-07-14), so both would measure
-  0 events/s. The Kafka transport and the Avro decoder stay, tested against a
-  local broker, so either can be re-added if alerts resume.
-- **Removed on 2026-10-18 after the 24-hour sampling of 2026-10-17/18**
-  (24 hourly rounds, 60-s windows): Bitstamp (`bitstamp`, median 0.515
-  events/s), npm (`npm`, 0.790) and Digitraffic train timetables
-  (`dt_rail_trains`, 0.865), all below 1 event/s. GDELT (0.772) stays, as
-  decided above.
-- **Global Fishing Watch (`gfw`) was removed on 2026-10-18**: its events API
-  publishes events days after they happen (the latest day with events was
-  2026-10-14 when read on 2026-10-18), so a poll sees no new events within a
-  round. The totals of all four event datasets over a fixed date range did not
-  grow at all in 18 hourly readings (2026-10-18 03:24–21:24 UTC), so the median
-  arrival rate is 0 events/s.
+- **Low-rate group (E) since 2026-10-19**: every source measured below
+  1 event/s was first removed from the catalog and, on 2026-10-19, restored
+  unchanged into group E: kept, tested and documented, but left out of
+  `check`, `sample` and `profile` unless named (see
+  [Sources Below 1 Event/s](#sources-below-1-events-measured--low-rate-catalog)).
+  The removals, with the evidence of the day:
+- **Lasair and Fink, removed 2026-10-18 (group E since 2026-10-19)**: both relay
+  alerts of the Rubin Observatory LSST, and neither had published a single
+  alert since 2026-07-14 (Lasair's latest detection 2026-07-14 10:03 UTC, 0
+  objects in the last 30 days; Fink's last alert night 2026-07-14), so both
+  would measure 0 events/s. The Kafka transport and the Avro decoder are
+  tested against a local broker.
+- **Removed 2026-10-18 after the 24-hour sampling of 2026-10-17/18, group E
+  since 2026-10-19** (24 hourly rounds, 60-s windows): Bitstamp (`bitstamp`,
+  median 0.515 events/s), npm (`npm`, 0.790) and Digitraffic train timetables
+  (`dt_rail_trains`, 0.865), all below 1 event/s. GDELT (0.772) stays in the
+  active catalog, as decided above.
+- **Global Fishing Watch (`gfw`), removed 2026-10-18 (group E since
+  2026-10-19)**: its events API publishes events days after they happen (the
+  latest day with events was 2026-10-14 when read on 2026-10-18), so a poll
+  sees no new events within a round. The totals of all four event datasets
+  over a fixed date range did not grow at all in 18 hourly readings
+  (2026-10-18 03:24–21:24 UTC), so the median arrival rate is 0 events/s; the
+  readings continued to 2026-10-19 00:24 UTC (22 in all) and never changed.
+- **ENTSO-E (`entsoe`), group E since 2026-10-19**: see the candidates above.
 - **Added on 2026-10-19 from the Bytewax "Awesome Public Real-Time Datasets"
   list** (all 69 free entries screened): `blockchain`, `citibike`, `coinpaprika`,
   `ogn`, `sharpe` and `ukflood`, each keyless with a median of at least 1
   event/s in their own sampling. NOAA's National Data Buoy Center latest
-  observations (`ndbc`) were added too and removed on 2026-10-19: median 0.268
-  events/s over 3 rounds. Not added from that list: EPA AirNow (its hourly file lists 4,415 sites but only
+  observations (`ndbc`) were added too and moved to group E on 2026-10-19:
+  median 0.268 events/s over 3 rounds. Not added from that list: EPA AirNow (its hourly file lists 4,415 sites but only
   1,980 reported in the hour 2026-10-18 22:00 UTC, 0.55 events/s), Yahoo
   Finance (its terms forbid automated collection) and GitHub's REST events
   (the same events as `gharchive`).
@@ -79,8 +91,10 @@ Every rate in the source list was then re-checked with this repository's own
 
 Groups: **keyless** (49), **project document** (7, the sources the project
 document lists), **free key** (9: key optional for 3, required for 6, rate
-measured with the key). The 8 sources measured below 1 event/s are retained in
-code under `Group.LOW_RATE` and documented in [Sources Below 1 Event/s](#sources-below-1-events-measured--low-rate-catalog).
+measured with the key), and **candidate** (group D, empty since 2026-10-19).
+The 8 sources measured below 1 event/s are group E, listed in
+[Sources Below 1 Event/s](#sources-below-1-events-measured--low-rate-catalog);
+the code holds 73 sources in all.
 
 | id | Source | Provider | Group | Transport | Delivery |
 |---|---|---|---|---|---|
@@ -152,23 +166,25 @@ code under `Group.LOW_RATE` and documented in [Sources Below 1 Event/s](#sources
 
 ## Sources Below 1 Event/s (Measured & Low-Rate Catalog)
 
-These 8 sources were implemented, tested, and measured below the 1 event/s
-inclusion threshold. Per project decision, all 8 are **retained in code** under
-`Group.LOW_RATE` (`low_rate`) and verified (100% unit and component test
-coverage, decoders, and live key probes), but documented separately from the
-primary catalog. Detailed measurements and background are recorded in
+Group E (`Group.LOW_RATE`) holds the 8 sources measured below 1 event/s. Their
+consumers, decoders and test data are kept and tested like every other source
+(the 100 % coverage gate includes them), and every key they read has a live
+probe. `check`, `sample` and `profile` leave them out when no source id is
+given (`Group.active`); name one to run it, for example
+`uv run stream-consumers check ndbc --seconds 960`. `list` shows all 73 sources
+with their group. The measurements and the evidence behind each row are in
 [`docs/reference/2026-10-19-18-27-sub-threshold-sources.md`](docs/reference/2026-10-19-18-27-sub-threshold-sources.md).
 
-| id | Source | Provider | Transport / Delivery | Measured Rate | Bottleneck / Limiting Factor | Command |
-|---|---|---|---|---|---|---|
-| `bitstamp` | [Bitstamp live trades](https://www.bitstamp.net/websocket/v2/) | Bitstamp | websocket / push | **0.515 events/s** (24 rounds median) | Low trade frequency on BTC/USD and ETH/USD during off-peak hours (min 0.150, max 3.555) | `stream-consumers consume bitstamp` |
-| `dt_rail_trains` | [Digitraffic Finland train timetables/actuals](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | mqtt / push | **0.865 events/s** (24 rounds median) | Timetable progress actuals publish in bursts only when trains pass physical checkpoints | `stream-consumers consume dt_rail_trains` |
-| `entsoe` | [ENTSO-E Transparency Platform actual generation](https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API) | ENTSO-E | http / poll (token required) | **0.010 events/s** (DE/FR/ES); ceiling **~0.33 events/s** | 15-minute resolution per area/type; querying all 59 reporting areas takes ~380 s per poll cycle | `stream-consumers consume entsoe` |
-| `fink` | [Fink — Rubin Observatory LSST and ZTF alerts](https://doc.lsst.fink-broker.org/services/livestream/) | Fink broker (CNRS/IN2P3) | kafka / push (free credentials) | **0 events/s** (no alerts since 2026-07-14) | Upstream LSST alerts paused; broker stream produces no live messages | `stream-consumers consume fink` |
-| `gfw` | [Global Fishing Watch events API](https://globalfishingwatch.org/our-apis/documentation) | Global Fishing Watch | http / poll (free token) | **0 events/s** (0 growth across 18 hourly rounds) | AIS events are batch-derived and published days late; zero intra-hour event growth | `stream-consumers consume gfw` |
-| `lasair` | [Lasair — Rubin Observatory LSST alerts](https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html) | Lasair (Edinburgh/Belfast) | kafka / push (free token) | **0 events/s** (no detections since 2026-07-14) | Upstream LSST alert hiatus; filter topic receives no events | `stream-consumers consume lasair` |
-| `ndbc` | [NOAA National Data Buoy Center observations](https://www.ndbc.noaa.gov/faq/rt_data_access.shtml) | NOAA NDBC | http / poll | **0.268 events/s** (median of 3 rounds) | Station observations file (`latest_obs.txt`) updates irregularly at 10–15 minute intervals | `stream-consumers consume ndbc` |
-| `npm` | [npm registry replication changes](https://github.com/npm/registry-follower-tutorial) | npm / GitHub | http / poll | **0.790 events/s** (24 rounds median) | CouchDB sequence changes average < 1 event/s across standard daily release intervals (min 0.259, max 1.616) | `stream-consumers consume npm` |
+| id | Source | Transport / delivery | Key | Measured | Why it stays below 1 event/s (evidence) |
+|---|---|---|---|---|---|
+| `bitstamp` | [Bitstamp live trades](https://www.bitstamp.net/websocket/v2/) | websocket / push | — | median **0.515** events/s; 24/24 rounds, 3 at ≥ 1/s, min 0.150, max 3.555 (`sampling-20261017`) | Trades of the five subscribed pairs (BTC/USD, ETH/USD, XRP/USD, BTC/EUR, SOL/USD) arrive at under 1/s in most hours |
+| `dt_rail_trains` | [Digitraffic Finland train timetables/actuals](https://www.digitraffic.fi/en/railway-traffic/) | mqtt / push | — | median **0.865**; 24/24 rounds, 7 at ≥ 1/s, min 0.200, max 1.246 (`sampling-20261017`) | Every message on `trains/#` is counted; fewer than 1 per second in most hours |
+| `entsoe` | [ENTSO-E actual generation per production type](https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API) | http / poll | `ENTSOE_TOKEN` (required, set) | **0.010** with the default areas (Germany, France, Spain), 600 s on 2026-10-19; all 59 reporting areas: one request round takes about 380 s, so no rate in 600 s (`data/reports/entsoe-20261019/`) | The platform publishes one value per period (15 to 60 min) per area and production type: asked at 15:21–15:23 UTC for the window 10:00–16:00 UTC, the 100 areas listed by entsoe-py returned 7,226 points (59 areas with data), 0.38 points/s even over only the 5 h 21 min up to the query and if every point were new |
+| `fink` | [Fink — Rubin Observatory LSST and ZTF alerts](https://doc.lsst.fink-broker.org/services/livestream/) | kafka / push | `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` (required, not set) | 0 (no measurement possible without credentials) | No LSST alert night after 2026-07-14 (checked 2026-10-18) |
+| `gfw` | [Global Fishing Watch events API](https://globalfishingwatch.org/our-apis/documentation) | http / poll | `GFW_API_TOKEN` (required, set) | **0**: dataset totals unchanged in all 22 hourly readings, 2026-10-18 03:24 – 2026-10-19 00:24 UTC (`data/gfw-growth-20261018/`) | Events are derived from AIS after processing and published days later (latest day with events 2026-10-14 when read on 2026-10-18) |
+| `lasair` | [Lasair — LSST alerts passing a saved filter](https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html) | kafka / push | `LASAIR_KAFKA_TOPIC` (required, not set) | 0 (no filter topic yet) | Latest detection 2026-07-14 10:03 UTC, 0 objects in the last 30 days (checked 2026-10-18) |
+| `ndbc` | [NOAA National Data Buoy Center latest observations](https://www.ndbc.noaa.gov/faq/rt_data_access.shtml) | http / poll | — | median **0.268**; 3 rounds of 960 s: 0.268, 0.569, 0.045 (`sampling-bytewax-20261019`, stopped early) | About 840 stations, one observation each per file rewrite; rewrites seen 9 min 59 s and 14 min 51 s apart |
+| `npm` | [npm registry replication changes](https://github.com/npm/registry-follower-tutorial) | http / poll | — | median **0.790**; 24/24 rounds, 9 at ≥ 1/s, min 0.259, max 1.616 (`sampling-20261017`) | Polled every 5 s; the feed returns each changed package once per request, so several updates of one package between polls count once |
 
 Three links cannot be checked by a script: `www.binance.com/en/terms` answers
 HTTP 202 with a JavaScript challenge, and `www.mta.info/developers` and
@@ -190,8 +206,9 @@ whatever the missing rounds show. The runs `d2`, `mastodon-world` and
 `bytewax` were stopped on 2026-10-19 05:38 UTC before 24 rounds; their
 sources are decided on the median of the rounds they completed
 (**passes on N rounds (stopped early)**), and `ndbc`, the only one below
-1 event/s, was removed. Read at
-<!-- results-read-at -->2026-10-19 05:39 UTC; the table lists every source in the catalog.
+1 event/s, went to group E. Read at
+<!-- results-read-at -->2026-10-19 05:39 UTC; the table lists every source of groups A–C (65); the
+group E measurements are in [Sources Below 1 Event/s](#sources-below-1-events-measured--low-rate-catalog).
 
 <!-- results-table -->
 | id | Group | Run (`data/reports/sampling-…`) | Rounds | Rounds ≥ 1/s | Median (events/s) | Rounds span (UTC) | Result |
@@ -297,7 +314,8 @@ source from recorded rounds.
 uv sync                                    # Python 3.13, locked dependencies
 uv run stream-consumers list               # descriptors as JSON lines
 uv run stream-consumers consume hsl --seconds 60 --out data/hsl.jsonl
-uv run stream-consumers check              # every source for 30 s; exit 1 if any fails
+uv run stream-consumers check              # every source of groups A–D for 30 s; exit 1 if any fails
+uv run stream-consumers check ndbc --seconds 960   # a group E source runs only when named
 uv run stream-consumers sample --rounds 24 --interval 3600 --window 60 --reports data/reports/sampling
 uv run stream-consumers sample --stop-when-settled --reports data/reports/sampling/segment-2 \
     --continue-from data/reports/sampling   # resume an interrupted run; stop each source once settled
@@ -349,7 +367,7 @@ catalog next to `FACTORIES`) and listed by `keys` as `held`: secondary keys
 Mastodon applications' client id and secret and the tokens of other instances
 (mastodon.world, mastodon.social), the Coinbase CDP key, the Bitso and Binance
 key pairs (reading permission only; the Binance probe also fails if the key
-can trade or withdraw), and the tokens of the removed `lasair` and `gfw`. A new key is added to `HELD_KEYS` (or to a source's
+can trade or withdraw), and the Lasair REST API token (the `lasair` source reads only the Kafka topic of a saved filter). A new key is added to `HELD_KEYS` (or to a source's
 `Credential`) and to `tests/live/test_keys_live.py`, which fails if a key has
 no probe. That test sends, for each key, one read-only request with the stored
 value (must be accepted), one with its last four characters changed (must be
@@ -446,9 +464,9 @@ The component and e2e tiers start a single-node Kafka broker with Docker
 Fixtures are real messages captured on 2026-10-13 (`velib` and `cta_bus` on
 2026-10-17; `cta_train`, `nta`, `mta_bustime`, `wmata`, `mastodon`, `aisstream`
 and the MBTA stream on 2026-10-18; `blockchain`, `citibike`, `coinpaprika`,
-`ogn`, `sharpe` and `ukflood` on 2026-10-19), trimmed, with personal values replaced by `<masked>`; a test checks
-that no fixture leaks a personal value or an e-mail address. Candidates without a
-key yet have the providers' official documentation examples as fixtures, marked
+`ogn`, `sharpe`, `ukflood` and `ndbc` on 2026-10-19), trimmed, with personal values replaced by `<masked>`; a test checks
+that no fixture leaks a personal value or an e-mail address. Sources not yet
+captured with a key (`entsoe`, `gfw`, `lasair`) have the providers' official documentation examples as fixtures, marked
 with `origin`, `documentation_url` and the `corrections` applied (PDF page footers,
 a typographic quote, a trailing comma); each is replaced by captured messages once
 its key works (done for `cta_bus`, `cta_train`, `nta`, `mta_bustime`, `wmata`,

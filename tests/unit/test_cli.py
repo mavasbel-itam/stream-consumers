@@ -25,14 +25,15 @@ def run(*argv: str, env_file: Path | None = None) -> tuple[int, str, str]:
 def test_list_prints_one_json_line_per_source_sorted() -> None:
     code, out, _ = run("list")
     rows = [json.loads(line) for line in out.splitlines()]
-    assert code == 0 and [r["id"] for r in rows] == ["alpha", "broken", "keyed"]
-    assert rows[0]["group"] == "A" and rows[0]["personal_fields"] == ["user"]
+    assert code == 0 and [r["id"] for r in rows] == ["alpha", "broken", "keyed", "quiet"]
+    assert rows[0]["group"] == "A" and rows[0]["personal_fields"] == ["user"] and rows[3]["group"] == "E"
 
 
-def test_default_catalog_lists_the_73_sources() -> None:
+def test_default_catalog_lists_the_73_sources_8_of_them_low_rate() -> None:
     out = io.StringIO()
     assert main(["list"], out, io.StringIO()) == 0
-    assert len(out.getvalue().splitlines()) == 73 and DEFAULT_CATALOG.endswith(".sources")
+    groups = [json.loads(line)["group"] for line in out.getvalue().splitlines()]
+    assert len(groups) == 73 and groups.count("E") == 8 and DEFAULT_CATALOG.endswith(".sources")
 
 
 class TestConsume:
@@ -70,13 +71,17 @@ class TestConsume:
 
 
 class TestCheck:
-    def test_all_sources_summary_and_report(self, tmp_path: Path) -> None:
+    def test_without_ids_every_active_source_and_no_low_rate_one(self, tmp_path: Path) -> None:
         code, out, _ = run("check", "--seconds", "0.1", "--reports", str(tmp_path))
         lines = out.splitlines()
         assert code == 1 and lines[-1] == "3 sources, 2 delivered or key pending, 1 failed"
         assert [line.split()[0] for line in lines[:3]] == ["alpha", "broken", "keyed"]
         (report,) = tmp_path.glob("check-*.json")
         assert {r["source_id"] for r in json.loads(report.read_text())} == {"alpha", "broken", "keyed"}
+
+    def test_a_low_rate_source_runs_when_named(self, tmp_path: Path) -> None:
+        code, out, _ = run("check", "quiet", "--seconds", "0.1", "--reports", str(tmp_path))
+        assert code == 0 and out.startswith("quiet") and out.endswith("1 sources, 1 delivered or key pending, 0 failed\n")
 
     def test_selected_sources_pass(self, tmp_path: Path) -> None:
         code, out, _ = run("check", "alpha", "--seconds", "0.1", "--reports", str(tmp_path))
@@ -195,4 +200,4 @@ def test_module_entry_point(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Capt
     monkeypatch.setattr(sys, "argv", ["stream-consumers", *CATALOG, "list"])
     with pytest.raises(SystemExit) as error:
         runpy.run_module("stream_consumers", run_name="__main__")
-    assert error.value.code == 0 and capsys.readouterr().out.count("\n") == 3
+    assert error.value.code == 0 and capsys.readouterr().out.count("\n") == 4

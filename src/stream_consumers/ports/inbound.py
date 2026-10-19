@@ -13,6 +13,10 @@ class ListSourcesUseCase(ABC):
     @abstractmethod
     def list_sources(self) -> Sequence[SourceDescriptor]: ...
 
+    @abstractmethod
+    def default_sources(self) -> Sequence[SourceDescriptor]:
+        """The sources a command runs when no source id is given: those of an active group, in catalog order."""
+
 
 class ConsumeStreamUseCase(ABC):
     @abstractmethod

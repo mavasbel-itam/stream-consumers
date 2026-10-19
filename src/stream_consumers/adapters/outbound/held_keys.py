@@ -95,6 +95,13 @@ HELD_KEYS: tuple[HeldKey, ...] = (
         "public streams and needs no key.",
         "https://www.binance.com/en/my/settings/api-management",
     ),
+    HeldKey(
+        "lasair",
+        ("LASAIR_API_TOKEN",),
+        "Lasair (LSST alert broker)",
+        "REST API token. The lasair source reads only the Kafka topic of a saved filter (LASAIR_KAFKA_TOPIC), not this token.",
+        "https://lasair.lsst.ac.uk/",
+    ),
 )
 
 

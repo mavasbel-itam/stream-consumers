@@ -46,6 +46,7 @@ from stream_consumers.ports.outbound import (
 
 USER_AGENT = "stream-consumers/0.1 (ITAM COM-22102 course research; non-commercial)"
 DEFAULT_CATALOG = "stream_consumers.adapters.outbound.sources"
+DEFAULT_SOURCES_HELP = "source ids (default: every source outside the low-rate group E; name a low-rate source to run it)"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -67,13 +68,13 @@ def _parser() -> argparse.ArgumentParser:
     consume.add_argument("--raw", action="store_true", help="do not mask personal fields")
 
     check = commands.add_parser("check", help="consume each source briefly and report whether events arrive")
-    check.add_argument("sources", nargs="*", help="source ids (default: all)")
+    check.add_argument("sources", nargs="*", help=DEFAULT_SOURCES_HELP)
     check.add_argument("--seconds", type=float, default=30.0, help="seconds per source, at least its minimum window")
     check.add_argument("--reports", type=Path, default=Path("data/reports"), help="directory for check-<time>.json")
     check.add_argument("--concurrency", type=int, default=16, help="sources consumed at the same time")
 
     sample = commands.add_parser("sample", help="measure every source once per round, rounds on wall-clock targets")
-    sample.add_argument("sources", nargs="*", help="source ids (default: all)")
+    sample.add_argument("sources", nargs="*", help=DEFAULT_SOURCES_HELP)
     sample.add_argument("--rounds", type=int, default=24, help="number of rounds")
     sample.add_argument("--interval", type=float, default=3600.0, help="seconds between round starts")
     sample.add_argument("--window", type=float, default=60.0, help="seconds each source is consumed per round, at least its minimum window")
@@ -97,7 +98,7 @@ def _parser() -> argparse.ArgumentParser:
     verdict.add_argument("--planned", type=int, default=24, help="rounds in the plan the verdict is about")
 
     profile = commands.add_parser("profile", help="keep a masked sample of events per source and describe their fields")
-    profile.add_argument("sources", nargs="*", help="source ids (default: all)")
+    profile.add_argument("sources", nargs="*", help=DEFAULT_SOURCES_HELP)
     profile.add_argument("--max-events", type=int, default=500, help="events kept per source")
     profile.add_argument("--seconds", type=float, default=120.0, help="at most this long per source, at least its minimum window")
     profile.add_argument("--out", type=Path, default=Path("data/profile"), help="directory for the masked samples, <source>.jsonl")
@@ -138,7 +139,7 @@ def _verdicts(verdicts: Sequence[RateVerdict], stream: TextIO) -> None:
 
 async def _run(args: argparse.Namespace, registry: SourceRegistryPort, clock: ClockPort, out: TextIO, err: TextIO) -> int:
     consume = ConsumeService(registry, clock)
-    ids = list(getattr(args, "sources", None) or [d.id for d in registry.descriptors()])
+    ids = list(getattr(args, "sources", None) or [d.id for d in ListService(registry).default_sources()])
     for source_id in ids:
         registry.descriptor(source_id)
     if args.command == "consume":

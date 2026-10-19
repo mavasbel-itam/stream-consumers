@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from stream_consumers.domain.errors import MissingCredentialError, UnknownSourceError
-from stream_consumers.domain.models import FieldClass, FieldProfile, RateBasis, RunReport, RunStatus, SamplingRound, Verdict
+from stream_consumers.domain.models import FieldClass, FieldProfile, Group, RateBasis, RunReport, RunStatus, SamplingRound, Verdict
 from stream_consumers.domain.policy import (
     MASK,
     MINIMUM_RATE,
@@ -396,3 +396,8 @@ def test_error_messages_name_the_missing_piece() -> None:
     assert "nope" in str(UnknownSourceError("nope"))
     err = MissingCredentialError(["K", "P"], "https://x")
     assert err.env_vars == ("K", "P") and str(err) == "missing API credentials K, P (free sign-up: https://x)"
+
+
+def test_groups_have_one_letter_each_and_only_the_low_rate_group_is_inactive() -> None:
+    assert [g.value for g in Group] == ["A", "B", "C", "D", "E"]
+    assert [g for g in Group if not g.active] == [Group.LOW_RATE]

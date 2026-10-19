@@ -31,7 +31,12 @@ class Group(Enum):
     PROJECT_DOCUMENT = "B"
     FREE_KEY = "C"
     CANDIDATE = "D"  # needs a free key that is not configured yet; rate not measured, so not yet accepted
-    LOW_RATE = "low_rate"  # measured below 1 event/s; retained and documented separately
+    LOW_RATE = "E"  # measured below 1 event/s; kept and tested, but outside the active catalog
+
+    @property
+    def active(self) -> bool:
+        """Whether commands run the group's sources when no source id is given."""
+        return self is not Group.LOW_RATE
 
 
 class RunStatus(Enum):

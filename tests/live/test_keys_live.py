@@ -24,6 +24,8 @@ from pathlib import Path
 import aiohttp
 import pytest
 import websockets
+from aiokafka import AIOKafkaConsumer
+from aiokafka.errors import KafkaError
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -217,26 +219,36 @@ def mastodon_instance() -> str:
     return ENV.get("MASTODON_INSTANCE") or default
 
 
-class FinkKafkaProbe(KeyProbe):
-    def __init__(self) -> None:
-        super().__init__(("FINK_KAFKA_SERVERS", "FINK_GROUP_ID"))
+def setting_default(source_id: str, name: str) -> str:
+    (default,) = (s.default for f in FACTORIES if f.descriptor.id == source_id for s in f.descriptor.settings if s.env_var == name)
+    return ENV.get(name) or default
+
+
+class KafkaProbe(KeyProbe):
+    """Joins the consumer group on the topic; accepted only when the broker assigns the topic's partitions.
+
+    `target(values)` gives bootstrap servers, topic and group id; without values there is nothing to subscribe to."""
+
+    def __init__(self, env_vars: tuple[str, ...], target: Callable[[Mapping[str, str]], tuple[str, str, str]]) -> None:
+        super().__init__(env_vars)
+        self._target = target
 
     async def attempt(self, session: aiohttp.ClientSession, values: Values) -> Answer:
         if values is None:
-            return Answer(False, "missing Fink credentials")
+            return Answer(False, "no topic or group to subscribe to")
+        servers, topic, group = self._target(values)
+        consumer = AIOKafkaConsumer(topic, bootstrap_servers=servers, group_id=group, enable_auto_commit=False)
         try:
-            from aiokafka import AIOKafkaConsumer
-
-            consumer = AIOKafkaConsumer(
-                group_id=values["FINK_GROUP_ID"],
-                bootstrap_servers=values["FINK_KAFKA_SERVERS"],
-                request_timeout_ms=5000,
-            )
-            await consumer.start()
+            await asyncio.wait_for(consumer.start(), 20)
+            for _ in range(40):
+                if consumer.assignment():
+                    return Answer(True, f"{len(consumer.assignment())} partitions assigned")
+                await asyncio.wait_for(consumer.getmany(timeout_ms=500), 20)
+            return Answer(False, "no partition assigned in 20 s")
+        except (KafkaError, TimeoutError) as exc:
+            return Answer(False, type(exc).__name__)
+        finally:
             await consumer.stop()
-            return Answer(True, "Fink Kafka connected")
-        except Exception as exc:
-            return Answer(False, f"Fink Kafka error: {exc}")
 
 
 PROBES: tuple[KeyProbe, ...] = (
@@ -316,7 +328,18 @@ PROBES: tuple[KeyProbe, ...] = (
             {} if v is None else bearer(v["GFW_API_TOKEN"]),
         ),
     ),
-    FinkKafkaProbe(),
+    KafkaProbe(
+        ("LASAIR_KAFKA_TOPIC",),
+        lambda v: (
+            setting_default("lasair", "LASAIR_KAFKA_SERVER"),
+            v["LASAIR_KAFKA_TOPIC"],
+            setting_default("lasair", "LASAIR_GROUP_ID"),
+        ),
+    ),
+    KafkaProbe(
+        ("FINK_KAFKA_SERVERS", "FINK_GROUP_ID"),
+        lambda v: (v["FINK_KAFKA_SERVERS"], setting_default("fink", "FINK_TOPICS").split(",")[0].strip(), v["FINK_GROUP_ID"]),
+    ),
 )
 
 

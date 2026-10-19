@@ -19,6 +19,7 @@ from stream_consumers.domain.errors import TransportError, UnknownSourceError
 from stream_consumers.domain.models import (
     Credential,
     FieldClass,
+    Group,
     PublishedVolume,
     RateBasis,
     RateVerdict,
@@ -350,6 +351,14 @@ async def test_list_is_sorted_by_id() -> None:
     b, _ = scripted("b", [], clock)
     a, _ = scripted("a", [], clock)
     assert [d.id for d in ListService(registry(clock, b, a)).list_sources()] == ["a", "b"]
+
+
+def test_default_sources_leave_out_the_low_rate_group_only_and_keep_catalog_order() -> None:
+    clock = FakeClock()
+    factories = [Scripted(g.name.lower(), lambda d: ScriptedSource(descriptor(), [], clock), group=g) for g in Group]
+    service = ListService(registry(clock, *factories))
+    assert [d.id for d in service.list_sources()] == ["candidate", "free_key", "keyless", "low_rate", "project_document"]
+    assert [d.id for d in service.default_sources()] == ["keyless", "project_document", "free_key", "candidate"]
 
 
 def test_services_implement_their_inbound_ports() -> None:

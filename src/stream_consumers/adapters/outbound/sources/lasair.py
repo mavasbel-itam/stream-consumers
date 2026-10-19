@@ -22,16 +22,14 @@ class LasairFactory(BaseSourceFactory):
         docs_url="https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html",
         terms_url="https://lasair.lsst.ac.uk/privacy",
         credential=Credential(
-            ("LASAIR_API_TOKEN",),
+            ("LASAIR_KAFKA_TOPIC",),
             "https://lasair.lsst.ac.uk/",
-            how_to_get="Create a Lasair account (e-mail), then generate an API token from your account profile.",
+            how_to_get=(
+                "Create a Lasair account (e-mail), build and save a filter with Kafka streaming enabled; its topic is "
+                "'lasair_' + your user ID + the sanitised filter name. The Kafka server itself needs no password."
+            ),
         ),
         settings=(
-            Setting(
-                "LASAIR_KAFKA_TOPIC",
-                "lasair_all",
-                "Kafka topic of your saved filter with streaming enabled (or topic assigned to your user).",
-            ),
             Setting(
                 "LASAIR_KAFKA_SERVER", "lasair-lsst-kafka.lsst.ac.uk:9092", "Kafka bootstrap server (the official notebook's 'prod' value)."
             ),
@@ -55,7 +53,7 @@ class LasairFactory(BaseSourceFactory):
             JsonDecoder(),
             deps.clock,
             self.setting(deps, "LASAIR_KAFKA_SERVER"),
-            [self.setting(deps, "LASAIR_KAFKA_TOPIC")],
+            [(credentials or {})["LASAIR_KAFKA_TOPIC"]],
             self.setting(deps, "LASAIR_GROUP_ID"),
         )
 
