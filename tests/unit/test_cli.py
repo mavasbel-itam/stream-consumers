@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import io
 import json
 import runpy
@@ -10,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from stream_consumers.adapters.inbound.cli import DEFAULT_CATALOG, main
+from stream_consumers.adapters.inbound.cli import DEFAULT_CATALOG, _parser, main
 
 CATALOG = ["--catalog", "tests.catalog_scripted"]
 
@@ -201,3 +202,16 @@ def test_module_entry_point(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Capt
     with pytest.raises(SystemExit) as error:
         runpy.run_module("stream_consumers", run_name="__main__")
     assert error.value.code == 0 and capsys.readouterr().out.count("\n") == 4
+
+
+def test_every_option_with_a_default_states_it_in_its_help() -> None:
+    parser = _parser()
+    (commands,) = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    actions = [a for p in (parser, *commands.choices.values()) for a in p._actions]
+    stated = [a for a in actions if a.default not in (None, False, argparse.SUPPRESS) and a.nargs != "*"]
+    assert stated and all("(default: " in str(a.help) for a in stated)
+    numeric = [a for a in stated if isinstance(a.default, int | float)]
+    assert all(f"(default: {a.default:g})" in str(a.help) for a in numeric)
+    paths = [a for a in stated if isinstance(a.default, Path)]
+    assert all(f"(default: {a.default})" in str(a.help) for a in paths)
+    assert "(default: -)" in str(next(a for a in actions if a.dest == "out" and a.default == "-").help)
