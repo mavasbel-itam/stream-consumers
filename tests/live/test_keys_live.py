@@ -182,6 +182,28 @@ def bitso_accepts(status: int, body: str) -> bool:
     return status == 200 and json.loads(body)["success"] is True
 
 
+def binance(v: Values) -> tuple[str, str, Mapping[str, str], None]:
+    """Signed GET of the key's own permissions, HMAC-SHA256 of the query string with the secret key (endpoint as in
+    Binance's connector: https://github.com/binance/binance-connector-python/blob/master/clients/wallet/src/binance_sdk_wallet/rest_api/api/account_api.py)."""
+    path = "https://api.binance.com/sapi/v1/account/apiRestrictions"
+    query = f"timestamp={time.time_ns() // 1_000_000}&recvWindow=10000"
+    if v is None:
+        return get(f"{path}?{query}")
+    signature = hmac.new(v["BINANCE_API_SECRET"].encode(), query.encode(), hashlib.sha256).hexdigest()
+    return get(f"{path}?{query}&signature={signature}", {"X-MBX-APIKEY": v["BINANCE_API_KEY"]})
+
+
+def binance_accepts(status: int, body: str) -> bool:
+    """Accepted only while the key can read and can neither trade nor withdraw."""
+    if status != 200:
+        return False
+    permissions = json.loads(body)
+    return permissions["enableReading"] is True and not any(
+        permissions[p]
+        for p in ("enableSpotAndMarginTrading", "enableWithdrawals", "enableInternalTransfer", "enableFutures", "enableMargin")
+    )
+
+
 def cta_train_accepts(status: int, body: str) -> bool:
     return status == 200 and json.loads(body)["ctatt"]["errCd"] == "0"
 
@@ -255,6 +277,7 @@ PROBES: tuple[KeyProbe, ...] = (
     header_probe("WMATA_METRO_ALERTS_KEY_SECONDARY", "https://api.wmata.com/gtfs/rail-gtfsrt-alerts.pb", "api_key"),
     HttpProbe(("COINBASE_CDP_KEY_ID", "COINBASE_CDP_KEY_SECRET"), coinbase),
     HttpProbe(("BITSO_API_KEY", "BITSO_API_SECRET"), bitso, bitso_accepts),
+    HttpProbe(("BINANCE_API_KEY", "BINANCE_API_SECRET"), binance, binance_accepts),
     HttpProbe(
         ("LASAIR_API_TOKEN",),
         lambda v: get(

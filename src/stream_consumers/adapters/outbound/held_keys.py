@@ -88,6 +88,14 @@ HELD_KEYS: tuple[HeldKey, ...] = (
         "https://bitso.com/api_setup",
     ),
     HeldKey(
+        "binance",
+        ("BINANCE_API_KEY", "BINANCE_API_SECRET"),
+        "Binance",
+        "API key and secret key (HMAC-SHA256 signed requests), reading permission only. The binance source reads the "
+        "public streams and needs no key.",
+        "https://www.binance.com/en/my/settings/api-management",
+    ),
+    HeldKey(
         "lasair",
         ("LASAIR_API_TOKEN",),
         "Lasair (LSST alert broker)",
