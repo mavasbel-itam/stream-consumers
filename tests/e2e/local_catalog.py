@@ -26,7 +26,17 @@ from stream_consumers.adapters.outbound.transports.tcp import TcpLineSource, Tcp
 from stream_consumers.adapters.outbound.transports.websocket import WebSocketSource
 from stream_consumers.adapters.outbound.transports.zeromq import ZmqSubSource
 from stream_consumers.domain.errors import TransportError
-from stream_consumers.domain.models import Credential, Delivery, Group, PublishedVolume, RawMessage, Setting, SourceDescriptor, Transport
+from stream_consumers.domain.models import (
+    Credential,
+    Delivery,
+    Group,
+    HeldKey,
+    PublishedVolume,
+    RawMessage,
+    Setting,
+    SourceDescriptor,
+    Transport,
+)
 from stream_consumers.domain.policy import Backoff, ChangeDetector
 from stream_consumers.ports.outbound import (
     ClockPort,
@@ -506,3 +516,4 @@ class Local(BaseSourceFactory):
 
 
 FACTORIES: tuple[SourceFactoryPort, ...] = tuple(Local(source_id) for source_id in BUILDERS)
+HELD_KEYS = (HeldKey("keyed", ("E2E_SPARE_KEY",), "Local provider", "Second key of the account.", "https://sign.up/e2e"),)

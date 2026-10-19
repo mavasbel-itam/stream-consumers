@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from stream_consumers.adapters.outbound.history import JsonSamplingHistory
 from stream_consumers.adapters.outbound.registry import FactoryRegistry
 from stream_consumers.adapters.outbound.sinks import (
     JsonlFileEventSink,
@@ -106,6 +107,26 @@ class TestReportSink:
         profile = json.loads((tmp_path / "r" / names[1]).read_text())
         assert profile[0]["fields"][0]["kinds"] == ["number"]
         assert json.loads((tmp_path / "r" / names[2]).read_text())["reports"][0]["source_id"] == "s"
+
+
+class TestSamplingHistory:
+    def test_reads_back_the_rounds_of_every_segment_by_schedule(self, tmp_path: Path) -> None:
+        pending = RunReport("k", RunStatus.KEY_PENDING, 0, 0.0, None, RateBasis.UNMEASURED, 0.0, None, 5.0, "no key")
+        first, second, third = (
+            SamplingRound(1, 10.0, (REPORT, pending)),
+            SamplingRound(2, 20.0, (REPORT,)),
+            SamplingRound(1, 30.0, (REPORT,)),
+        )
+        JsonReportSink(tmp_path / "segment-a", FakeClock(start=10.0)).write_round(first)
+        JsonReportSink(tmp_path / "segment-a", FakeClock(start=20.0)).write_round(second)
+        JsonReportSink(tmp_path / "segment-b", FakeClock(start=30.0)).write_round(third)
+        JsonReportSink(tmp_path / "segment-b", FakeClock(start=40.0)).write_check([REPORT])  # not a round: ignored
+        assert list(JsonSamplingHistory(tmp_path).read_rounds()) == [first, second, third]
+
+    def test_an_empty_directory_has_no_rounds_and_a_missing_one_is_an_error(self, tmp_path: Path) -> None:
+        assert list(JsonSamplingHistory(tmp_path).read_rounds()) == []
+        with pytest.raises(ValueError, match="no such reports directory"):
+            JsonSamplingHistory(tmp_path / "missing").read_rounds()
 
 
 class TestSystem:

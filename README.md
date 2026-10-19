@@ -142,6 +142,23 @@ documentation fixtures (108 of 111) answered HTTP 200 on 2026-10-13.
 `RunReport.rate_basis` records which one applies (`observed`, `published`, or
 `unmeasured` when a run ended before a rate could be computed).
 
+Rounds are spread over a day (24 rounds, one per hour) because many streams
+follow the daily cycle of where they are: in the 2026-10-17/18 rounds `ecobici`
+ranged from 3.63 events/s in the evening to 0.14 at night, and in 18 of the 56
+measured sources at least one single round was on the other side of 1 event/s
+from the source's 24-round median. A short test at one time of day therefore
+cannot decide inclusion.
+
+A source's verdict is fixed before the 24th round once the missing rounds can no
+longer move its median across 1 event/s (`policy.verdict`): each missing round
+could add 0 events/s, any higher rate or nothing, so the lowest possible median
+fills them with 0 and the highest with an unbounded rate. With 24 rounds planned,
+13 rounds at or above 1 event/s always pass and 13 below always fail; it can be
+earlier (12 rounds of at least 2 events/s already give a lowest median of 1).
+`sample --stop-when-settled` stops reading each source at that point, and the run
+ends when every source is settled; `verdict` gives the median and verdict of each
+source from recorded rounds.
+
 ## Use
 
 ```bash
@@ -150,6 +167,9 @@ uv run stream-consumers list               # descriptors as JSON lines
 uv run stream-consumers consume hsl --seconds 60 --out data/hsl.jsonl
 uv run stream-consumers check              # every source for 30 s; exit 1 if any fails
 uv run stream-consumers sample --rounds 24 --interval 3600 --window 60 --reports data/reports/sampling
+uv run stream-consumers sample --stop-when-settled --reports data/reports/sampling/segment-2 \
+    --continue-from data/reports/sampling   # resume an interrupted run; stop each source once settled
+uv run stream-consumers verdict data/reports/sampling --planned 24   # passes / fails / open per source
 uv run stream-consumers profile --max-events 500 --seconds 120 --out data/profile
 ```
 

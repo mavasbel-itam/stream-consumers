@@ -339,6 +339,53 @@ async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
         )
         assert code == 0 and len(list((tmp_path / "rounds").glob("round-*.json"))) == 2
 
+        code, out, _ = await cli(addresses, "verdict", str(tmp_path / "rounds"), "--planned", "2")
+        assert code == 0 and [line.split()[0] for line in out.splitlines()[:2]] == ["poll_get", "ws_ok"]
+        assert all("rounds=  2/2" in line for line in out.splitlines()[:2]) and "open" not in out.splitlines()[0]
+
+        more = tmp_path / "rounds" / "more"
+        code, out, _ = await cli(
+            addresses,
+            "sample",
+            "ws_ok",
+            "sse_ok",
+            "--rounds",
+            "3",
+            "--interval",
+            "1",
+            "--window",
+            "0.6",
+            "--reports",
+            str(more),
+            "--continue-from",
+            str(tmp_path / "rounds"),
+            "--stop-when-settled",
+        )
+        # ws_ok has 2 of 3 rounds already; sse_ok none, so it is read in round 3 only and stays open
+        assert [json.loads(p.read_text())["number"] for p in more.glob("round-*.json")] == [3]
+        assert any(line.startswith("sse_ok") and "rounds=  1/3" in line and line.endswith("open") for line in out.splitlines())
+
+        settled = tmp_path / "settled"
+        code, out, _ = await cli(
+            addresses,
+            "sample",
+            "poll_404",
+            "--rounds",
+            "3",
+            "--interval",
+            "1",
+            "--window",
+            "0.3",
+            "--reports",
+            str(settled),
+            "--stop-when-settled",
+        )
+        # an unreachable source scores 0 events/s: after 2 of 3 rounds its median cannot reach 1, so round 3 is skipped
+        assert code == 1 and len(list(settled.glob("round-*.json"))) == 2 and out.splitlines()[-1] == "0 passes, 1 fails, 0 open"
+
+        code, _, err = await cli(addresses, "verdict", str(tmp_path / "nowhere"))
+        assert code == 2 and "no such reports directory" in err
+
         code, _, _ = await cli(
             addresses,
             "profile",
@@ -360,7 +407,7 @@ async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
 
 async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> None:
     env = tmp_path / ".env"
-    env.write_text("# keys\n\nE2E_KEY='e2e-value-123'\nOTHER=plain\nnot a pair\n", encoding="utf-8")
+    env.write_text("# keys\n\nE2E_KEY='e2e-value-123'\nE2E_SPARE_KEY=spare-456\nOTHER=plain\nnot a pair\n", encoding="utf-8")
     async with environment() as addresses:
         code, out, _ = await cli(addresses, "--env-file", str(env), "consume", "keyed", "--seconds", "1")
         assert code == 0 and json.loads(out)["payload"] == {"key": "used"}
@@ -372,29 +419,37 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
             (["sample", "sse_ok", "--rounds", "0", "--reports", str(tmp_path)], "rounds"),
             (["sample", "sse_ok", "--window", "0", "--reports", str(tmp_path)], "positive"),
             (["profile", "sse_ok", "--concurrency", "0", "--reports", str(tmp_path)], "concurrency"),
+            (["verdict", str(tmp_path), "--planned", "0"], "planned must be at least 1"),
         ):
             code, _, err = await cli(addresses, *argv)
             assert (code, message in err) == (2, True), (argv, err)
         code, _, err = await cli(addresses, "--catalog", "tests.e2e.duplicate_catalog", "list")
         assert code == 2 and "duplicate source id: ws_ok" in err
         code, out, err = await cli(addresses, "--env-file", str(env), "keys")
-        assert code == 1 and "e2e-value-123" not in out and "plain" not in out
-        assert "defines 1 variable(s) no source reads" in err
+        assert code == 1 and "e2e-value-123" not in out and "spare-456" not in out and "plain" not in out
+        assert "defines 1 variable(s) neither read by a source nor held" in err
         assert [line.split() for line in out.splitlines()] == [
             ["configured", "E2E_ID", "secret", "optional", "not-set", "https://sign.up/pair"],
             ["configured", "E2E_SECRET", "secret", "optional", "not-set", "https://sign.up/pair"],
             ["configured", "E2E_REGION", "setting", "optional", "default", "default='eu'"],
             ["keyed", "E2E_KEY", "secret", "required", "set", "https://sign.up/e2e"],
             ["settings_only", "E2E_CONTACT", "setting", "optional", "default", "default=''"],
-            ["-", "OTHER", "-", "-", "unknown", "not", "read", "by", "any", "source"],
+            ["keyed", "E2E_SPARE_KEY", "held", "-", "set", "https://sign.up/e2e"],
+            ["-", "OTHER", "-", "-", "unknown", "not", "read", "by", "any", "source", "and", "not", "held"],
         ]
-        env.write_text("E2E_KEY='e2e-value-123'\n", encoding="utf-8")
+        env.write_text("E2E_KEY='e2e-value-123'\nE2E_SPARE_KEY=spare-456\n", encoding="utf-8")
         code, _, err = await cli(addresses, "--env-file", str(env), "keys")
         assert (code, err) == (0, "")
         code, out, _ = await cli(addresses, "--env-file", str(env), "keys", "--template")
         assert code == 0 and "e2e-value-123" not in out
         assert "# How: Form; e-mailed.\nE2E_ID=\nE2E_SECRET=\n# Region to read. Default: eu\n# E2E_REGION=eu\n" in out
+        assert out.endswith("# --- keyed: Local provider. Second key of the account.\n# Sign-up: https://sign.up/e2e\nE2E_SPARE_KEY=\n")
+        assert "spare-456" not in out
         assert "E2E_KEY=\n" in out and "# Contact e-mail. Default: (empty)\n# E2E_CONTACT=\n" in out
+        code, out, _ = await cli(addresses, "--catalog", "tests.e2e.no_held_catalog", "keys", "--template")
+        assert code == 0 and out.endswith("E2E_KEY=\n") and "Held keys" not in out
+        code, _, err = await cli(addresses, "--catalog", "tests.e2e.held_clash_catalog", "keys")
+        assert code == 2 and "held keys must not be variables a source reads: E2E_KEY" in err
 
 
 async def test_a_disguised_cancellation_still_ends_the_run_on_time(tmp_path: Path) -> None:

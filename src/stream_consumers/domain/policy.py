@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import fnmatch
+import math
 import re
 import statistics
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
-from stream_consumers.domain.models import FieldProfile, RunReport, RunStatus
+from stream_consumers.domain.models import FieldProfile, RunReport, RunStatus, SamplingRound, Verdict
 
 
 def flatten(payload: Mapping[str, object], prefix: str = "") -> dict[str, object]:
@@ -176,6 +177,33 @@ def median_rate(reports: Iterable[RunReport]) -> float | None:
 def meets_minimum_rate(reports: Iterable[RunReport], minimum: float = MINIMUM_RATE) -> bool:
     value = median_rate(reports)
     return value is not None and value >= minimum
+
+
+def reports_by_source(rounds: Iterable[SamplingRound]) -> dict[str, list[RunReport]]:
+    """Each source's reports across `rounds`, in round order."""
+    found: dict[str, list[RunReport]] = {}
+    for sampling_round in rounds:
+        for report in sampling_round.reports:
+            found.setdefault(report.source_id, []).append(report)
+    return found
+
+
+def verdict(reports: Sequence[RunReport], planned: int, minimum: float = MINIMUM_RATE) -> Verdict:
+    """Whether the median over `planned` rounds is already on one side of `minimum`, given the
+    rounds measured so far. Each missing round may add 0 events/s, any higher rate, or nothing
+    (key pending); adding a value never moves the median past that value, so the lowest possible
+    median fills every missing round with 0 and the highest with an unbounded rate."""
+    if planned < 1:
+        raise ValueError("planned must be at least 1")
+    rates = [rate for rate in map(round_rate, reports) if rate is not None]
+    missing = planned - len(reports)
+    if missing <= 0:
+        return Verdict.PASSES if meets_minimum_rate(reports, minimum) else Verdict.FAILS
+    if statistics.median([*rates, *[0.0] * missing]) >= minimum:
+        return Verdict.PASSES
+    if statistics.median([*rates, *[math.inf] * missing]) < minimum:
+        return Verdict.FAILS
+    return Verdict.OPEN
 
 
 def _kind(value: object) -> str:
