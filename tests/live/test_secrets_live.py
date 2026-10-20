@@ -44,6 +44,10 @@ PUBLIC_ADDRESSES = {
     "cyberservices@cisa.dhs.gov",  # quoted from a provider's published page in a research record
     "git@github.com",  # the SSH user of every GitHub remote
 }
+COMMIT_IDENTITY = "mavasbel <28605223+mavasbel@users.noreply.github.com>"
+"""Every author and committer: GitHub's no-reply address of the owner's account (id 28605223). The history
+was rewritten on 2026-10-20 to replace a personal address (docs/README.md, "Commit IDs before 2026-10-20")."""
+NO_REPLY_DOMAIN = "users.noreply.github.com"
 PLACEHOLDER_DOMAINS = {"example.org", "example.social", "b.org", "d.io", "f.mx", "x.org", "y.org"}
 """Made-up domains of the tests' own payloads."""
 MASKED_IRC = ".tmi.twitch.tv"
@@ -52,7 +56,12 @@ MASKED_IRC = ".tmi.twitch.tv"
 
 def personal(address: str) -> bool:
     domain = address.split("@", 1)[1]
-    return address not in PUBLIC_ADDRESSES and domain not in PLACEHOLDER_DOMAINS and not domain.endswith(MASKED_IRC)
+    return (
+        address not in PUBLIC_ADDRESSES
+        and domain not in PLACEHOLDER_DOMAINS
+        and domain != NO_REPLY_DOMAIN
+        and not domain.endswith(MASKED_IRC)
+    )
 
 
 def git(*args: str) -> bytes:
@@ -119,3 +128,15 @@ def test_no_personal_e_mail_address_in_the_files_to_publish() -> None:
         if personal(a.lower())
     }
     assert sorted(addresses) == []
+
+
+def test_no_personal_e_mail_address_in_anything_git_holds() -> None:
+    addresses = {
+        (place, a.lower()) for place, data in every_object() for a in EMAIL.findall(data.decode("utf-8", "replace")) if personal(a.lower())
+    }
+    assert sorted(addresses) == []
+
+
+def test_every_commit_is_authored_and_committed_with_the_no_reply_address() -> None:
+    identities = git("log", "--all", "--reflog", "--format=%an <%ae>%n%cn <%ce>").decode().splitlines()
+    assert set(identities) == {COMMIT_IDENTITY}
