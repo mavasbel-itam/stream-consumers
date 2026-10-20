@@ -305,6 +305,11 @@ BUILDERS: dict[str, tuple[Transport, Delivery, Builder]] = {
             d, Bytes(), deps.clock, f"nats://127.0.0.1:{endpoint('nats_silent')}", "s", silence_s=0.1, poll_s=0.05, backoff=FAST
         ),
     ),
+    "nats_refused": (
+        Transport.NATS,
+        Delivery.PUSH,
+        lambda d, deps: NatsSource(d, Bytes(), deps.clock, "nats://127.0.0.1:9", "s", backoff=FAST),
+    ),
     "zmq_ok": (Transport.ZMQ, Delivery.PUSH, lambda d, deps: ZmqSubSource(d, Bytes(), deps.clock, endpoint("zmq"), backoff=FAST)),  # type: ignore[arg-type]
     "zmq_silent": (
         Transport.ZMQ,

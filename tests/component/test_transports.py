@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import gzip
 import json
+import socket
 from collections.abc import AsyncGenerator, Mapping, Sequence
 
 import pytest
@@ -361,6 +362,14 @@ class TestNats:
             source = NatsSource(D, JsonDecoder(), SystemClock(), f"nats://127.0.0.1:{port}", "s", silence_s=0.1, poll_s=0.05, backoff=FAST)
             error = await failure(source)
         assert "no NATS message" in str(error.__cause__)
+
+    async def test_an_unreachable_server_is_a_failure_not_a_silent_wait(self) -> None:
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        source = NatsSource(D, JsonDecoder(), SystemClock(), f"nats://127.0.0.1:{port}", "s", backoff=FAST)
+        error = await failure(source, timeout=5)
+        assert "NoServersError" in repr(error.__cause__)
 
     async def test_a_closed_connection_is_a_failure(self) -> None:
         server = NatsServer([], close_after=True)

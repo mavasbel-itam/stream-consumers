@@ -70,3 +70,4 @@ def test_every_format_and_destination_scheme_is_documented_in_outputs() -> None:
     assert all(f"| `{name}`" in formats for name in FORMATS)
     destinations = text[text.index("### Destinations") :]
     assert all(f"| `{scheme}:" in destinations for scheme in SINKS)
+    assert all(f"`{scheme}:" in section("Running the consumers") for scheme in SINKS)

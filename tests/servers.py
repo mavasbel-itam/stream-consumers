@@ -214,6 +214,29 @@ def _free_port() -> int:
 
 
 @asynccontextmanager
+async def docker_container(image: str, ports: dict[int, int], *args: str, env: dict[str, str] | None = None) -> AsyncIterator[str]:
+    """`docker run -d --rm` of `image` with `ports` (host port: container port) published on 127.0.0.1
+    only; yields the container id and removes the container afterwards."""
+    command = ["docker", "run", "-d", "--rm"]
+    for host_port, container_port in ports.items():
+        command += ["-p", f"127.0.0.1:{host_port}:{container_port}"]
+    for name, value in (env or {}).items():
+        command += ["-e", f"{name}={value}"]
+    process = await asyncio.create_subprocess_exec(*command, image, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    out, err = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"docker run {image} failed: {err.decode()}")
+    container = out.decode().strip()
+    try:
+        yield container
+    finally:
+        stop = await asyncio.create_subprocess_exec(
+            "docker", "rm", "-f", container, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+        )
+        await stop.wait()
+
+
+@asynccontextmanager
 async def kafka_broker(start_timeout_s: float = 90.0) -> AsyncIterator[str]:
     """A single-node KRaft Kafka broker in Docker (the official apache/kafka image), published on
     127.0.0.1 only. Yields its bootstrap address. Requires Docker; there is no fallback, because a
@@ -237,16 +260,8 @@ async def kafka_broker(start_timeout_s: float = 90.0) -> AsyncIterator[str]:
         "KAFKA_NUM_PARTITIONS": "1",
         "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "true",
     }
-    args = ["docker", "run", "-d", "--rm", "-p", f"127.0.0.1:{port}:{port}"]
-    for name, value in env.items():
-        args += ["-e", f"{name}={value}"]
-    process = await asyncio.create_subprocess_exec(*args, KAFKA_IMAGE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    out, err = await process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(f"docker run {KAFKA_IMAGE} failed: {err.decode()}")
-    container = out.decode().strip()
     bootstrap = f"127.0.0.1:{port}"
-    try:
+    async with docker_container(KAFKA_IMAGE, {port: port}, env=env):
         deadline = asyncio.get_running_loop().time() + start_timeout_s
         while True:
             producer = AIOKafkaProducer(bootstrap_servers=bootstrap)
@@ -260,11 +275,32 @@ async def kafka_broker(start_timeout_s: float = 90.0) -> AsyncIterator[str]:
             finally:
                 await producer.stop()
         yield bootstrap
-    finally:
-        stop = await asyncio.create_subprocess_exec(
-            "docker", "rm", "-f", container, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
-        )
-        await stop.wait()
+
+
+NATS_IMAGE = "nats:2.15.1"
+
+
+@asynccontextmanager
+async def nats_server(*args: str, start_timeout_s: float = 60.0) -> AsyncIterator[str]:
+    """The official NATS server image in Docker, published on 127.0.0.1 only; `args` go to the
+    server (e.g. `--user`, `--pass`). Yields `host:port` once the server sends its INFO line."""
+    port = _free_port()
+    async with docker_container(NATS_IMAGE, {port: 4222}, *args):
+        deadline = asyncio.get_running_loop().time() + start_timeout_s
+        while True:
+            try:
+                reader, writer = await asyncio.open_connection("127.0.0.1", port)
+                try:
+                    if (await asyncio.wait_for(reader.readline(), 2)).startswith(b"INFO "):
+                        break
+                finally:
+                    writer.close()
+            except (OSError, TimeoutError):
+                pass
+            if asyncio.get_running_loop().time() > deadline:
+                raise RuntimeError(f"{NATS_IMAGE} did not start within {start_timeout_s} s")
+            await asyncio.sleep(0.5)
+        yield f"127.0.0.1:{port}"
 
 
 async def kafka_produce(bootstrap: str, topic: str, messages: Sequence[tuple[bytes | None, bytes]]) -> None:

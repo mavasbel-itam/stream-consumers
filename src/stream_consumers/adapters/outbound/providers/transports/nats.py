@@ -45,13 +45,20 @@ class NatsSource(PushEventSource):
         self._poll_s = poll_s
 
     async def _connect(self) -> AsyncGenerator[RawMessage]:
+        async def reported_by_the_exception(error: Exception) -> None:  # instead of nats-py's own error log
+            return None
+
+        # nats-py retries a first connection forever when max_reconnect_attempts is 0 (it gives up only
+        # when the limit is above 0); with 1 an unreachable server raises NoServersError after two tries
         client = await nats.connect(
             servers=[self._server],
             user=self._user,
             password=self._password,
             connect_timeout=20,
             allow_reconnect=False,
-            max_reconnect_attempts=0,
+            max_reconnect_attempts=1,
+            reconnect_time_wait=0.1,
+            error_cb=reported_by_the_exception,
         )
         try:
             subscription = await client.subscribe(self._subject)

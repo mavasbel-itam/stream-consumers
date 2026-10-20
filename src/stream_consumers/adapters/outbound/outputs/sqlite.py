@@ -25,7 +25,7 @@ class SqliteEventSink(BatchingEventSink):
     """
 
     def __init__(self, path: Path, clock: ClockPort, batch_size: int = 500, max_delay_s: float = 1.0) -> None:
-        super().__init__(clock, batch_size, max_delay_s)
+        super().__init__(clock, f"sqlite:{path}", batch_size, max_delay_s)
         self._path = path
         self._db: sqlite3.Connection | None = None
         self._tables: set[str] = set()

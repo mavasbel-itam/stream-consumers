@@ -31,7 +31,7 @@ from stream_consumers.adapters.outbound.outputs.sinks import (
     TextStreamEventSink,
 )
 from stream_consumers.adapters.outbound.outputs.sqlite import SqliteEventSink
-from stream_consumers.domain.errors import OutputTargetError
+from stream_consumers.domain.errors import OutputError, OutputTargetError
 from stream_consumers.domain.models import Event
 from stream_consumers.domain.outputs import FILE, TERMINAL, parse_target
 from stream_consumers.domain.policy import flatten
@@ -170,7 +170,7 @@ class TestFormats:
 
 class FlushRecorder(BatchingEventSink):
     def __init__(self, clock: FakeClock, batch_size: int = 3, max_delay_s: float = 1.0, fail: bool = False) -> None:
-        super().__init__(clock, batch_size, max_delay_s)
+        super().__init__(clock, "recorder", batch_size, max_delay_s)
         self.batches: list[list[str]] = []
         self.calls: list[str] = []
         self.fail = fail
@@ -270,9 +270,9 @@ class TestBatching:
         await sink.write(numbered(1))
         for _ in range(5):
             await asyncio.sleep(0)
-        with pytest.raises(ConnectionError, match="down"):
+        with pytest.raises(OutputError, match=r"^output recorder failed: ConnectionError: down$"):
             await sink.write(numbered(2))
-        with pytest.raises(ConnectionError, match="down"):
+        with pytest.raises(OutputError, match="ConnectionError: down"):
             await sink.close()
         assert sink.calls == ["connect", "disconnect"]
 
@@ -280,9 +280,21 @@ class TestBatching:
         sink = FlushRecorder(FakeClock(), batch_size=100, max_delay_s=1000, fail=True)
         await sink.open()
         await sink.write(numbered(1))
-        with pytest.raises(ConnectionError):
+        with pytest.raises(OutputError) as error:
             await sink.close()
-        assert sink.calls == ["connect", "disconnect"]
+        assert sink.calls == ["connect", "disconnect"] and isinstance(error.value.__cause__, ConnectionError)
+        assert error.value.output == "recorder"
+
+    async def test_a_failed_connection_is_an_output_error_and_starts_no_timer(self) -> None:
+        sink = FlushRecorder(FakeClock(), fail=True)
+
+        async def refuse() -> None:
+            raise ConnectionRefusedError("no server")
+
+        sink._connect = refuse  # type: ignore[method-assign]
+        with pytest.raises(OutputError, match=r"^output recorder failed: ConnectionRefusedError: no server$"):
+            await sink.open()
+        assert sink._timer is None
 
 
 def rows(path: Path, table: str) -> list[tuple[float, object]]:

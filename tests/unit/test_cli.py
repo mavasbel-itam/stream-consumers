@@ -8,6 +8,7 @@ import io
 import json
 import os
 import runpy
+import socket
 import sqlite3
 import sys
 from pathlib import Path
@@ -79,13 +80,33 @@ class TestConsume:
         ("argv", "message"),
         [
             (["--out", "sqlite:{tmp}/x.db", "--format", "csv"], "error: --format applies to standard output and files, not to sqlite"),
-            (["--out", "kafka://h:9092/t"], "error: unknown output scheme 'kafka' (known: sqlite)"),
+            (["--out", "amqp://h:5672/q"], "error: unknown output scheme 'amqp' (known: kafka, mqtt, nats, sqlite, zmq+tcp)"),
             (["--out", "sqlite:"], "error: missing location after sqlite:"),
+            (["--out", "kafka://ana:pw@h/t"], "error: kafka output takes no user or password: kafka://ana:***@h/t"),
+            (["--out", "mqtt://h1,h2/t"], "error: mqtt output takes exactly one host:port: mqtt://h1,h2/t"),
+            (["--out", "nats://h/s?tls=1"], "error: unknown option(s) tls for nats (known: none)"),
+            (["--out", "kafka:t"], "error: kafka needs kafka://host:port..., got kafka:t"),
+            (["--out", "zmq+tcp://*"], "error: zmq+tcp output is zmq+tcp://<interface>:<port> (the address it binds), got zmq+tcp://*"),
+            (
+                ["--out", "zmq+tcp://*:5555/x"],
+                "error: zmq+tcp output is zmq+tcp://<interface>:<port> (the address it binds), got zmq+tcp://*:5555/x",
+            ),
         ],
     )
     def test_rejected_destinations_create_nothing(self, argv: list[str], message: str, tmp_path: Path) -> None:
         code, _, err = run("consume", "alpha", "--seconds", "0.1", *(a.format(tmp=tmp_path) for a in argv))
         assert code == 2 and err == message + "\n" and list(tmp_path.iterdir()) == []
+
+    def test_an_output_that_cannot_be_opened_exits_1(self) -> None:
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        code, out, err = run("consume", "alpha", "--seconds", "0.1", "--out", f"nats://127.0.0.1:{port}")
+        assert (
+            code == 1
+            and out == ""
+            and err == f"error: output nats://127.0.0.1:{port} failed: NoServersError: nats: no servers available for connection\n"
+        )
 
     def test_raw_to_a_file(self, tmp_path: Path) -> None:
         target = tmp_path / "out" / "a.jsonl"
@@ -275,3 +296,31 @@ def test_every_option_with_a_default_states_it_in_its_help() -> None:
     paths = [a for a in stated if isinstance(a.default, Path)]
     assert all(f"(default: {a.default})" in str(a.help) for a in paths)
     assert "(default: -)" in str(next(a for a in actions if a.dest == "out" and a.default == "-").help)
+
+
+def test_broker_destinations_are_built_from_the_target() -> None:
+    from stream_consumers.adapters.inbound.cli import _event_sink
+    from stream_consumers.adapters.outbound.outputs.brokers import KafkaEventSink, MqttEventSink, NatsEventSink, ZeroMqEventSink
+    from stream_consumers.adapters.outbound.system.clock import SystemClock
+
+    clock, out = SystemClock(), io.StringIO()
+    kafka = _event_sink("kafka://k1,[::1]:9093", None, out, clock)
+    assert (
+        isinstance(kafka, KafkaEventSink)
+        and kafka._bootstrap == ["k1:9092", "[::1]:9093"]
+        and kafka._template == "stream_consumers.{source}"
+    )
+    mqtt = _event_sink("mqtt://ana:pw@m/lab/{source}/events", None, out, clock)
+    assert isinstance(mqtt, MqttEventSink) and (mqtt._host, mqtt._port, mqtt._template, mqtt._user, mqtt._password) == (
+        "m",
+        1883,
+        "lab/{source}/events",
+        "ana",
+        "pw",
+    )
+    assert _event_sink("mqtt://m:8883", None, out, clock)._template == "stream_consumers/{source}"  # type: ignore[attr-defined]
+    nats = _event_sink("nats://n1,n2:4333/all", None, out, clock)
+    assert isinstance(nats, NatsEventSink) and nats._servers == ["nats://n1:4222", "nats://n2:4333"] and nats._template == "all"
+    zeromq = _event_sink("zmq+tcp://*:5556", None, out, clock)
+    assert isinstance(zeromq, ZeroMqEventSink) and zeromq._endpoint == "tcp://*:5556"
+    assert mqtt._label == "mqtt://ana:***@m/lab/{source}/events"

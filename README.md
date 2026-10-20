@@ -363,7 +363,7 @@ or `grep -m` cause) when the program reading its output closes the pipe early.
 | `keys` | `--template` | off | Print the `.env` template instead of the status |
 | `consume` | `--seconds` | 60 | Reading time, extended to the source's minimum window |
 | `consume` | `--max-events` | no limit | Stop after this many events |
-| `consume` | `--out` | `-` (standard output) | Where events go: `-`, a file path, or a destination URI such as `sqlite:<path>` ([Outputs](#outputs)) |
+| `consume` | `--out` | `-` (standard output) | Where events go: `-`, a file path, or a destination: `sqlite:`, `kafka://`, `mqtt://`, `nats://`, `zmq+tcp://` ([Outputs](#outputs)) |
 | `consume` | `--format` | `jsonl` | Text format for standard output and files: `jsonl`, `csv`, `tsv`, `json`, `pretty`; not accepted with a database destination |
 | `consume` | `--raw` | off | Do not mask personal fields |
 | `check` | `--seconds` | 30 | Reading time per source, extended to its minimum window |
@@ -497,14 +497,28 @@ coinbase,1792457636.1208763,ticker,104123319944,ETH-USD,2394.89,2411.12,80994.31
 | `-` (default) | Standard output, in `--format` |
 | `<path>` | A file (directories are created), in `--format` |
 | `sqlite:<path>` | A SQLite database file ([below](#sqlite)) |
+| `kafka://host[:port][,host[:port]…][/<topic>]` | A Kafka topic, default `stream_consumers.{source}`, port 9092 ([below](#kafka)) |
+| `mqtt://[user[:password]@]host[:port][/<topic>]` | An MQTT topic, default `stream_consumers/{source}`, port 1883 ([below](#mqtt)) |
+| `nats://[user[:password]@]host[:port][,host[:port]…][/<subject>]` | A NATS subject, default `stream_consumers.{source}`, port 4222 ([below](#nats)) |
+| `zmq+tcp://<interface>:<port>` | A ZeroMQ PUB socket bound on that address, e.g. `zmq+tcp://*:5556` ([below](#zeromq)) |
 
-A destination whose scheme is not one of these (`something://…`) is refused
-with exit code 2 instead of being taken for a file name.
+`{source}` in a topic or subject is replaced by the source id. A destination
+whose scheme is not one of these (`something://…`) is refused with exit code 2
+instead of being taken for a file name, and so is anything a destination does
+not use (a user for Kafka or ZeroMQ, several hosts for MQTT or ZeroMQ, any
+`?option`). The run report shows a password as `***`; a password given in
+`--out` is visible to other users of the machine in its process list, so use
+it only for local and lab servers.
 
-Databases are written in batches: every 500 events, when the oldest waiting
-event has waited 1 s, and when the run ends (`BatchingEventSink`). A write that
-fails ends the run with an error; it is never counted as a failure of the
-source.
+Brokers and databases receive the event document `{"source", "received_at",
+"payload"}` as compact UTF-8 JSON (one JSON-lines line without its line
+break). They are written in batches: every 500 events, when the oldest waiting
+event has waited 1 s, and when the run ends (`BatchingEventSink`); ZeroMQ sends
+each event at once. An output that cannot be opened or written ends the run
+with `error: output <destination> failed: <reason>` and exit code 1; it is
+never counted as a failure of the source. Client libraries may log warnings to
+standard error before the run report (aiokafka logs `Topic … not found in
+cluster metadata` while the broker creates a topic on first use).
 
 #### SQLite
 
@@ -526,6 +540,45 @@ returned these rows (read with Python's `sqlite3` module):
 (2, '2026-10-20 00:53:36', 'XRP-USD', '1.2959')
 (3, '2026-10-20 00:53:36', 'ETH-USD', '2394.64')
 ```
+
+#### Kafka
+
+aiokafka producer: key = source id, value = the event document; the run ends
+only after the broker acknowledged every batch. Credentials and TLS are not
+supported. With the topic omitted, each source gets `stream_consumers.<id>`; a
+fixed topic (`kafka://host:9092/all_events`) mixes sources, told apart by the
+key. `consume coinbase --max-events 3 --out kafka://127.0.0.1:<port>` against
+a local `apache/kafka:3.9.1` broker on 2026-10-20 at 01:10 UTC exited 0; a
+consumer then read (each value cut here after `product_id`):
+
+```text
+stream_consumers.coinbase 0 0 b'coinbase' {"source":"coinbase","received_at":1792458652.007029,"payload":{"type":"ticker","sequence":23054787779,"product_id":"XRP-USD",
+stream_consumers.coinbase 0 1 b'coinbase' {"source":"coinbase","received_at":1792458652.007099,"payload":{"type":"ticker","sequence":24472685076,"product_id":"DOGE-USD"
+stream_consumers.coinbase 0 2 b'coinbase' {"source":"coinbase","received_at":1792458652.0184221,"payload":{"type":"ticker","sequence":104124067184,"product_id":"ETH-USD"
+```
+
+(topic, partition, offset, key, value).
+
+#### MQTT
+
+paho client, QoS 1 (at least once): every message of a batch waits for the
+broker's acknowledgement (10 s at most). User and password from the URI;
+plain TCP only.
+
+#### NATS
+
+nats-py, core NATS publish; every batch ends with a round trip to the server,
+so a lost connection is reported instead of events vanishing. User and
+password from the URI; several servers may be listed. A server that cannot be
+reached is reported after two attempts per server.
+
+#### ZeroMQ
+
+A PUB socket bound on the given interface and port; each event is two frames,
+the source id (subscribers filter on it) and the event document. ZeroMQ
+publish/subscribe delivers only to subscribers already connected: events sent
+before a subscriber connects, or while none is, are dropped by design. When the
+run ends the socket stays up to 1 s to deliver what is queued.
 
 ## API keys and configuration
 
@@ -663,6 +716,8 @@ src/stream_consumers/
                        EventSinkFactoryPort → TextFileSinkFactory, ReportSinkPort → JsonReportSink
         batching.py    BaseEventSink → BatchingEventSink (batches by size, by age and on close)
         sqlite.py      BatchingEventSink → SqliteEventSink
+        brokers.py     BatchingEventSink → BrokerEventSink → Kafka / Mqtt / Nats EventSink;
+                       BaseEventSink → ZeroMqEventSink
         history.py     SamplingHistoryPort → JsonSamplingHistory (reads round-*.json for `verdict` and `--continue-from`)
       system/
         clock.py       ClockPort → SystemClock

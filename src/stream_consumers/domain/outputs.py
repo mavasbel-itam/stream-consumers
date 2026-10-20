@@ -91,3 +91,30 @@ def parse_target(text: str, schemes: Collection[str]) -> OutputTarget:
     if not rest:
         raise OutputTargetError(f"missing location after {scheme}:")
     return OutputTarget(scheme, text, rest)
+
+
+SOURCE_PLACEHOLDER = "{source}"
+"""Replaced by the source id in a topic, subject, database or table name taken from `--out`."""
+
+
+def for_source(template: str, source_id: str) -> str:
+    return template.replace(SOURCE_PLACEHOLDER, source_id)
+
+
+def endpoints(target: OutputTarget, default_port: int) -> tuple[tuple[str, int], ...]:
+    """The hosts of a `scheme://` target, each with `default_port` where the target gives none."""
+    return tuple((host, default_port if port is None else port) for host, port in target.hosts)
+
+
+def check_target(target: OutputTarget, *, credentials: bool = False, one_host: bool = False, options: Collection[str] = ()) -> None:
+    """Refuse what a destination does not support, so nothing written in `--out` is silently ignored."""
+    shown = target.display
+    if not target.hosts:
+        raise OutputTargetError(f"{target.scheme} needs {target.scheme}://host:port..., got {shown}")
+    if not credentials and (target.user is not None or target.password is not None):
+        raise OutputTargetError(f"{target.scheme} output takes no user or password: {shown}")
+    if one_host and len(target.hosts) != 1:
+        raise OutputTargetError(f"{target.scheme} output takes exactly one host:port: {shown}")
+    unknown = sorted(set(target.options) - set(options))
+    if unknown:
+        raise OutputTargetError(f"unknown option(s) {', '.join(unknown)} for {target.scheme} (known: {', '.join(options) or 'none'})")
