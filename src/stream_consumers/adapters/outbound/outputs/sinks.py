@@ -1,4 +1,4 @@
-"""Where events and reports are written."""
+"""Where events and reports are written: discarded, a text stream, text files; report files."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TextIO
 
 from stream_consumers.domain.models import Event, RunReport, SamplingRound, SourceProfile
-from stream_consumers.ports.outbound.outputs import EventSinkFactoryPort, EventSinkPort, ReportSinkPort
+from stream_consumers.ports.outbound.outputs import EventFormatPort, EventSinkFactoryPort, EventSinkPort, ReportSinkPort
 from stream_consumers.ports.outbound.system import ClockPort
 
 
@@ -25,55 +25,65 @@ def _plain(value: object) -> object:
     return value
 
 
-def _event_line(event: Event) -> str:
-    return json.dumps(
-        {"source": event.source_id, "received_at": event.received_at, "payload": event.payload},
-        ensure_ascii=False,
-        default=str,
-    )
+class BaseEventSink(EventSinkPort):
+    """A sink with nothing to create or connect to; subclasses override what they need."""
+
+    async def open(self) -> None:
+        return None
+
+    async def close(self) -> None:
+        return None
 
 
-class NullEventSink(EventSinkPort):
+class NullEventSink(BaseEventSink):
     """Discards events; used when only the measurement matters."""
 
-    def write(self, event: Event) -> None:
-        return None
-
-    def close(self) -> None:
+    async def write(self, event: Event) -> None:
         return None
 
 
-class TextStreamEventSink(EventSinkPort):
-    """One JSON line per event on an already-open text stream (the caller owns the stream)."""
+class TextStreamEventSink(BaseEventSink):
+    """Events in a text format on an already-open text stream (the caller owns the stream)."""
 
-    def __init__(self, stream: TextIO) -> None:
-        self._stream = stream
+    def __init__(self, stream: TextIO, event_format: EventFormatPort) -> None:
+        self._stream: TextIO = stream
+        self._encoder = event_format.encoder()
 
-    def write(self, event: Event) -> None:
-        self._stream.write(_event_line(event) + "\n")
+    async def write(self, event: Event) -> None:
+        self._stream.write(self._encoder.encode(event))
 
-    def close(self) -> None:
+    async def close(self) -> None:
+        self._stream.write(self._encoder.finish())
         self._stream.flush()
 
 
-class JsonlFileEventSink(TextStreamEventSink):
-    """One JSON line per event in a file it opens and closes itself."""
+class TextFileEventSink(TextStreamEventSink):
+    """Events in a text format in a file it creates on `open` (with its directories) and closes itself."""
 
-    def __init__(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self._file = path.open("w", encoding="utf-8")
-        super().__init__(self._file)
+    def __init__(self, path: Path, event_format: EventFormatPort) -> None:  # the stream exists once `open` ran
+        self._encoder = event_format.encoder()
+        self._path = path
 
-    def close(self) -> None:
-        self._file.close()
+    async def open(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._stream = self._path.open("w", encoding="utf-8", newline="")
+
+    async def close(self) -> None:
+        try:
+            await super().close()
+        finally:
+            self._stream.close()
 
 
-class JsonlFileSinkFactory(EventSinkFactoryPort):
-    def __init__(self, directory: Path) -> None:
+class TextFileSinkFactory(EventSinkFactoryPort):
+    """One file per source, `<directory>/<source><extension of the format>`."""
+
+    def __init__(self, directory: Path, event_format: EventFormatPort) -> None:
         self._directory = directory
+        self._format = event_format
 
-    def open(self, source_id: str) -> EventSinkPort:
-        return JsonlFileEventSink(self._directory / f"{source_id}.jsonl")
+    def create(self, source_id: str) -> EventSinkPort:
+        return TextFileEventSink(self._directory / f"{source_id}{self._format.extension}", self._format)
 
 
 class JsonReportSink(ReportSinkPort):

@@ -20,12 +20,15 @@ class CollectingSink(EventSinkPort):
         self._masker = masker
         self.payloads: list[Mapping[str, object]] = []
 
-    def write(self, event: Event) -> None:
-        self.payloads.append(event.payload)
-        self._inner.write(Event(event.source_id, event.received_at, self._masker.mask(event.payload)))
+    async def open(self) -> None:
+        await self._inner.open()
 
-    def close(self) -> None:
-        self._inner.close()
+    async def write(self, event: Event) -> None:
+        self.payloads.append(event.payload)
+        await self._inner.write(Event(event.source_id, event.received_at, self._masker.mask(event.payload)))
+
+    async def close(self) -> None:
+        await self._inner.close()
 
 
 class ProfileService(ProfileSourcesUseCase):
@@ -51,11 +54,12 @@ class ProfileService(ProfileSourcesUseCase):
         async def one(source_id: str) -> SourceProfile:
             masker = PersonalDataMasker(self._registry.descriptor(source_id).personal_fields)
             async with limit:
-                sink = CollectingSink(self._sinks.open(source_id), masker)
+                sink = CollectingSink(self._sinks.create(source_id), masker)
+                await sink.open()
                 try:
                     run = await self._consume.consume(source_id, seconds, sink, max_events=max_events, mask=False)
                 finally:
-                    sink.close()
+                    await sink.close()
             return profile_sample(run, sink.payloads, masker)
 
         profiles = list(await asyncio.gather(*(one(s) for s in source_ids)))

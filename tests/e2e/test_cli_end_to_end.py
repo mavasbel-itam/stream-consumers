@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import csv
 import io
 import json
 import os
+import sqlite3
 import sys
 import time
 from collections.abc import AsyncIterator
@@ -298,6 +301,36 @@ async def test_kafka_avro_cutouts_arrive_as_base64() -> None:
     assert json.loads(out)["payload"] == {"objectId": "ZTF1", "cutout": "AAE="}
 
 
+async def test_consume_into_every_text_format_and_sqlite(tmp_path: Path) -> None:
+    expected = [{"user": "<masked>", "n": 1}, {"user": "<masked>", "n": 2}]
+    async with environment() as addresses:
+        texts = {}
+        for name in ("jsonl", "csv", "tsv", "json", "pretty"):
+            target = tmp_path / f"events.{name}"
+            code, out, _ = await cli(
+                addresses, "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--format", name, "--out", str(target)
+            )
+            assert code == 0 and out == ""
+            texts[name] = target.read_text(encoding="utf-8")
+        code, _, _ = await cli(
+            addresses, "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--out", f"sqlite:{tmp_path / 'events.db'}"
+        )
+        assert code == 0
+    assert [json.loads(line)["payload"] for line in texts["jsonl"].splitlines()] == expected
+    assert [e["payload"] for e in json.loads(texts["json"])] == expected
+    pretty, at = [], 0
+    while at < len(texts["pretty"]):
+        document, at = json.JSONDecoder().raw_decode(texts["pretty"], at)
+        pretty.append(document["payload"])
+        at += 1  # the newline after each document
+    assert pretty == expected and texts["pretty"].count("\n  ") > 2
+    for name, delimiter in (("csv", ","), ("tsv", "\t")):
+        rows = list(csv.DictReader(io.StringIO(texts[name]), delimiter=delimiter))
+        assert [(r["payload.user"], r["payload.n"]) for r in rows] == [("<masked>", "1"), ("<masked>", "2")]
+    with contextlib.closing(sqlite3.connect(tmp_path / "events.db")) as db:
+        assert [json.loads(p) for (p,) in db.execute("SELECT payload FROM sse_ok ORDER BY seq")] == expected
+
+
 async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
     async with environment() as addresses:
         code, out, _ = await cli(addresses, "list")
@@ -415,6 +448,11 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
         for argv, message in (
             (["consume", "sse_ok", "--seconds", "0"], "seconds must be positive"),
             (["consume", "sse_ok", "--max-events", "0"], "max_events must be at least 1"),
+            (
+                ["consume", "sse_ok", "--format", "csv", "--out", "sqlite:never.db"],
+                "--format applies to standard output and files, not to sqlite",
+            ),
+            (["consume", "sse_ok", "--out", "kafka://h:9092/t"], "unknown output scheme 'kafka'"),
             (["check", "sse_ok", "--concurrency", "0", "--reports", str(tmp_path)], "concurrency"),
             (["sample", "sse_ok", "--concurrency", "0", "--reports", str(tmp_path)], "concurrency"),
             (["sample", "sse_ok", "--rounds", "0", "--reports", str(tmp_path)], "rounds"),

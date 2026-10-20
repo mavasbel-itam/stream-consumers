@@ -70,7 +70,7 @@ class ConsumeService(ConsumeStreamUseCase):
                 if masker is not None:
                     payload = masker.mask(payload)
                 # a failing sink (a closed pipe, a full disk) is not the provider's failure: it ends the run
-                sink.write(Event(source_id, self._clock.now(), payload))
+                await sink.write(Event(source_id, self._clock.now(), payload))
                 events += 1
                 if len(counts) < ATTRIBUTE_SAMPLE:
                     counts.append(attribute_count(payload))

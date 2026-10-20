@@ -188,11 +188,15 @@ class ListSink(EventSinkPort):
     def __init__(self) -> None:
         self.events: list[Event] = []
         self.closed = False
+        self.opened = False
 
-    def write(self, event: Event) -> None:
+    async def open(self) -> None:
+        self.opened = True
+
+    async def write(self, event: Event) -> None:
         self.events.append(event)
 
-    def close(self) -> None:
+    async def close(self) -> None:
         self.closed = True
 
 
@@ -200,7 +204,7 @@ class ListSinkFactory(EventSinkFactoryPort):
     def __init__(self) -> None:
         self.sinks: dict[str, ListSink] = {}
 
-    def open(self, source_id: str) -> EventSinkPort:
+    def create(self, source_id: str) -> EventSinkPort:
         self.sinks[source_id] = ListSink()
         return self.sinks[source_id]
 

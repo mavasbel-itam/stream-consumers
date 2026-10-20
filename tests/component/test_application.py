@@ -374,14 +374,23 @@ class TestProfile:
         (profile,) = await ProfileService(ConsumeService(reg, clock), ListSinkFactory(), MemoryReports(), reg).profile(["s"], 4, 5)
         assert profile.events_inspected == 4
 
-    def test_collecting_sink_masks_what_it_writes(self) -> None:
+    async def test_collecting_sink_masks_what_it_writes_and_opens_and_closes_the_inner_sink(self) -> None:
         inner = ListSink()
         sink = CollectingSink(inner, PersonalDataMasker(["u"]))
         from stream_consumers.domain.models import Event
 
-        sink.write(Event("s", 1.0, {"u": "x"}))
-        sink.close()
-        assert sink.payloads == [{"u": "x"}] and inner.events[0].payload == {"u": MASK} and inner.closed
+        await sink.open()
+        await sink.write(Event("s", 1.0, {"u": "x"}))
+        await sink.close()
+        assert sink.payloads == [{"u": "x"}] and inner.events[0].payload == {"u": MASK} and inner.opened and inner.closed
+
+    async def test_each_source_sink_is_opened_before_and_closed_after_its_run(self) -> None:
+        clock = FakeClock()
+        factory, _ = scripted("s", [{"n": 1}], clock)
+        reg = registry(clock, factory)
+        sinks = ListSinkFactory()
+        await ProfileService(ConsumeService(reg, clock), sinks, MemoryReports(), reg).profile(["s"], 4, 5)
+        assert sinks.sinks["s"].opened and sinks.sinks["s"].closed and len(sinks.sinks["s"].events) == 1
 
     def test_rejects_zero_concurrency(self) -> None:
         clock = FakeClock()

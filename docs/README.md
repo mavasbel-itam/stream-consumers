@@ -12,6 +12,7 @@ was obtained and tested.
 | `reference/2026-10-17-15-13-api-key-gated-sources.md` | reference | Status of every API key and every keyed source, how to get each key, test results, change log |
 | `reference/2026-10-19-18-27-sub-threshold-sources.md` | reference | Group E: the 8 sources kept in the code below 1 event/s, the evidence for each, and every other stream measured or screened below 1 event/s, with change log |
 | `plans/2026-10-19-03-07-stream-consumers-provisional-release-plan.md` | plan | Plan for releasing while the last sampling runs were still going |
+| `plans/2026-10-20-00-11-event-outputs-plan.md` | plan | Plan for the event outputs: text formats, SQLite, message brokers and the course databases |
 
 File names follow `YYYY-MM-DD-HH-MM-<name>.md` (UTC time of writing).
 

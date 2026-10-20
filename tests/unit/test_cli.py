@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import io
 import json
 import os
 import runpy
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -53,6 +55,37 @@ class TestConsume:
         report = json.loads(err)
         assert code == 0 and [e["payload"] for e in events] == [{"user": "<masked>", "n": 1}, {"user": "<masked>", "n": 2}]
         assert report["status"] == "ok" and report["events"] == 2 and report["rate_basis"] == "observed"
+
+    @pytest.mark.parametrize(("name", "delimiter"), [("csv", ","), ("tsv", "\t")])
+    def test_delimited_formats_to_standard_output(self, name: str, delimiter: str) -> None:
+        code, out, _ = run("consume", "alpha", "--seconds", "0.2", "--max-events", "2", "--format", name)
+        rows = [line.split(delimiter) for line in out.splitlines()]
+        assert code == 0 and rows[0] == ["source", "received_at", "payload.user", "payload.n", "extra"]
+        assert [(r[0], r[2], r[3], r[4]) for r in rows[1:]] == [("alpha", "<masked>", "1", ""), ("alpha", "<masked>", "2", "")]
+
+    def test_a_json_array_file(self, tmp_path: Path) -> None:
+        target = tmp_path / "a.json"
+        code, _, _ = run("consume", "alpha", "--seconds", "0.2", "--max-events", "2", "--format", "json", "--out", str(target))
+        assert code == 0 and [e["payload"]["n"] for e in json.loads(target.read_text(encoding="utf-8"))] == [1, 2]
+
+    def test_into_sqlite(self, tmp_path: Path) -> None:
+        target = tmp_path / "db" / "events.db"
+        code, out, _ = run("consume", "alpha", "--seconds", "0.2", "--max-events", "2", "--out", f"sqlite:{target}")
+        with contextlib.closing(sqlite3.connect(target)) as db:
+            stored = [json.loads(p) for (p,) in db.execute("SELECT payload FROM alpha ORDER BY seq")]
+        assert code == 0 and out == "" and stored == [{"user": "<masked>", "n": 1}, {"user": "<masked>", "n": 2}]
+
+    @pytest.mark.parametrize(
+        ("argv", "message"),
+        [
+            (["--out", "sqlite:{tmp}/x.db", "--format", "csv"], "error: --format applies to standard output and files, not to sqlite"),
+            (["--out", "kafka://h:9092/t"], "error: unknown output scheme 'kafka' (known: sqlite)"),
+            (["--out", "sqlite:"], "error: missing location after sqlite:"),
+        ],
+    )
+    def test_rejected_destinations_create_nothing(self, argv: list[str], message: str, tmp_path: Path) -> None:
+        code, _, err = run("consume", "alpha", "--seconds", "0.1", *(a.format(tmp=tmp_path) for a in argv))
+        assert code == 2 and err == message + "\n" and list(tmp_path.iterdir()) == []
 
     def test_raw_to_a_file(self, tmp_path: Path) -> None:
         target = tmp_path / "out" / "a.jsonl"
@@ -147,6 +180,24 @@ def test_sample_continues_an_interrupted_run_and_verdict_reads_every_segment(tmp
     )
     code, _, err = run("verdict", str(tmp_path / "missing"))
     assert code == 2 and "no such reports directory" in err
+
+
+def test_profile_writes_its_samples_in_the_chosen_format(tmp_path: Path) -> None:
+    code, _, _ = run(
+        "profile",
+        "alpha",
+        "--max-events",
+        "5",
+        "--seconds",
+        "0.1",
+        "--out",
+        str(tmp_path / "p"),
+        "--reports",
+        str(tmp_path),
+        "--format",
+        "csv",
+    )
+    assert code == 0 and (tmp_path / "p" / "alpha.csv").read_text(encoding="utf-8").splitlines()[1].startswith("alpha,")
 
 
 def test_profile_writes_masked_events_and_field_statistics(tmp_path: Path) -> None:
