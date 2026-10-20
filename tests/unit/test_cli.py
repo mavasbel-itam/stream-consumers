@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from stream_consumers.adapters.inbound.cli import DEFAULT_CATALOG, SIGPIPE_EXIT, _parser, main
+from tests.support import FakeSecrets
 
 CATALOG = ["--catalog", "tests.catalog_scripted"]
 
@@ -80,7 +81,32 @@ class TestConsume:
         ("argv", "message"),
         [
             (["--out", "sqlite:{tmp}/x.db", "--format", "csv"], "error: --format applies to standard output and files, not to sqlite"),
-            (["--out", "amqp://h:5672/q"], "error: unknown output scheme 'amqp' (known: kafka, mqtt, nats, sqlite, zmq+tcp)"),
+            (
+                ["--out", "amqp://h:5672/q"],
+                "error: unknown output scheme 'amqp' (known: bolt, cassandra, kafka, mongodb, mqtt, nats, neo4j, opensearch, redis, "
+                "redis+cluster, sqlite, zmq+tcp)",
+            ),
+            (
+                ["--out", "mongodb://ana:pw@h/db?bogus=1"],
+                "error: invalid MongoDB URI mongodb://ana:***@h/db?bogus=1: Unknown option: bogus. Did you mean one of (timeoutms, "
+                "wtimeoutms, journal) or maybe a camelCase version of one? Refer to docstring.",
+            ),
+            (["--out", "mongodb://ana:pw@h:99999"], "error: invalid port '99999' in mongodb://ana:***@h:99999"),
+            (["--out", "cassandra://h/bad-name"], "error: a Cassandra keyspace is 1 to 48 letters, digits or _, got 'bad-name'"),
+            (["--out", "cassandra://h?consistency=one"], "error: unknown option(s) consistency for cassandra (known: none)"),
+            (["--out", "redis://h/zero"], "error: the path of a redis:// output is a database number, got 'zero'"),
+            (["--out", "redis://h1,h2"], "error: redis output takes exactly one host:port: redis://h1,h2"),
+            (
+                ["--out", "redis+cluster://h:7000/1"],
+                "error: a Redis cluster has no databases to choose: remove '1' from redis+cluster://h:7000/1",
+            ),
+            (["--out", "neo4j://h1,h2"], "error: neo4j output takes exactly one host:port: neo4j://h1,h2"),
+            (["--out", "opensearch://h?tls=yes"], "error: option tls is 0 or 1, got 'yes' in opensearch://h?tls=yes"),
+            (["--out", "opensearch://h?ssl=1"], "error: unknown option(s) ssl for opensearch (known: tls, verify)"),
+            (
+                ["--out", "opensearch://h/idx"],
+                "error: opensearch output takes no path (indices are stream_consumers-<source>): opensearch://h/idx",
+            ),
             (["--out", "sqlite:"], "error: missing location after sqlite:"),
             (["--out", "kafka://ana:pw@h/t"], "error: kafka output takes no user or password: kafka://ana:***@h/t"),
             (["--out", "mqtt://h1,h2/t"], "error: mqtt output takes exactly one host:port: mqtt://h1,h2/t"),
@@ -233,15 +259,16 @@ def test_profile_writes_masked_events_and_field_statistics(tmp_path: Path) -> No
 
 def test_keys_shows_status_and_template_without_values(tmp_path: Path) -> None:
     env = tmp_path / ".env"
-    env.write_text("SCRIPTED_KEY=very-secret\nSCRIPTED_SPARE_KEY=spare-secret\n")
+    env.write_text("SCRIPTED_KEY=very-secret\nSCRIPTED_SPARE_KEY=spare-secret\nSTREAM_CONSUMERS_OUTPUT_PASSWORD=db-secret\n")
     code, out, _ = run("keys", env_file=env)
-    assert code == 0 and "very-secret" not in out and "spare-secret" not in out
+    assert code == 0 and "very-secret" not in out and "spare-secret" not in out and "db-secret" not in out
     assert [line.split() for line in out.splitlines()] == [
         ["keyed", "SCRIPTED_KEY", "secret", "required", "set", "https://sign.up/here"],
+        ["--out", "STREAM_CONSUMERS_OUTPUT_PASSWORD", "secret", "optional", "set", "README.md#outputs"],
         ["keyed", "SCRIPTED_SPARE_KEY", "held", "-", "set", "https://sign.up/here"],
     ]
     code, out, _ = run("keys")
-    assert code == 0 and [line.split()[4] for line in out.splitlines()] == ["MISSING", "not-set"]
+    assert code == 0 and [line.split()[4] for line in out.splitlines()] == ["MISSING", "not-set", "not-set"]
     code, out, _ = run("keys", "--template", env_file=env)
     assert code == 0 and "SCRIPTED_KEY=\n" in out and "SCRIPTED_SPARE_KEY=\n" in out and "-secret" not in out
 
@@ -304,13 +331,13 @@ def test_broker_destinations_are_built_from_the_target() -> None:
     from stream_consumers.adapters.outbound.system.clock import SystemClock
 
     clock, out = SystemClock(), io.StringIO()
-    kafka = _event_sink("kafka://k1,[::1]:9093", None, out, clock)
+    kafka = _event_sink("kafka://k1,[::1]:9093", None, out, clock, FakeSecrets())
     assert (
         isinstance(kafka, KafkaEventSink)
         and kafka._bootstrap == ["k1:9092", "[::1]:9093"]
         and kafka._template == "stream_consumers.{source}"
     )
-    mqtt = _event_sink("mqtt://ana:pw@m/lab/{source}/events", None, out, clock)
+    mqtt = _event_sink("mqtt://ana:pw@m/lab/{source}/events", None, out, clock, FakeSecrets())
     assert isinstance(mqtt, MqttEventSink) and (mqtt._host, mqtt._port, mqtt._template, mqtt._user, mqtt._password) == (
         "m",
         1883,
@@ -318,9 +345,82 @@ def test_broker_destinations_are_built_from_the_target() -> None:
         "ana",
         "pw",
     )
-    assert _event_sink("mqtt://m:8883", None, out, clock)._template == "stream_consumers/{source}"  # type: ignore[attr-defined]
-    nats = _event_sink("nats://n1,n2:4333/all", None, out, clock)
+    assert _event_sink("mqtt://m:8883", None, out, clock, FakeSecrets())._template == "stream_consumers/{source}"  # type: ignore[attr-defined]
+    nats = _event_sink("nats://n1,n2:4333/all", None, out, clock, FakeSecrets())
     assert isinstance(nats, NatsEventSink) and nats._servers == ["nats://n1:4222", "nats://n2:4333"] and nats._template == "all"
-    zeromq = _event_sink("zmq+tcp://*:5556", None, out, clock)
+    zeromq = _event_sink("zmq+tcp://*:5556", None, out, clock, FakeSecrets())
     assert isinstance(zeromq, ZeroMqEventSink) and zeromq._endpoint == "tcp://*:5556"
     assert mqtt._label == "mqtt://ana:***@m/lab/{source}/events"
+
+
+def test_database_destinations_are_built_from_the_target() -> None:
+    from stream_consumers.adapters.inbound.cli import _event_sink
+    from stream_consumers.adapters.outbound.outputs.databases import (
+        CassandraEventSink,
+        MongoDbEventSink,
+        Neo4jEventSink,
+        OpenSearchEventSink,
+        RedisEventSink,
+    )
+    from stream_consumers.adapters.outbound.system.clock import SystemClock
+
+    clock, out, none = SystemClock(), io.StringIO(), FakeSecrets()
+    mongo = _event_sink("mongodb://ana:pw@m1:27011,m2:27012/lab?replicaSet=rs0&authSource=admin", None, out, clock, none)
+    assert isinstance(mongo, MongoDbEventSink) and mongo._uri == "mongodb://ana:pw@m1:27011,m2:27012/lab?replicaSet=rs0&authSource=admin"
+    assert mongo._password is None and mongo._label == "mongodb://ana:***@m1:27011,m2:27012/lab?replicaSet=rs0&authSource=admin"
+    cassandra = _event_sink("cassandra://cassandra:pw@c1:9041,c2:9042,c3", None, out, clock, none)
+    assert isinstance(cassandra, CassandraEventSink)
+    assert (cassandra._hosts, cassandra._keyspace, cassandra._user, cassandra._password) == (
+        [("c1", 9041), ("c2", 9042), ("c3", 9042)],
+        "stream_consumers",
+        "cassandra",
+        "pw",
+    )
+    assert _event_sink("cassandra://c/lab_ks", None, out, clock, none)._keyspace == "lab_ks"  # type: ignore[attr-defined]
+    redis = _event_sink("redis://:pw@r:6380/2", None, out, clock, none)
+    assert isinstance(redis, RedisEventSink) and (redis._hosts, redis._db, redis._user, redis._password, redis._cluster) == (
+        [("r", 6380)],
+        2,
+        None,
+        "pw",
+        False,
+    )
+    cluster = _event_sink("redis+cluster://default:pw@127.0.0.1:6381,127.0.0.1:6382", None, out, clock, none)
+    assert isinstance(cluster, RedisEventSink) and cluster._cluster and cluster._hosts == [("127.0.0.1", 6381), ("127.0.0.1", 6382)]
+    assert cluster._remap(("172.20.0.5", 6382)) == ("127.0.0.1", 6382) and cluster._remap(("10.0.0.9", 7000)) == ("10.0.0.9", 7000)
+    assert _event_sink("redis://r", None, out, clock, none)._db == 0  # type: ignore[attr-defined]
+    neo4j = _event_sink("bolt://neo4j:pw@n/lab", None, out, clock, none)
+    assert isinstance(neo4j, Neo4jEventSink) and (neo4j._uri, neo4j._database, neo4j._auth) == ("bolt://n:7687", "lab", ("neo4j", "pw"))
+    routed = _event_sink("neo4j://[::1]:7688", None, out, clock, none)
+    assert (routed._uri, routed._database, routed._auth) == ("neo4j://[::1]:7688", None, None)  # type: ignore[attr-defined]
+    search = _event_sink("opensearch://admin:pw@o1:9201,o2:9202?tls=1&verify=0", None, out, clock, none)
+    assert isinstance(search, OpenSearchEventSink)
+    assert (search._hosts, search._tls, search._verify, search._auth) == (
+        [{"host": "o1", "port": 9201}, {"host": "o2", "port": 9202}],
+        True,
+        False,
+        ("admin", "pw"),
+    )
+    plain = _event_sink("opensearch://o", None, out, clock, none)
+    assert (plain._hosts, plain._tls, plain._verify, plain._auth) == ([{"host": "o", "port": 9200}], False, True, None)  # type: ignore[attr-defined]
+
+
+def test_a_password_from_the_environment_when_the_uri_names_a_user_without_one() -> None:
+    from stream_consumers.adapters.inbound.cli import _event_sink
+    from stream_consumers.adapters.outbound.system.clock import SystemClock
+
+    clock, out = SystemClock(), io.StringIO()
+    secrets = FakeSecrets({"STREAM_CONSUMERS_OUTPUT_PASSWORD": "from-env"})
+    mongo = _event_sink("mongodb://ana@m/?authSource=admin", None, out, clock, secrets)
+    assert (mongo._uri, mongo._password, mongo._label) == (
+        "mongodb://ana@m/?authSource=admin",
+        "from-env",
+        "mongodb://ana@m/?authSource=admin",
+    )  # type: ignore[attr-defined]
+    assert _event_sink("cassandra://cassandra@c", None, out, clock, secrets)._password == "from-env"  # type: ignore[attr-defined]
+    assert _event_sink("mqtt://ana@m", None, out, clock, secrets)._password == "from-env"  # type: ignore[attr-defined]
+    # a password in the URI wins; no user, or no variable, leaves the password unset
+    assert _event_sink("mongodb://ana:in-uri@m", None, out, clock, secrets)._password is None  # type: ignore[attr-defined]
+    assert _event_sink("cassandra://ana:in-uri@c", None, out, clock, secrets)._password == "in-uri"  # type: ignore[attr-defined]
+    assert _event_sink("cassandra://c", None, out, clock, secrets)._password is None  # type: ignore[attr-defined]
+    assert _event_sink("cassandra://ana@c", None, out, clock, FakeSecrets())._password is None  # type: ignore[attr-defined]

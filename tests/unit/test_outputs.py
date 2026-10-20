@@ -336,3 +336,36 @@ class TestSqlite:
             await sink.write(event)
         await sink.close()
         assert rows(tmp_path / "e.db", source_id) == [(e.received_at, plain(e.payload)) for e in events]
+
+
+class TestDatabaseRules:
+    def test_integers_outside_64_bits_become_text_everything_else_is_kept(self) -> None:
+        from stream_consumers.domain.outputs import storable
+
+        value = {"a": [2**63, 2**63 - 1, -(2**63), -(2**63) - 1], "b": (True, 1.5, None, "x"), "c": {"d": 10**30}}
+        assert storable(value) == {
+            "a": [str(2**63), 2**63 - 1, -(2**63), str(-(2**63) - 1)],
+            "b": [True, 1.5, None, "x"],
+            "c": {"d": str(10**30)},
+        }
+        assert all(storable(e.payload) == e.payload for s in WITH_FIXTURES for e in real_events(s))  # no captured payload needs it
+
+    def test_a_password_from_elsewhere_is_marked_and_never_shown(self) -> None:
+        target = parse_target("cassandra://ana@c:9042", {"cassandra"})
+        assert target.with_password(None) is target
+        given = target.with_password("s3cret")
+        assert (given.password, given.password_from_env, given.display) == ("s3cret", True, "cassandra://ana@c:9042")
+        assert parse_target("cassandra://ana:pw@c", {"cassandra"}).password_from_env is False
+
+    def test_cassandra_nodes_are_reached_at_the_host_given_for_their_port(self) -> None:
+        from cassandra.cluster import Cluster
+        from cassandra.connection import DefaultEndPoint
+
+        from stream_consumers.adapters.outbound.outputs.databases import PortMappedEndPointFactory
+
+        factory = PortMappedEndPointFactory({9041: "127.0.0.1", 9043: "lab.example"})
+        Cluster(contact_points=[DefaultEndPoint("127.0.0.1", 9041)], endpoint_factory=factory)  # configures it; connects nowhere
+        mapped = factory.create({"native_port": 9043, "rpc_address": "172.20.0.4", "peer": "172.20.0.4"})
+        assert mapped == DefaultEndPoint("lab.example", 9043)
+        unmapped = factory.create({"native_port": 9050, "rpc_address": "10.0.0.7", "peer": "10.0.0.7"})
+        assert (unmapped.address, unmapped.port) == ("10.0.0.7", 9050)

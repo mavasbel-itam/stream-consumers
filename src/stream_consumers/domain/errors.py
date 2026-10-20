@@ -32,6 +32,10 @@ class OutputTargetError(StreamConsumersError):
     """An output destination (`--out`) that cannot be used as written."""
 
 
+class OutputRefusedError(StreamConsumersError):
+    """A destination answered a write but refused some of the events in it."""
+
+
 class OutputError(StreamConsumersError):
     """An output could not be opened or written (a database or broker that refused or went away)."""
 

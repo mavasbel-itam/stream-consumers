@@ -11,6 +11,7 @@ from abc import ABC
 from pathlib import Path
 
 import pytest
+from cassandra.connection import EndPointFactory
 
 import stream_consumers
 from stream_consumers.ports import inbound
@@ -104,9 +105,27 @@ def test_the_behaviour_classes_were_found() -> None:
     assert len(BEHAVIOUR) > 100
 
 
+LIBRARY_EXTENSIONS = {
+    "stream_consumers.adapters.outbound.outputs.databases.PortMappedEndPointFactory": EndPointFactory,
+}
+"""Adapter-internal classes that plug into a client library through the library's own abstraction
+instead of a port (the driver calls them, the application never does), each with that abstraction."""
+
+
+def extends_a_port(cls: type) -> bool:
+    library_base = LIBRARY_EXTENSIONS.get(f"{cls.__module__}.{cls.__qualname__}")
+    return issubclass(cls, PORTS) or (library_base is not None and issubclass(cls, library_base))
+
+
 @pytest.mark.parametrize("cls", BEHAVIOUR, ids=lambda c: f"{c.__module__.rsplit('.', 1)[-1]}.{c.__name__}")
 def test_every_adapter_and_service_class_extends_a_port(cls: type) -> None:
-    assert issubclass(cls, PORTS), f"{cls.__qualname__} extends no port"
+    assert extends_a_port(cls), f"{cls.__qualname__} extends no port"
+
+
+def test_a_library_extension_is_named_with_its_library_abstraction() -> None:
+    found = {f"{c.__module__}.{c.__qualname__}" for c in BEHAVIOUR}
+    assert set(LIBRARY_EXTENSIONS) <= found
+    assert not any(issubclass(c, PORTS) for c in BEHAVIOUR if f"{c.__module__}.{c.__qualname__}" in LIBRARY_EXTENSIONS)
 
 
 GROUPS = ("providers", "outputs", "system")
@@ -130,6 +149,7 @@ def test_an_outbound_adapter_group_never_imports_another_group(group: str) -> No
 def test_every_outbound_adapter_class_implements_a_port_of_its_own_group(group: str) -> None:
     own = tuple(c for c in PORTS if c.__module__ == f"stream_consumers.ports.outbound.{group}")
     classes = [c for c in BEHAVIOUR if c.__module__.startswith(f"stream_consumers.adapters.outbound.{group}.")]
+    classes = [c for c in classes if f"{c.__module__}.{c.__qualname__}" not in LIBRARY_EXTENSIONS]
     assert classes and all(issubclass(c, own) for c in classes), [c.__qualname__ for c in classes if not issubclass(c, own)]
 
 

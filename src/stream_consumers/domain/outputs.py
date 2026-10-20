@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from urllib.parse import parse_qsl, unquote
 
 from stream_consumers.domain.errors import OutputTargetError
@@ -28,6 +28,12 @@ class OutputTarget:
     user: str | None = None
     password: str | None = None
     options: Mapping[str, str] = field(default_factory=dict)
+    password_from_env: bool = False
+    """True when `password` was not in `text` but read from the environment (`with_password`)."""
+
+    def with_password(self, password: str | None) -> OutputTarget:
+        """This target with `password` from elsewhere than `text`; unchanged when `password` is None."""
+        return self if password is None else replace(self, password=password, password_from_env=True)
 
     @property
     def display(self) -> str:
@@ -118,3 +124,23 @@ def check_target(target: OutputTarget, *, credentials: bool = False, one_host: b
     unknown = sorted(set(target.options) - set(options))
     if unknown:
         raise OutputTargetError(f"unknown option(s) {', '.join(unknown)} for {target.scheme} (known: {', '.join(options) or 'none'})")
+
+
+NAMESPACE = "stream_consumers"
+"""The name every database output writes under (database, keyspace, key prefix, index prefix)."""
+
+INT64 = range(-(2**63), 2**63)
+
+
+def storable(value: object) -> object:
+    """`value` with every integer outside 64 bits written as its decimal text: JSON allows integers
+    of any size, BSON (MongoDB) stores at most 64 bits and refuses the whole batch otherwise."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value if value in INT64 else str(value)
+    if isinstance(value, Mapping):
+        return {key: storable(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [storable(item) for item in value]
+    return value
