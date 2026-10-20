@@ -174,3 +174,9 @@ Decisions (2026-10-19, both as recommended):
     the architecture test names such classes in `LIBRARY_EXTENSIONS`.
   - CI: the `databases` job runs in parallel and a `coverage` job gates 100 % on the combined
     data of both jobs.
+- Lab tier (item 1 above), 2026-10-20: **dropped** by the owner. The disposable test containers
+  already run the labs-setup image releases with the same client libraries, write and read back
+  all 713 captured events of 67 sources, and cover failures and a Redis cluster; a one-node test
+  was judged enough. The course containers were also unusable as found: the 16 database
+  containers had been created from a since-deleted worktree, so their bind-mounted data and
+  configuration folders no longer existed.

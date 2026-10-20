@@ -17,6 +17,12 @@ from stream_consumers.ports.outbound.system import ClockPort
 Subscription = str | Mapping[str, object] | Sequence[object]
 
 
+CLOSE_TIMEOUT_S = 1.0
+"""How long closing waits for the server's reply. While a server keeps streaming, the client has stopped
+reading the network once 16 frames are queued unread (websockets' `max_queue` high-water mark), so the reply
+is never read and the close lasts this long; the library default of 10 s made every such run end 10 s late."""
+
+
 class WebSocketSource(PushEventSource):
     """Connects, sends the subscription messages, then yields every frame.
 
@@ -59,7 +65,13 @@ class WebSocketSource(PushEventSource):
         return self._subscriptions
 
     async def _connect(self) -> AsyncGenerator[RawMessage]:
-        async with websockets.connect(self._url, open_timeout=self._open_timeout_s, max_size=2**26, additional_headers=self._headers) as ws:
+        async with websockets.connect(
+            self._url,
+            open_timeout=self._open_timeout_s,
+            close_timeout=CLOSE_TIMEOUT_S,
+            max_size=2**26,
+            additional_headers=self._headers,
+        ) as ws:
             for message in await self._subscription_messages():
                 await ws.send(self._wire(message))
             last_ping = self._clock.monotonic()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager, suppress
 
@@ -301,6 +302,44 @@ async def nats_server(*args: str, start_timeout_s: float = 60.0) -> AsyncIterato
                 raise RuntimeError(f"{NATS_IMAGE} did not start within {start_timeout_s} s")
             await asyncio.sleep(0.5)
         yield f"127.0.0.1:{port}"
+
+
+MOSQUITTO_IMAGE = "eclipse-mosquitto:2.1.2-alpine"
+
+
+@asynccontextmanager
+async def mosquitto_broker(start_timeout_s: float = 60.0) -> AsyncIterator[int]:
+    """The reference MQTT broker (Eclipse Mosquitto, official image) in Docker without authentication,
+    published on 127.0.0.1 only. Yields its port once it accepts an MQTT connection.
+
+    Used where every message of a burst must reach a subscriber: amqtt 0.12.1 acknowledges QoS 1
+    publishes but forwards only part of a burst to its subscribers (measured 8 to 29 of 58)."""
+    import paho.mqtt.client as mqtt
+
+    def answers(port: int) -> bool:
+        # Docker's port proxy accepts a TCP connection before the broker listens: wait for a CONNACK
+        accepted = threading.Event()
+        probe = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        probe.on_connect = lambda client, userdata, flags, reason, properties: accepted.set() if not reason.is_failure else None
+        try:
+            probe.connect("127.0.0.1", port, 5)
+        except OSError:
+            return False
+        probe.loop_start()
+        try:
+            return accepted.wait(2)
+        finally:
+            probe.disconnect()
+            probe.loop_stop()
+
+    port = _free_port()
+    async with docker_container(MOSQUITTO_IMAGE, {port: 1883}, "mosquitto", "-c", "/mosquitto-no-auth.conf"):
+        deadline = asyncio.get_running_loop().time() + start_timeout_s
+        while not await asyncio.to_thread(answers, port):
+            if asyncio.get_running_loop().time() > deadline:
+                raise RuntimeError(f"{MOSQUITTO_IMAGE} did not start within {start_timeout_s} s")
+            await asyncio.sleep(0.5)
+        yield port
 
 
 async def kafka_produce(bootstrap: str, topic: str, messages: Sequence[tuple[bytes | None, bytes]]) -> None:

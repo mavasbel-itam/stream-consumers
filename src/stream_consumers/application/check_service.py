@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Sequence
 
 from stream_consumers.domain.models import RunReport
-from stream_consumers.ports.inbound import CheckSourcesUseCase, ConsumeStreamUseCase
+from stream_consumers.ports.inbound import CheckSourcesUseCase, ConsumeStreamUseCase, StopRequestPort
 from stream_consumers.ports.outbound.outputs import EventSinkPort, ReportSinkPort
 
 
@@ -19,13 +19,15 @@ class CheckService(CheckSourcesUseCase):
         self._reports = reports
         self._concurrency = concurrency
 
-    async def check(self, source_ids: Sequence[str], seconds: float) -> Sequence[RunReport]:
+    async def check(self, source_ids: Sequence[str], seconds: float, *, stop: StopRequestPort) -> Sequence[RunReport]:
         limit = asyncio.Semaphore(self._concurrency)
 
-        async def one(source_id: str) -> RunReport:
+        async def one(source_id: str) -> RunReport | None:
             async with limit:
-                return await self._consume.consume(source_id, seconds, self._sink, mask=False)
+                if stop.reason() is not None:
+                    return None
+                return await self._consume.consume(source_id, seconds, self._sink, mask=False, stop=stop)
 
-        reports = list(await asyncio.gather(*(one(s) for s in source_ids)))
+        reports = [r for r in await asyncio.gather(*(one(s) for s in source_ids)) if r is not None]
         self._reports.write_check(reports)
         return reports

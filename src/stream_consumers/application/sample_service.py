@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from stream_consumers.domain.models import RunReport, SamplingRound, Verdict
 from stream_consumers.domain.policy import reports_by_source, verdict
-from stream_consumers.ports.inbound import ConsumeStreamUseCase, SampleSourcesUseCase
+from stream_consumers.ports.inbound import ConsumeStreamUseCase, SampleSourcesUseCase, StopRequestPort
 from stream_consumers.ports.outbound.outputs import EventSinkPort, ReportSinkPort
 from stream_consumers.ports.outbound.system import ClockPort
 
@@ -32,9 +32,18 @@ class SampleService(SampleSourcesUseCase):
         self._clock = clock
         self._concurrency = concurrency
 
-    async def _wait_until(self, target: float) -> None:
+    async def _wait_until(self, target: float, stop: StopRequestPort) -> None:
+        """Sleep until `target`, or until a stop is requested."""
         while (left := target - self._clock.now()) > 0:
-            await self._clock.sleep(min(WAIT_STEP_S, left))
+            if stop.reason() is not None:
+                return
+            sleeping = asyncio.ensure_future(self._clock.sleep(min(WAIT_STEP_S, left)))
+            stopping = asyncio.ensure_future(stop.wait())
+            try:
+                await asyncio.wait((sleeping, stopping), return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                sleeping.cancel()
+                stopping.cancel()
 
     async def sample(
         self,
@@ -44,6 +53,8 @@ class SampleService(SampleSourcesUseCase):
         window_s: float,
         prior: Sequence[SamplingRound] = (),
         stop_when_settled: bool = False,
+        *,
+        stop: StopRequestPort,
     ) -> Sequence[SamplingRound]:
         if rounds < 1:
             raise ValueError("rounds must be at least 1")
@@ -54,7 +65,7 @@ class SampleService(SampleSourcesUseCase):
 
         async def one(source_id: str) -> RunReport:
             async with limit:
-                return await self._consume.consume(source_id, window_s, self._sink, mask=False)
+                return await self._consume.consume(source_id, window_s, self._sink, mask=False, stop=stop)
 
         def still_open() -> list[str]:
             if not stop_when_settled:
@@ -68,8 +79,12 @@ class SampleService(SampleSourcesUseCase):
             if not active:
                 break
             target = start + offset * interval_s
-            await self._wait_until(target)
+            await self._wait_until(target, stop)
+            if stop.reason() is not None:
+                break
             measured = tuple(await asyncio.gather(*(one(s) for s in active)))
+            if stop.reason() is not None:
+                break  # the windows of this round were cut short: recording it would bias the median
             sampling_round = SamplingRound(len(prior) + offset + 1, target, measured)
             self._reports.write_round(sampling_round)
             done.append(sampling_round)

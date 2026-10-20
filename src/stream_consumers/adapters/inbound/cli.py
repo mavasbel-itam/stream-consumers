@@ -8,15 +8,18 @@ import importlib
 import json
 import os
 import re
+import signal
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
-from typing import TextIO
+from types import TracebackType
+from typing import NoReturn, TextIO
 
 from pymongo import uri_parser
 from pymongo.errors import ConfigurationError, InvalidURI
 
+from stream_consumers.adapters.inbound.signals import STOP_SIGNALS, SignalStopRequest, exit_code
 from stream_consumers.adapters.outbound.outputs.brokers import KafkaEventSink, MqttEventSink, NatsEventSink, ZeroMqEventSink
 from stream_consumers.adapters.outbound.outputs.databases import (
     CassandraEventSink,
@@ -56,6 +59,7 @@ from stream_consumers.application.verdict_service import VerdictService
 from stream_consumers.domain.errors import OutputError, OutputTargetError, StreamConsumersError
 from stream_consumers.domain.models import ConfigKind, Credential, RateVerdict, RunReport, RunStatus, Verdict
 from stream_consumers.domain.outputs import NAMESPACE, TERMINAL, OutputTarget, check_target, endpoints, parse_target
+from stream_consumers.ports.inbound import StopRequestPort
 from stream_consumers.ports.outbound.outputs import EventFormatPort, EventSinkPort
 from stream_consumers.ports.outbound.providers import (
     HeldKeyCatalogPort,
@@ -68,6 +72,7 @@ from stream_consumers.ports.outbound.system import ClockPort, SecretProviderPort
 
 USER_AGENT = "stream-consumers/0.1 (ITAM COM-22102 course research; non-commercial)"
 DEFAULT_CATALOG = "stream_consumers.adapters.outbound.providers.sources"
+STOPPED = {exit_code(sig.name) for sig in STOP_SIGNALS}
 SIGPIPE_EXIT = 141  # 128 + SIGPIPE: what a shell reports for a writer whose reader closed the pipe
 FORMATS: Mapping[str, EventFormatPort] = {
     f.name: f for f in (JsonLinesFormat(), CsvFormat(), TsvFormat(), JsonArrayFormat(), PrettyJsonFormat())
@@ -328,11 +333,25 @@ def _event_sink(destination: str, format_name: str | None, out: TextIO, clock: C
             target = target.with_password(secrets.get(name))
         return SINKS[target.scheme](target, clock)
     event_format = FORMATS[format_name or DEFAULT_FORMAT]
-    return TextStreamEventSink(out, event_format) if target.scheme == TERMINAL else TextFileEventSink(Path(target.location), event_format)
+    if target.scheme == TERMINAL:
+        return TextStreamEventSink(out, event_format, flush_each=True)
+    return TextFileEventSink(Path(target.location), event_format)
+
+
+def _not_started(stop: StopRequestPort, started: int, planned: int, err: TextIO) -> None:
+    reason = stop.reason()
+    if reason is not None:
+        err.write(f"stopped by {reason}: {planned - started} of {planned} sources not started\n")
 
 
 async def _run(
-    args: argparse.Namespace, registry: SourceRegistryPort, clock: ClockPort, secrets: SecretProviderPort, out: TextIO, err: TextIO
+    args: argparse.Namespace,
+    registry: SourceRegistryPort,
+    clock: ClockPort,
+    secrets: SecretProviderPort,
+    stop: StopRequestPort,
+    out: TextIO,
+    err: TextIO,
 ) -> int:
     consume = ConsumeService(registry, clock)
     ids = list(getattr(args, "sources", None) or [d.id for d in ListService(registry).default_sources()])
@@ -342,7 +361,7 @@ async def _run(
         sink = _event_sink(args.out, args.format, out, clock, secrets)
         await sink.open()
         try:
-            report = await consume.consume(args.source, args.seconds, sink, args.max_events, mask=not args.raw)
+            report = await consume.consume(args.source, args.seconds, sink, args.max_events, mask=not args.raw, stop=stop)
         finally:
             await sink.close()
         err.write(json.dumps(asdict(report), default=lambda v: getattr(v, "value", str(v))) + "\n")
@@ -350,14 +369,24 @@ async def _run(
     reports_sink = JsonReportSink(args.reports, clock)
     if args.command == "profile":
         service = ProfileService(consume, TextFileSinkFactory(args.out, FORMATS[args.format]), reports_sink, registry, args.concurrency)
-        return _summary([p.run for p in await service.profile(ids, args.max_events, args.seconds)], out)
+        profiles = await service.profile(ids, args.max_events, args.seconds, stop=stop)
+        _not_started(stop, len(profiles), len(ids), err)
+        return _summary([p.run for p in profiles], out)
     discard = NullEventSink()
     try:
         if args.command == "check":
-            return _summary(await CheckService(consume, discard, reports_sink, args.concurrency).check(ids, args.seconds), out)
+            reports = await CheckService(consume, discard, reports_sink, args.concurrency).check(ids, args.seconds, stop=stop)
+            _not_started(stop, len(reports), len(ids), err)
+            return _summary(reports, out)
         sampler = SampleService(consume, discard, reports_sink, clock, args.concurrency)
         prior = JsonSamplingHistory(args.continue_from).read_rounds() if args.continue_from else ()
-        rounds = [*prior, *await sampler.sample(ids, args.rounds, args.interval, args.window, prior, args.stop_when_settled)]
+        rounds = [*prior, *await sampler.sample(ids, args.rounds, args.interval, args.window, prior, args.stop_when_settled, stop=stop)]
+        reason = stop.reason()
+        if reason is not None:
+            err.write(
+                f"stopped by {reason}: {len(rounds)} of {args.rounds} rounds recorded; a round cut short is not recorded; "
+                f"resume with --continue-from {args.reports}\n"
+            )
         latest = {r.source_id: r for sampling_round in rounds for r in sampling_round.reports}
         code = _summary([latest[s] for s in ids if s in latest], out)
         _verdicts(VerdictService().verdicts(rounds, args.rounds, ids), out)
@@ -366,11 +395,40 @@ async def _run(
         await discard.close()
 
 
+def run() -> NoReturn:
+    """The console entry point: `main()` as the process's exit status.
+
+    After Ctrl+C the process ends by SIGINT, as Python itself ends on an unhandled KeyboardInterrupt (output is
+    flushed and exit handlers run first, without a traceback). A shell running the command in a loop or a script
+    only stops too when its child was ended by the signal; an ordinary exit status of 130 would let it go on.
+
+    After a stop the stop signals are ignored for the interpreter's last steps: it puts the default action back
+    for every Python handler as it shuts down, and the repeat of the same stop (see `REPEAT_WINDOW_S`) would
+    otherwise end the process there. Python's own last step after a KeyboardInterrupt still restores SIGINT's
+    default action to end the process by it."""
+    code = main()
+    if code in STOPPED:
+        for sig in STOP_SIGNALS:
+            signal.signal(sig, signal.SIG_IGN)
+    if code == exit_code("SIGINT"):
+        sys.excepthook = _quiet_keyboard_interrupt
+        raise KeyboardInterrupt
+    raise SystemExit(code)
+
+
+def _quiet_keyboard_interrupt(kind: type[BaseException], value: BaseException, traceback: TracebackType | None) -> None:
+    if not issubclass(kind, KeyboardInterrupt):
+        sys.__excepthook__(kind, value, traceback)
+
+
 def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: TextIO | None = None) -> int:
     out, err = out or sys.stdout, err or sys.stderr
     try:
         code = _main(argv, out, err)
         out.flush()
+    except KeyboardInterrupt:  # Ctrl+C before the stop handlers were installed or in a command that does not run a source
+        err.write("stopped (SIGINT)\n")
+        return exit_code("SIGINT")
     except BrokenPipeError:
         # the reader closed the pipe early (e.g. `list | head`): stop without a traceback and point the
         # descriptor at /dev/null so the interpreter's final flush cannot fail again
@@ -421,10 +479,16 @@ def _main(argv: Sequence[str] | None, out: TextIO, err: TextIO) -> int:
             return 0
 
         async def run_and_close() -> int:
+            stop = SignalStopRequest(err)
             try:
-                return await _run(args, registry, clock, deps.secrets, out, err)
+                try:
+                    code = await _run(args, registry, clock, deps.secrets, stop, out, err)
+                finally:
+                    await http.close()
+                reason = stop.reason()
+                return code if reason is None else exit_code(reason)
             finally:
-                await http.close()
+                stop.close()  # last, so a second Ctrl+C while outputs close still quits at once
 
         return asyncio.run(run_and_close())
     except OutputError as exc:  # the destination refused or went away: the run did not complete

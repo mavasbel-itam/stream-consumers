@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 
 from stream_consumers.domain.models import Event, SourceProfile
 from stream_consumers.domain.policy import PersonalDataMasker, profile_sample
-from stream_consumers.ports.inbound import ConsumeStreamUseCase, ProfileSourcesUseCase
+from stream_consumers.ports.inbound import ConsumeStreamUseCase, ProfileSourcesUseCase, StopRequestPort
 from stream_consumers.ports.outbound.outputs import EventSinkFactoryPort, EventSinkPort, ReportSinkPort
 from stream_consumers.ports.outbound.providers import SourceRegistryPort
 
@@ -48,20 +48,24 @@ class ProfileService(ProfileSourcesUseCase):
         self._registry = registry
         self._concurrency = concurrency
 
-    async def profile(self, source_ids: Sequence[str], max_events: int, seconds: float) -> Sequence[SourceProfile]:
+    async def profile(
+        self, source_ids: Sequence[str], max_events: int, seconds: float, *, stop: StopRequestPort
+    ) -> Sequence[SourceProfile]:
         limit = asyncio.Semaphore(self._concurrency)
 
-        async def one(source_id: str) -> SourceProfile:
+        async def one(source_id: str) -> SourceProfile | None:
             masker = PersonalDataMasker(self._registry.descriptor(source_id).personal_fields)
             async with limit:
+                if stop.reason() is not None:
+                    return None
                 sink = CollectingSink(self._sinks.create(source_id), masker)
                 await sink.open()
                 try:
-                    run = await self._consume.consume(source_id, seconds, sink, max_events=max_events, mask=False)
+                    run = await self._consume.consume(source_id, seconds, sink, max_events=max_events, mask=False, stop=stop)
                 finally:
                     await sink.close()
             return profile_sample(run, sink.payloads, masker)
 
-        profiles = list(await asyncio.gather(*(one(s) for s in source_ids)))
+        profiles = [p for p in await asyncio.gather(*(one(s) for s in source_ids)) if p is not None]
         self._reports.write_profiles(profiles)
         return profiles

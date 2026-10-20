@@ -21,6 +21,7 @@ from stream_consumers.domain.models import (
     SourceProfile,
     Transport,
 )
+from stream_consumers.ports.inbound import StopRequestPort
 from stream_consumers.ports.outbound.outputs import EventSinkFactoryPort, EventSinkPort, ReportSinkPort
 from stream_consumers.ports.outbound.providers import EventSourcePort, HttpClientPort, HttpResponse, SourceDependencies
 from stream_consumers.ports.outbound.system import ClockPort, SecretProviderPort
@@ -44,6 +45,44 @@ def descriptor(source_id: str = "fake", personal: tuple[str, ...] = (), **overri
     )
     values.update(overrides)
     return SourceDescriptor(**values)  # type: ignore[arg-type]
+
+
+class ManualStop(StopRequestPort):
+    """A stop request the test makes itself, at the moment it chooses (`request`)."""
+
+    def __init__(self) -> None:
+        self._reason: str | None = None
+        self._requested = asyncio.Event()
+
+    def request(self, reason: str = "SIGINT") -> None:
+        self._reason = reason
+        self._requested.set()
+
+    def reason(self) -> str | None:
+        return self._reason
+
+    async def wait(self) -> str:
+        await self._requested.wait()
+        assert self._reason is not None
+        return self._reason
+
+
+class StoppingSink(EventSinkPort):
+    """Keeps every event and requests `stop` when the `after`-th one is written."""
+
+    def __init__(self, stop: ManualStop, after: int) -> None:
+        self.events: list[Event] = []
+        self._stop = stop
+        self._after = after
+
+    async def open(self) -> None: ...
+
+    async def write(self, event: Event) -> None:
+        self.events.append(event)
+        if len(self.events) == self._after:
+            self._stop.request()
+
+    async def close(self) -> None: ...
 
 
 class FakeClock(ClockPort):
@@ -251,3 +290,52 @@ def http_for(source_id: str, urls: Sequence[str]) -> FakeHttp:
             for url, m in zip(urls, messages(source_id), strict=False)
         }
     )
+
+
+STOP_PROBE = "stop_probe"
+"""The source id `consume_until_stopped` writes under."""
+
+
+async def consume_until_stopped(sink: EventSinkPort, after_s: float = 0.6) -> RunReport:
+    """What `consume` does with `sink`: open it, read an endless source (one event every 10 ms of real
+    time, fewer than a batch) until a stop request `after_s` seconds after the opening, then close it."""
+    from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
+    from stream_consumers.adapters.outbound.providers.sources._base import BaseSourceFactory
+    from stream_consumers.adapters.outbound.system.clock import SystemClock
+    from stream_consumers.application.consume_service import ConsumeService
+    from stream_consumers.ports.outbound.providers import Credentials
+
+    class Paced(EventSourcePort):
+        def __init__(self) -> None:
+            self._descriptor = descriptor(STOP_PROBE)
+
+        @property
+        def descriptor(self) -> SourceDescriptor:
+            return self._descriptor
+
+        def published_volume(self) -> PublishedVolume | None:
+            return None
+
+        async def events(self) -> AsyncGenerator[Mapping[str, object]]:
+            n = 0
+            while True:
+                await asyncio.sleep(0.01)
+                n += 1
+                yield {"n": n, "text": "ñ"}
+
+    class Factory(BaseSourceFactory):
+        DESCRIPTOR = descriptor(STOP_PROBE)
+
+        def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
+            return Paced()
+
+    clock = SystemClock()
+    stop = ManualStop()
+    await sink.open()
+    asyncio.get_running_loop().call_later(after_s, stop.request, "SIGTERM")  # once open: a database may take seconds
+    try:
+        report = await ConsumeService(FactoryRegistry((Factory(),), deps(clock=clock)), clock).consume(STOP_PROBE, 60, sink, stop=stop)
+    finally:
+        await sink.close()
+    assert report.events > 0 and report.detail.startswith("stopped by SIGTERM")
+    return report

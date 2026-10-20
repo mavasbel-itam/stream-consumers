@@ -9,6 +9,21 @@ from stream_consumers.domain.models import ConfigStatus, RateVerdict, RunReport,
 from stream_consumers.ports.outbound.outputs import EventSinkPort
 
 
+class StopRequestPort(ABC):
+    """The operator's request to end the running command early (Ctrl+C, SIGTERM).
+
+    The driving adapter hands it to a use case with the call, like a cancellation token. It is an inbound
+    port because the operator, not the application, starts this conversation; the use case only watches it."""
+
+    @abstractmethod
+    def reason(self) -> str | None:
+        """What asked for the stop (a signal name such as "SIGINT"), or None while nothing has."""
+
+    @abstractmethod
+    async def wait(self) -> str:
+        """Return the reason as soon as a stop is requested."""
+
+
 class ListSourcesUseCase(ABC):
     @abstractmethod
     def list_sources(self) -> Sequence[SourceDescriptor]: ...
@@ -27,16 +42,23 @@ class ConsumeStreamUseCase(ABC):
         sink: EventSinkPort,
         max_events: int | None = None,
         mask: bool = True,
+        *,
+        stop: StopRequestPort,
     ) -> RunReport:
         """Read events from one source into `sink` for at most `seconds` (or `max_events`).
 
-        The caller opens `sink` before and closes it after; the use case only writes to it."""
+        The caller opens `sink` before and closes it after; the use case only writes to it. Every use
+        case that reads sources takes the caller's `stop` request: a requested stop ends the window early, as its end would: the event being written is finished and the
+        report says when the run was stopped."""
 
 
 class CheckSourcesUseCase(ABC):
     @abstractmethod
-    async def check(self, source_ids: Sequence[str], seconds: float) -> Sequence[RunReport]:
-        """Consume each source briefly and report whether it delivers decodable events."""
+    async def check(self, source_ids: Sequence[str], seconds: float, *, stop: StopRequestPort) -> Sequence[RunReport]:
+        """Consume each source briefly and report whether it delivers decodable events.
+
+        After a `stop`, sources being read end at once and sources not started yet are not started: the
+        result (and the report written) holds the started sources only."""
 
 
 class SampleSourcesUseCase(ABC):
@@ -49,12 +71,16 @@ class SampleSourcesUseCase(ABC):
         window_s: float,
         prior: Sequence[SamplingRound] = (),
         stop_when_settled: bool = False,
+        *,
+        stop: StopRequestPort,
     ) -> Sequence[SamplingRound]:
         """Measure every source once per round, rounds `interval_s` apart on wall-clock targets.
 
         `rounds` is the whole plan: rounds already in `prior` (an interrupted run) are not repeated
         and numbering continues after them. With `stop_when_settled` a source is no longer read once
-        its verdict over `rounds` can no longer change, and sampling ends when every source is settled."""
+        its verdict over `rounds` can no longer change, and sampling ends when every source is settled.
+        After a `stop` no further round starts and the round in progress, whose windows were cut short, is
+        neither written nor returned."""
 
 
 class JudgeSamplingUseCase(ABC):
@@ -65,8 +91,12 @@ class JudgeSamplingUseCase(ABC):
 
 class ProfileSourcesUseCase(ABC):
     @abstractmethod
-    async def profile(self, source_ids: Sequence[str], max_events: int, seconds: float) -> Sequence[SourceProfile]:
-        """Keep up to `max_events` masked events per source and describe their fields."""
+    async def profile(
+        self, source_ids: Sequence[str], max_events: int, seconds: float, *, stop: StopRequestPort
+    ) -> Sequence[SourceProfile]:
+        """Keep up to `max_events` masked events per source and describe their fields.
+
+        After a `stop`, sources being read end at once and keep what arrived; sources not started are not started."""
 
 
 class DescribeConfigurationUseCase(ABC):

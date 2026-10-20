@@ -8,11 +8,15 @@ import csv
 import io
 import json
 import os
+import select
+import shlex
+import signal
 import socket
 import sqlite3
+import subprocess
 import sys
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 from typing import ClassVar
@@ -714,3 +718,258 @@ async def test_a_disguised_cancellation_still_ends_the_run_on_time(tmp_path: Pat
         code, out, _ = await cli(addresses, "consume", "disguised_cancel", "--seconds", "1")
         assert code == 0 and [json.loads(line)["payload"] for line in out.splitlines()] == [{"n": 0}]
         assert time.monotonic() - started < 15
+
+
+# ------------------------------------------------------------------ Ctrl+C and SIGTERM
+STOP_WITHIN_S = 2.0
+TRANSPORT_SOURCES = ("ws_ok", "sse_ok", "mqtt_tcp", "nats_ok", "zmq_ok", "tcp_lines", "poll_get", "files", "kafka_json")
+
+
+def command(*argv: str) -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "coverage",
+        "run",
+        "--rcfile",
+        str(ROOT / ".coveragerc.e2e"),
+        "-m",
+        "stream_consumers",
+        "--catalog",
+        "tests.e2e.local_catalog",
+        "--env-file",
+        "/nonexistent/.env",
+        *argv,
+    ]
+
+
+SIGINT_AS = "import os, signal, sys; signal.signal(signal.SIGINT, getattr(signal, sys.argv[1])); os.execvp(sys.argv[2], sys.argv[2:])"
+"""Sets SIGINT's disposition, then becomes the command. The test run may itself have SIGINT ignored (started with
+`&` or `nohup`), which a child inherits; a command typed at a terminal has the default (`SIG_DFL`). A wrapper
+that execs keeps Python code out of a forked child of this multi-threaded process (no `preexec_fn`)."""
+
+
+def with_sigint(disposition: str, argv: Sequence[str]) -> list[str]:
+    return [sys.executable, "-c", SIGINT_AS, disposition, *argv]
+
+
+async def spawn(addresses: dict[str, object], *argv: str, sigint: str = "SIG_DFL", **options: object) -> asyncio.subprocess.Process:
+    env = dict(os.environ, STREAM_CONSUMERS_E2E=json.dumps(addresses))
+    options.setdefault("stdout", asyncio.subprocess.PIPE)
+    options.setdefault("stderr", asyncio.subprocess.PIPE)
+    return await asyncio.create_subprocess_exec(*with_sigint(sigint, command(*argv)), cwd=ROOT, env=env, **options)  # type: ignore[arg-type]
+
+
+async def stop_and_finish(process: asyncio.subprocess.Process, sig: signal.Signals) -> tuple[int, str, str, float]:
+    """Send `sig`, then collect the exit status, both outputs and the seconds the process took to end."""
+    sent = time.monotonic()
+    process.send_signal(sig)
+    out, err = await asyncio.wait_for(process.communicate(), 60)
+    return process.returncode or 0, out.decode(), err.decode(), time.monotonic() - sent
+
+
+async def until(condition: Callable[[], bool], timeout_s: float = 60) -> None:
+    deadline = time.monotonic() + timeout_s
+    while not condition():
+        assert time.monotonic() < deadline, "condition not met in time"
+        await asyncio.sleep(0.05)
+
+
+@asynccontextmanager
+async def watched_silent_server(addresses: dict[str, object]) -> AsyncIterator[asyncio.Event]:
+    """Replaces the server of `tcp_silent` by one that also says when the CLI has connected."""
+    connected = asyncio.Event()
+
+    async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        connected.set()
+        await hold(reader, writer)
+
+    async with tcp_server(handler) as port:
+        addresses["tcp_silent"] = port
+        yield connected
+
+
+async def test_ctrl_c_stops_every_transport_at_once_and_still_writes_the_run_report() -> None:
+    async def one(addresses: dict[str, object], source_id: str, sig: signal.Signals) -> None:
+        process = await spawn(addresses, "consume", source_id, "--seconds", "120")
+        assert process.stdout is not None
+        # standard output is handed on per event, so the first one arrives through the pipe while the run goes on
+        first = await asyncio.wait_for(process.stdout.readline(), 60)
+        code, out, err, took = await stop_and_finish(process, sig)
+        expected = -signal.SIGINT if sig is signal.SIGINT else 143
+        notice, line = err.splitlines()[-2:]
+        assert line.startswith("{"), (source_id, sig.name, err)
+        report = json.loads(line)
+        assert (code, report["status"]) == (expected, "ok"), (source_id, err)
+        assert took < STOP_WITHIN_S, (source_id, took)
+        assert notice.startswith(f"stopping ({sig.name}): ending the run") and "Traceback" not in err
+        assert report["detail"].startswith(f"stopped by {sig.name} after ") and report["detail"].endswith(" of 120 s")
+        assert report["events"] == 1 + len(out.splitlines()) and json.loads(first)["source"] == source_id
+
+    async with environment() as addresses:
+        await asyncio.gather(*(one(addresses, s, signal.SIGINT) for s in TRANSPORT_SOURCES))
+        # the first runs committed the consumer group's offsets: give the second ones something new to read
+        await kafka_produce(str(addresses["kafka"]), "e2e_json", [(None, b'{"n": 3}')])
+        await asyncio.gather(*(one(addresses, s, signal.SIGTERM) for s in TRANSPORT_SOURCES))
+
+
+async def test_a_stopped_run_leaves_every_text_format_and_sqlite_complete(tmp_path: Path) -> None:
+    async with environment() as addresses:
+        for name in ("json", "csv", "tsv", "jsonl", "pretty"):
+            target = tmp_path / f"events.{name}"
+            process = await spawn(addresses, "consume", "zmq_fast", "--seconds", "120", "--format", name, "--out", str(target))
+            await until(lambda target=target: target.exists() and target.stat().st_size > 10_000)
+            code, _, err, _ = await stop_and_finish(process, signal.SIGTERM)
+            events = json.loads(err.splitlines()[-1])["events"]
+            text = target.read_text(encoding="utf-8")
+            assert code == 143 and events > 0, err
+            if name == "json":
+                assert len(json.loads(text)) == events  # the array was closed
+            elif name in ("csv", "tsv"):
+                rows = list(csv.reader(io.StringIO(text), delimiter="," if name == "csv" else "\t"))
+                assert len(rows) == 1 + events and len({len(row) for row in rows}) == 1  # no row cut short
+            elif name == "jsonl":
+                assert [json.loads(line)["source"] for line in text.splitlines()] == ["zmq_fast"] * events
+            else:
+                assert text.count('"source": "zmq_fast"') == events and text.endswith("}\n")
+        database = tmp_path / "events.db"
+
+        def stored() -> int:
+            if not database.exists():
+                return 0
+            with contextlib.closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as connection:
+                try:
+                    return int(connection.execute("SELECT count(*) FROM zmq_fast").fetchone()[0])
+                except sqlite3.OperationalError:  # the table is not created yet, or the writer holds the lock
+                    return 0
+
+        process = await spawn(addresses, "consume", "zmq_fast", "--seconds", "120", "--out", f"sqlite:{database}")
+        await until(lambda: stored() > 0)
+        code, _, err, _ = await stop_and_finish(process, signal.SIGINT)
+        assert code == -signal.SIGINT and stored() == json.loads(err.splitlines()[-1])["events"]  # the last batch was written
+
+
+async def test_check_and_profile_stopped_report_the_sources_they_started(tmp_path: Path) -> None:
+    async with environment() as addresses, watched_silent_server(addresses) as connected:
+        argv = ("tcp_silent", "ws_ok", "--seconds", "120", "--concurrency", "1", "--reports", str(tmp_path / "check"))
+        process = await spawn(addresses, "check", *argv)
+        await asyncio.wait_for(connected.wait(), 60)
+        code, out, err, took = await stop_and_finish(process, signal.SIGINT)
+        assert code == -signal.SIGINT and took < STOP_WITHIN_S and "stopped by SIGINT: 1 of 2 sources not started" in err
+        assert out.startswith("tcp_silent") and out.splitlines()[-1] == "1 sources, 0 delivered or key pending, 1 failed"
+        (report,) = (tmp_path / "check").glob("check-*.json")
+        (row,) = json.loads(report.read_text())
+        assert row["source_id"] == "tcp_silent" and row["detail"].startswith("stopped by SIGINT after")
+        connected.clear()
+        argv = ("tcp_silent", "ws_ok", "--seconds", "120", "--concurrency", "1", "--out", str(tmp_path / "p"))
+        process = await spawn(addresses, "profile", *argv, "--reports", str(tmp_path / "profile"))
+        await asyncio.wait_for(connected.wait(), 60)
+        code, out, err, _ = await stop_and_finish(process, signal.SIGTERM)
+        assert code == 143 and "stopped by SIGTERM: 1 of 2 sources not started" in err
+        assert [p.name for p in (tmp_path / "p").iterdir()] == ["tcp_silent.jsonl"]
+        assert len(list((tmp_path / "profile").glob("profiles-*.json"))) == 1
+
+
+async def test_sample_stopped_keeps_its_finished_rounds_and_resumes_from_them(tmp_path: Path) -> None:
+    first, second = tmp_path / "segment-1", tmp_path / "segment-2"
+    async with environment() as addresses:
+        process = await spawn(addresses, "sample", "ws_ok", "--rounds", "3", "--interval", "120", "--window", "1", "--reports", str(first))
+        await until(lambda: any(first.glob("round-01-*.json")))  # round 1 done: now waiting for round 2
+        code, out, err, took = await stop_and_finish(process, signal.SIGINT)
+        assert code == -signal.SIGINT and took < STOP_WITHIN_S and "rounds=  1/3" in out
+        assert f"stopped by SIGINT: 1 of 3 rounds recorded; a round cut short is not recorded; resume with --continue-from {first}" in err
+        async with watched_silent_server(addresses) as connected:
+            argv = ("tcp_silent", "--rounds", "3", "--interval", "120", "--window", "60", "--reports", str(second))
+            process = await spawn(addresses, "sample", *argv, "--continue-from", str(first))
+            await asyncio.wait_for(connected.wait(), 60)  # round 2 is reading
+            code, _, err, took = await stop_and_finish(process, signal.SIGTERM)
+        assert code == 143 and took < STOP_WITHIN_S and "1 of 3 rounds recorded" in err
+        assert not list(second.glob("round-*.json"))  # the round cut short was not written
+        code, out, _ = await cli(addresses, "verdict", str(tmp_path), "--planned", "3")
+        assert code == 0 and "rounds=  1/3" in out
+
+
+async def test_a_second_signal_ends_a_run_stuck_in_writing_at_once(tmp_path: Path) -> None:
+    fifo = tmp_path / "stuck"
+    os.mkfifo(fifo)
+    reader = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)  # never read: once the pipe is full, every write blocks
+    try:
+        async with environment() as addresses:
+            process = await spawn(addresses, "consume", "zmq_fast", "--seconds", "120", "--out", str(fifo))
+            await asyncio.sleep(3)  # the pipe fills within milliseconds of the first events
+            process.send_signal(signal.SIGINT)
+            await asyncio.sleep(0.005)
+            process.send_signal(signal.SIGINT)  # within the repeat window: the same request again, absorbed
+            await asyncio.sleep(1.5)  # later than the repeat window, as a person pressing again
+            assert process.returncode is None  # still stuck in the write: the first signal could only ask
+            code, _, err, took = await stop_and_finish(process, signal.SIGINT)
+        assert code == -signal.SIGINT and took < STOP_WITHIN_S
+        assert err.endswith("stopped immediately by a second SIGINT; outputs may be incomplete\n")
+    finally:
+        os.close(reader)
+
+
+async def test_one_stop_delivered_twice_at_once_still_ends_the_run_cleanly(tmp_path: Path) -> None:
+    # `timeout` signals its child and then its process group; through `uv run` the program gets both
+    target = tmp_path / "events.json"
+    async with environment() as addresses:
+        process = await spawn(addresses, "consume", "zmq_fast", "--seconds", "120", "--format", "json", "--out", str(target))
+        await until(lambda: target.exists() and target.stat().st_size > 1_000)
+        process.send_signal(signal.SIGTERM)
+        await asyncio.sleep(0.005)  # the first one is handled by now (back to back, the kernel merges them)
+        code, _, err, took = await stop_and_finish(process, signal.SIGTERM)
+    assert code == 143 and took < STOP_WITHIN_S and "stopped immediately" not in err
+    assert len(json.loads(target.read_text(encoding="utf-8"))) == json.loads(err.splitlines()[-1])["events"]
+
+
+async def test_a_job_started_with_sigint_ignored_keeps_ignoring_it_and_stops_on_sigterm() -> None:
+    async with environment() as addresses:
+        process = await spawn(addresses, "consume", "ws_ok", "--seconds", "120", sigint="SIG_IGN")
+        assert process.stdout is not None
+        await asyncio.wait_for(process.stdout.readline(), 60)
+        process.send_signal(signal.SIGINT)
+        await asyncio.sleep(1)
+        assert process.returncode is None
+        code, _, err, took = await stop_and_finish(process, signal.SIGTERM)
+    assert code == 143 and took < STOP_WITHIN_S and "stopped by SIGTERM after" in err
+
+
+def on_terminal(argv: Sequence[str], press_after: Callable[[str], bool]) -> tuple[int, str]:
+    """Run `argv` on a pseudo-terminal and type Ctrl+C (byte 0x03) once `press_after(output so far)` holds.
+
+    The terminal sends SIGINT to its whole foreground process group, as when a person presses Ctrl+C.
+    `setsid --ctty` (util-linux) makes the pseudo-terminal the command's controlling terminal."""
+    master, slave = os.openpty()
+    process = subprocess.Popen(with_sigint("SIG_DFL", ["setsid", "--ctty", *argv]), cwd=ROOT, stdin=slave, stdout=slave, stderr=slave)
+    os.close(slave)
+    output, pressed, deadline = b"", False, time.monotonic() + 120
+    while time.monotonic() < deadline:
+        if not pressed and press_after(output.decode(errors="replace")):
+            os.write(master, b"\x03")
+            pressed = True
+        ready, _, _ = select.select([master], [], [], 0.05)
+        if ready:
+            try:
+                chunk = os.read(master, 65536)
+            except OSError:  # the terminal closed: the command ended
+                break
+            if not chunk:
+                break
+            output += chunk
+    status = process.wait(60)
+    os.close(master)
+    return status, output.decode(errors="replace").replace("\r", "")
+
+
+async def test_ctrl_c_on_a_terminal_also_stops_the_shell_loop_that_runs_the_command() -> None:
+    async with environment() as addresses:
+        os.environ["STREAM_CONSUMERS_E2E"] = json.dumps(addresses)
+        try:
+            run = shlex.join(command("consume", "ws_ok", "--seconds", "120"))
+            script = f"for n in 1 2 3; do {run}; echo after-run-$n; done; echo loop-finished"
+            status, output = await asyncio.to_thread(on_terminal, ["bash", "-c", script], lambda text: '"source": "ws_ok"' in text)
+        finally:
+            del os.environ["STREAM_CONSUMERS_E2E"]
+    assert "stopping (SIGINT): ending the run" in output and '"detail": "stopped by SIGINT after' in output
+    assert "after-run" not in output and "loop-finished" not in output and "Traceback" not in output
+    assert status == -signal.SIGINT  # bash saw its command ended by SIGINT and ended too
