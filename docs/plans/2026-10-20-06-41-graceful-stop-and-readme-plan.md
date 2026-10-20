@@ -465,3 +465,22 @@ source listed twice, with the wrong group, or with a changed terms link; an old
 group name; a broken `#anchor`; a `docs/` page not linked; the stop
 announcement reworded in the prose; the `uv run … || break` advice removed;
 exit code 141 removed; the `unknown` key state removed.
+
+### 6.6 History rewritten to remove the personal e-mail addresses (2026-10-20)
+
+The owner decided that the two addresses left in the published history (6.2)
+must go, by force-pushing over the repository. From a fresh mirror clone,
+`git filter-repo --sensitive-data-removal` (run through `uvx`) replaced the
+author and committer of every commit with
+`mavasbel <28605223+mavasbel@users.noreply.github.com>` and the institutional
+address with `<masked>` in every commit. Checked before the push: every
+identity is the no-reply address; no object holds either address; the tree of
+the new `4c09717` is identical to that of the old `741e38f`; per commit, the
+only content change is those two lines of the full survey report (13 commits)
+and the only message change is one cited commit ID. Old and new IDs:
+`docs/README.md`, "Commit IDs before 2026-10-20". `test_secrets_live.py` gained
+two tests (no personal address in any object; every identity is the no-reply
+address), shown failing on the old history. The closed pull request #1 keeps
+its old head commit on GitHub (`refs/pull/*` cannot be pushed); removing it
+and GitHub's cached views needs GitHub Support. The old Actions runs and
+artifacts were deleted.

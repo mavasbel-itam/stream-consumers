@@ -84,8 +84,12 @@
   repository is public: before every push run
   `uv run pytest tests/live/test_secrets_live.py -m live`, which fails when a
   secret of `.env` (whole or a 12-character piece) or a known token format is
-  in any object git holds or in the files to publish, or when those files hold
-  a personal e-mail address; mask a personal value as `<masked>`.
+  in any object git holds or in the files to publish, when any of them holds a
+  personal e-mail address, or when a commit's author or committer is not
+  `mavasbel <28605223+mavasbel@users.noreply.github.com>` (set it with
+  `git config user.email` in every clone); mask a personal value as `<masked>`.
+  The history was rewritten on 2026-10-20 to remove personal addresses; old
+  commit IDs map to new ones in `docs/README.md`.
 - Before every commit: `uv run ruff check src tests`, `uv run ruff format --check
   src tests`, `uv run pytest --cov` (100 %), and the e2e tier (100 %). Both
   tiers need Docker (Kafka, NATS, Mosquitto and the databases).
