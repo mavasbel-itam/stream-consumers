@@ -2,6 +2,9 @@
 # (tests/e2e). Gated scope: the composition root, the application services, the ports and every
 # infrastructure adapter. Pure domain rules and decoders are gated by the unit tier; the source
 # modules target real providers and are covered by the unit tier (captured messages) and the live tier.
+# Output formats, the batching base and the database/broker outputs are gated by the unit and
+# component tiers (the component tier writes into real servers); the e2e tier still runs every
+# format and SQLite through the CLI (test_consume_into_every_text_format_and_sqlite).
 [run]
 branch = true
 parallel = true

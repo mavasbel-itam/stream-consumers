@@ -38,6 +38,7 @@ options and its output.
 - [Sampling results](#sampling-results)
 - [How rates are measured](#how-rates-are-measured)
 - [Running the consumers](#running-the-consumers)
+- [Outputs](#outputs)
 - [API keys and configuration](#api-keys-and-configuration)
 - [Architecture](#architecture)
 - [Tests](#tests)
@@ -342,11 +343,11 @@ tables above, or the `id` field of `list`.
 | `list` | Every source of the catalog (73), one JSON object per line: id, name, group, transport, delivery, endpoint, documentation and terms links, credential, settings, personal fields, minimum window | standard output | 0 |
 | `keys` | One line per variable: source, variable, kind (`secret`, `setting`, `held`), required or optional, state (`set`, `MISSING`, `not-set`, `default`), sign-up page or default; never a value | standard output | 1 if `.env` holds a variable that no source reads and no held key declares |
 | `keys --template` | The `.env.example` template, with how to get each key | standard output | 0 |
-| `consume <id>` | Reads one source and writes each event as one JSON line | `--out` (standard output by default); a run report as one JSON line on standard error | 0 when the source delivered events or its key is missing (`key-pending`), 1 when it failed or delivered nothing |
+| `consume <id>` | Reads one source and writes each event in the chosen format, or into a database ([Outputs](#outputs)) | `--out` (standard output by default); a run report as one JSON line on standard error | 0 when the source delivered events or its key is missing (`key-pending`), 1 when it failed or delivered nothing |
 | `check [<id> …]` | Reads each source for a short window and reports whether events arrive | one line per source and a total on standard output; `check-<time>.json` in `--reports` | 1 if any source failed or delivered nothing |
 | `sample [<id> …]` | The measurement behind the inclusion rule: reads every source once per round, rounds started on wall-clock targets | `round-NN-<time>.json` per round in `--reports`; the latest result and the verdict of each source on standard output | 1 if any source failed or delivered nothing in its latest round |
 | `verdict <dir> [<id> …]` | Median rate and verdict (`passes`, `fails`, `open`) of each source from recorded `round-*.json` files (searched recursively) | standard output | 0 |
-| `profile [<id> …]` | Keeps a masked sample of events per source and describes their fields | `<source>.jsonl` in `--out`; `profiles-<time>.json` in `--reports`; one line per source on standard output | 1 if any source failed or delivered nothing |
+| `profile [<id> …]` | Keeps a masked sample of events per source and describes their fields | `<source>.jsonl` in `--out` (the extension follows `--format`); `profiles-<time>.json` in `--reports`; one line per source on standard output | 1 if any source failed or delivered nothing |
 
 `check`, `sample` and `profile` without source ids read the 65 sources of
 groups A–C; a group E source runs only when named. Every command exits 2 on an
@@ -362,7 +363,8 @@ or `grep -m` cause) when the program reading its output closes the pipe early.
 | `keys` | `--template` | off | Print the `.env` template instead of the status |
 | `consume` | `--seconds` | 60 | Reading time, extended to the source's minimum window |
 | `consume` | `--max-events` | no limit | Stop after this many events |
-| `consume` | `--out` | `-` (standard output) | Output file |
+| `consume` | `--out` | `-` (standard output) | Where events go: `-`, a file path, or a destination URI such as `sqlite:<path>` ([Outputs](#outputs)) |
+| `consume` | `--format` | `jsonl` | Text format for standard output and files: `jsonl`, `csv`, `tsv`, `json`, `pretty`; not accepted with a database destination |
 | `consume` | `--raw` | off | Do not mask personal fields |
 | `check` | `--seconds` | 30 | Reading time per source, extended to its minimum window |
 | `check` | `--reports` | `data/reports` | Directory for `check-<time>.json` |
@@ -378,6 +380,7 @@ or `grep -m` cause) when the program reading its output closes the pipe early.
 | `profile` | `--max-events` | 500 | Events kept per source |
 | `profile` | `--seconds` | 120 | Longest reading time per source, extended to its minimum window |
 | `profile` | `--out` | `data/profile` | Directory for the masked samples |
+| `profile` | `--format` | `jsonl` | Format of the samples: `jsonl`, `csv`, `tsv`, `json`, `pretty` |
 | `profile` | `--reports` | `data/reports` | Directory for `profiles-<time>.json` |
 | `profile` | `--concurrency` | 64 | Sources read at the same time |
 
@@ -387,6 +390,8 @@ or `grep -m` cause) when the program reading its output closes the pipe early.
 uv run stream-consumers list                                      # the 73 sources
 uv run stream-consumers consume hsl --seconds 60 --out data/hsl.jsonl
 uv run stream-consumers consume coinbase --max-events 100         # to the terminal
+uv run stream-consumers consume coinbase --seconds 60 --format csv --out data/coinbase.csv
+uv run stream-consumers consume coinbase --seconds 60 --out sqlite:data/events.db   # table coinbase
 uv run stream-consumers check                                     # the 65 sources of groups A–C (D is empty) for 30 s
 uv run stream-consumers check wikimedia coinbase --seconds 10     # only these two
 uv run stream-consumers check ndbc --seconds 960                  # a group E source runs only when named
@@ -446,6 +451,81 @@ distinct values than a category may have), `free-text` (30+ characters on
 average, mostly with spaces, at least half distinct), `label` (other text with
 that many distinct values), `category` (text or Booleans with at most
 max(20, 5 % of the events) distinct values), `nested` and `empty`.
+
+## Outputs
+
+`consume` writes to the terminal (`--out -`, the default), to a file
+(`--out <path>`) or to a destination URI. The terminal and files take a text
+format (`--format`); a destination URI takes no format, the database stores
+the event itself. Every output carries the same three things: `source` (the
+source id), `received_at` (Unix time in seconds when the event arrived) and
+`payload` (the event, masked unless `--raw`). `profile --format` writes its
+samples in any text format.
+
+### Text formats
+
+| `--format` | File extension (`profile`) | What is written |
+|---|---|---|
+| `jsonl` (default) | `.jsonl` | One JSON object per line: `{"source", "received_at", "payload"}` |
+| `csv` | `.csv` | A header and one row per event: `source`, `received_at`, then every payload field as `payload.<dotted path>`, then `extra` |
+| `tsv` | `.tsv` | The same columns as `csv`, separated by tabs |
+| `json` | `.json` | One JSON array holding every event; the document is complete when the run ends (`[]` when nothing arrived) |
+| `pretty` | `.txt` | Each event as indented JSON, one after the other (a stream of JSON documents, which `jq` reads as is) |
+
+CSV and TSV rules (`DelimitedEncoder`): the header is taken from the first
+event, so rows are written while events arrive, also to the terminal. A field
+that first appears in a later event goes into the last column, `extra`, as one
+JSON object (`{"payload.<path>": value, ...}`); a header field missing from an
+event is an empty cell. Lists and empty objects are written as JSON text, `null`
+as an empty cell, `true`/`false` as such. Quoting follows Python's `csv`
+module (a value holding the delimiter, a quote or a line break is quoted);
+rows end with `\n`.
+
+`consume coinbase --max-events 2 --format csv` on 2026-10-20 at 00:53 UTC
+printed:
+
+```text
+source,received_at,payload.type,payload.sequence,payload.product_id,payload.price,payload.open_24h,payload.volume_24h,payload.low_24h,payload.high_24h,payload.volume_30d,payload.best_bid,payload.best_bid_size,payload.best_ask,payload.best_ask_size,payload.side,payload.time,payload.trade_id,payload.last_size,extra
+coinbase,1792457636.1090796,ticker,138001376731,BTC-USD,81522.62,82199.79,4720.41274336,81350.1,83076.23,161399.04581082,81522.62,0.39140551,81522.63,0.00002088,sell,2026-10-20T00:53:55.968284Z,1108190504,0.00000014,
+coinbase,1792457636.1208763,ticker,104123319944,ETH-USD,2394.89,2411.12,80994.31740659,2382.34,2443.86,2620838.10967965,2394.83,0.79308902,2394.98,0.00018758,buy,2026-10-20T00:53:55.926247Z,849382951,0.00057969,
+```
+
+### Destinations
+
+| `--out` | Where events go |
+|---|---|
+| `-` (default) | Standard output, in `--format` |
+| `<path>` | A file (directories are created), in `--format` |
+| `sqlite:<path>` | A SQLite database file ([below](#sqlite)) |
+
+A destination whose scheme is not one of these (`something://…`) is refused
+with exit code 2 instead of being taken for a file name.
+
+Databases are written in batches: every 500 events, when the oldest waiting
+event has waited 1 s, and when the run ends (`BatchingEventSink`). A write that
+fails ends the run with an error; it is never counted as a failure of the
+source.
+
+#### SQLite
+
+One table per source, named after the source id: `seq` (row number, in arrival
+order), `received_at` (Unix seconds, `REAL`) and `payload` (JSON text). A run
+adds rows to an existing file. SQLite's JSON functions read the payload. After
+`consume coinbase --max-events 20 --out sqlite:data/events.db` on 2026-10-20 at
+00:53 UTC, this query
+
+```sql
+SELECT seq, datetime(received_at, 'unixepoch'), payload ->> '$.product_id', payload ->> '$.price'
+FROM coinbase ORDER BY seq LIMIT 3;
+```
+
+returned these rows (read with Python's `sqlite3` module):
+
+```text
+(1, '2026-10-20 00:53:36', 'BTC-USD', '81531.77')
+(2, '2026-10-20 00:53:36', 'XRP-USD', '1.2959')
+(3, '2026-10-20 00:53:36', 'ETH-USD', '2394.64')
+```
 
 ## API keys and configuration
 
@@ -561,7 +641,7 @@ src/stream_consumers/
                      ProfileSources, DescribeConfiguration
     outbound/
       providers.py   EventSource, SourceFactory, SourceRegistry, Decoder, HttpClient, RequestAuth, HeldKeyCatalog
-      outputs.py     EventSink, EventSinkFactory, ReportSink, SamplingHistory
+      outputs.py     EventSink, EventSinkFactory, EventFormat, EventEncoder, ReportSink, SamplingHistory
       system.py      Clock, SecretProvider
   application/       one service per inbound port; depends on ports and domain only
   adapters/
@@ -577,8 +657,12 @@ src/stream_consumers/
         registry.py    SourceRegistryPort → FactoryRegistry
         held_keys.py   HeldKeyCatalogPort → StaticHeldKeyCatalog (keys kept in .env that no source reads)
       outputs/
-        sinks.py       EventSinkPort → Null / TextStream → JsonlFile, EventSinkFactoryPort → JsonlFileSinkFactory,
-                       ReportSinkPort → JsonReportSink
+        formats.py     EventFormatPort → JsonLines / Csv / Tsv / JsonArray / PrettyJson,
+                       EventEncoderPort → BaseEventEncoder → JsonLines / PrettyJson / JsonArray / Delimited
+        sinks.py       EventSinkPort → BaseEventSink → Null / TextStream → TextFile,
+                       EventSinkFactoryPort → TextFileSinkFactory, ReportSinkPort → JsonReportSink
+        batching.py    BaseEventSink → BatchingEventSink (batches by size, by age and on close)
+        sqlite.py      BatchingEventSink → SqliteEventSink
         history.py     SamplingHistoryPort → JsonSamplingHistory (reads round-*.json for `verdict` and `--continue-from`)
       system/
         clock.py       ClockPort → SystemClock
@@ -814,5 +898,6 @@ Decision records in [`docs/`](docs/README.md), all linked here:
 | [`docs/research/2026-10-13-18-54-stream-consumers-and-api-keys-record.md`](docs/research/2026-10-13-18-54-stream-consumers-and-api-keys-record.md) | research | How this repository was built and validated, and the record of the API keys |
 | [`docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md`](docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md) | research | Screening of the 69 free entries of Bytewax's real-time data list |
 | [`docs/plans/2026-10-19-03-07-stream-consumers-provisional-release-plan.md`](docs/plans/2026-10-19-03-07-stream-consumers-provisional-release-plan.md) | plan | Plan for releasing while the last sampling runs were still going |
+| [`docs/plans/2026-10-20-00-11-event-outputs-plan.md`](docs/plans/2026-10-20-00-11-event-outputs-plan.md) | plan | Plan for the event outputs: text formats, SQLite, message brokers and the course databases |
 | [`docs/reference/2026-10-17-15-13-api-key-gated-sources.md`](docs/reference/2026-10-17-15-13-api-key-gated-sources.md) | reference | Status of every API key and keyed source, how to get each key, test results, change log |
 | [`docs/reference/2026-10-19-18-27-sub-threshold-sources.md`](docs/reference/2026-10-19-18-27-sub-threshold-sources.md) | reference | Group E and every other stream measured or screened below 1 event/s, with evidence and change log |

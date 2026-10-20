@@ -26,3 +26,7 @@ class DecodeError(StreamConsumersError):
 
 class TransportError(StreamConsumersError):
     """The provider refused or broke the connection."""
+
+
+class OutputTargetError(StreamConsumersError):
+    """An output destination (`--out`) that cannot be used as written."""

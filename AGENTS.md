@@ -30,6 +30,14 @@
   consumers" documents every command and every option with its default. The
   same `tests/unit/test_documentation.py` fails when one is missing; a new
   source, `docs/` page or CLI option adds its row in the same change.
+- An output is a text format (`EventFormatPort`, in `outputs/formats.py`) or a
+  destination (`EventSinkPort`, registered by URI scheme in the CLI's `SINKS`).
+  Databases extend `BatchingEventSink`. Every format and scheme is documented
+  in the README section "Outputs" (enforced by `test_documentation.py`), is
+  unit-tested on the real captured payloads of every source, and a destination
+  is tested by writing into a real server and reading back with that server's
+  own client. The event loop is never blocked: blocking drivers run in a
+  worker thread.
 - Inclusion rule: median measured rate of at least 1 event/s (GDELT is the
   documented exception). A source that needs a key nobody has configured is a
   candidate (`Group.CANDIDATE`): built and tested, but accepted only after its

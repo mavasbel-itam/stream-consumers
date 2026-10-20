@@ -28,7 +28,9 @@ class ConsumeStreamUseCase(ABC):
         max_events: int | None = None,
         mask: bool = True,
     ) -> RunReport:
-        """Read events from one source into `sink` for at most `seconds` (or `max_events`)."""
+        """Read events from one source into `sink` for at most `seconds` (or `max_events`).
+
+        The caller opens `sink` before and closes it after; the use case only writes to it."""
 
 
 class CheckSourcesUseCase(ABC):

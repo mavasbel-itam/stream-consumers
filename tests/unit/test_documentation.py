@@ -6,7 +6,7 @@ import argparse
 import re
 from pathlib import Path
 
-from stream_consumers.adapters.inbound.cli import _parser
+from stream_consumers.adapters.inbound.cli import FORMATS, SINKS, _parser
 from stream_consumers.adapters.outbound.providers.sources import FACTORIES
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,3 +62,11 @@ def test_every_command_and_option_is_documented_in_running_the_consumers() -> No
         for action in command._actions:
             if action.option_strings and action.dest != "help":
                 assert f"| `{name}` | `{action.option_strings[0]}" in text, (name, action.option_strings[0])
+
+
+def test_every_format_and_destination_scheme_is_documented_in_outputs() -> None:
+    text = section("Outputs")
+    formats = text[text.index("### Text formats") : text.index("### Destinations")]
+    assert all(f"| `{name}`" in formats for name in FORMATS)
+    destinations = text[text.index("### Destinations") :]
+    assert all(f"| `{scheme}:" in destinations for scheme in SINKS)

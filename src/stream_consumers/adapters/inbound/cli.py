@@ -8,19 +8,27 @@ import importlib
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
 from typing import TextIO
 
+from stream_consumers.adapters.outbound.outputs.formats import (
+    CsvFormat,
+    JsonArrayFormat,
+    JsonLinesFormat,
+    PrettyJsonFormat,
+    TsvFormat,
+)
 from stream_consumers.adapters.outbound.outputs.history import JsonSamplingHistory
 from stream_consumers.adapters.outbound.outputs.sinks import (
-    JsonlFileEventSink,
-    JsonlFileSinkFactory,
     JsonReportSink,
     NullEventSink,
+    TextFileEventSink,
+    TextFileSinkFactory,
     TextStreamEventSink,
 )
+from stream_consumers.adapters.outbound.outputs.sqlite import SqliteEventSink
 from stream_consumers.adapters.outbound.providers.held_keys import StaticHeldKeyCatalog
 from stream_consumers.adapters.outbound.providers.http import AiohttpClient
 from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
@@ -33,9 +41,10 @@ from stream_consumers.application.list_service import ListService
 from stream_consumers.application.profile_service import ProfileService
 from stream_consumers.application.sample_service import SampleService
 from stream_consumers.application.verdict_service import VerdictService
-from stream_consumers.domain.errors import StreamConsumersError
+from stream_consumers.domain.errors import OutputTargetError, StreamConsumersError
 from stream_consumers.domain.models import ConfigKind, RateVerdict, RunReport, RunStatus, Verdict
-from stream_consumers.ports.outbound.outputs import EventSinkPort
+from stream_consumers.domain.outputs import TERMINAL, OutputTarget, parse_target
+from stream_consumers.ports.outbound.outputs import EventFormatPort, EventSinkPort
 from stream_consumers.ports.outbound.providers import (
     HeldKeyCatalogPort,
     HttpClientPort,
@@ -48,6 +57,14 @@ from stream_consumers.ports.outbound.system import ClockPort
 USER_AGENT = "stream-consumers/0.1 (ITAM COM-22102 course research; non-commercial)"
 DEFAULT_CATALOG = "stream_consumers.adapters.outbound.providers.sources"
 SIGPIPE_EXIT = 141  # 128 + SIGPIPE: what a shell reports for a writer whose reader closed the pipe
+FORMATS: Mapping[str, EventFormatPort] = {
+    f.name: f for f in (JsonLinesFormat(), CsvFormat(), TsvFormat(), JsonArrayFormat(), PrettyJsonFormat())
+}
+DEFAULT_FORMAT = "jsonl"
+SINKS: Mapping[str, Callable[[OutputTarget, ClockPort], EventSinkPort]] = {
+    "sqlite": lambda target, clock: SqliteEventSink(Path(target.location), clock),
+}
+"""Destinations of `consume --out` other than the terminal and files, by URI scheme."""
 DEFAULT_SOURCES_HELP = "source ids (default: every source outside the low-rate group E; name a low-rate source to run it)"
 
 
@@ -62,13 +79,18 @@ def _parser() -> argparse.ArgumentParser:
     keys = commands.add_parser("keys", help="show which API credentials and settings are set (never their values)")
     keys.add_argument("--template", action="store_true", help="print a .env template instead")
 
-    consume = commands.add_parser("consume", help="write the events of one source as JSON lines")
+    consume = commands.add_parser("consume", help="write the events of one source to the terminal, a file or a database")
     consume.add_argument("source", help="source id (see `list`)")
     consume.add_argument(
         "--seconds", type=float, default=60.0, help="seconds to consume, at least the source's minimum window (default: 60)"
     )
     consume.add_argument("--max-events", type=int, help="stop after this many events (default: no limit)")
-    consume.add_argument("--out", default="-", help="output file, or - for standard output (default: -)")
+    consume.add_argument("--out", default="-", help="where events go: - for standard output, a file path, or sqlite:<path> (default: -)")
+    consume.add_argument(
+        "--format",
+        choices=list(FORMATS),
+        help=f"text format for standard output and files: {', '.join(FORMATS)} (default: {DEFAULT_FORMAT})",
+    )
     consume.add_argument("--raw", action="store_true", help="do not mask personal fields")
 
     check = commands.add_parser("check", help="consume each source briefly and report whether events arrive")
@@ -112,7 +134,16 @@ def _parser() -> argparse.ArgumentParser:
         "--seconds", type=float, default=120.0, help="at most this long per source, at least its minimum window (default: 120)"
     )
     profile.add_argument(
-        "--out", type=Path, default=Path("data/profile"), help="directory for the masked samples, <source>.jsonl (default: data/profile)"
+        "--out",
+        type=Path,
+        default=Path("data/profile"),
+        help="directory for the masked samples, <source> plus the extension of --format (default: data/profile)",
+    )
+    profile.add_argument(
+        "--format",
+        choices=list(FORMATS),
+        default=DEFAULT_FORMAT,
+        help=f"format of the samples: {', '.join(FORMATS)} (default: {DEFAULT_FORMAT})",
     )
     profile.add_argument(
         "--reports", type=Path, default=Path("data/reports"), help="directory for profiles-<time>.json (default: data/reports)"
@@ -151,22 +182,33 @@ def _verdicts(verdicts: Sequence[RateVerdict], stream: TextIO) -> None:
     stream.write(", ".join(f"{n} {kind.value}" for kind, n in counts.items()) + "\n")
 
 
+def _event_sink(destination: str, format_name: str | None, out: TextIO, clock: ClockPort) -> EventSinkPort:
+    target = parse_target(destination, SINKS)
+    if target.scheme in SINKS:
+        if format_name is not None:
+            raise OutputTargetError(f"--format applies to standard output and files, not to {target.scheme}")
+        return SINKS[target.scheme](target, clock)
+    event_format = FORMATS[format_name or DEFAULT_FORMAT]
+    return TextStreamEventSink(out, event_format) if target.scheme == TERMINAL else TextFileEventSink(Path(target.location), event_format)
+
+
 async def _run(args: argparse.Namespace, registry: SourceRegistryPort, clock: ClockPort, out: TextIO, err: TextIO) -> int:
     consume = ConsumeService(registry, clock)
     ids = list(getattr(args, "sources", None) or [d.id for d in ListService(registry).default_sources()])
     for source_id in ids:
         registry.descriptor(source_id)
     if args.command == "consume":
-        sink: EventSinkPort = TextStreamEventSink(out) if args.out == "-" else JsonlFileEventSink(Path(args.out))
+        sink = _event_sink(args.out, args.format, out, clock)
+        await sink.open()
         try:
             report = await consume.consume(args.source, args.seconds, sink, args.max_events, mask=not args.raw)
         finally:
-            sink.close()
+            await sink.close()
         err.write(json.dumps(asdict(report), default=lambda v: getattr(v, "value", str(v))) + "\n")
         return 0 if report.status in (RunStatus.OK, RunStatus.KEY_PENDING) else 1
     reports_sink = JsonReportSink(args.reports, clock)
     if args.command == "profile":
-        service = ProfileService(consume, JsonlFileSinkFactory(args.out), reports_sink, registry, args.concurrency)
+        service = ProfileService(consume, TextFileSinkFactory(args.out, FORMATS[args.format]), reports_sink, registry, args.concurrency)
         return _summary([p.run for p in await service.profile(ids, args.max_events, args.seconds)], out)
     discard = NullEventSink()
     try:
@@ -180,7 +222,7 @@ async def _run(args: argparse.Namespace, registry: SourceRegistryPort, clock: Cl
         _verdicts(VerdictService().verdicts(rounds, args.rounds, ids), out)
         return code
     finally:
-        discard.close()
+        await discard.close()
 
 
 def main(argv: Sequence[str] | None = None, out: TextIO | None = None, err: TextIO | None = None) -> int:
