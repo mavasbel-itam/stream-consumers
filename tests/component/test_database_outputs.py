@@ -34,6 +34,7 @@ from stream_consumers.domain.errors import OutputError
 from stream_consumers.domain.models import Event
 from stream_consumers.ports.outbound.outputs import EventSinkPort
 from tests import databases as db
+from tests.support import STOP_PROBE, consume_until_stopped
 from tests.unit.test_outputs import WITH_FIXTURES, plain, real_events
 
 pytestmark = pytest.mark.databases
@@ -119,6 +120,13 @@ class TestMongoDb:
             with pytest.raises(OverflowError, match="8-byte ints"):  # why the rule exists
                 client["lab_outputs"]["raw"].insert_one({"wei": 2**70})
 
+    async def test_a_stopped_run_has_stored_every_event_it_reported(self, port: int) -> None:
+        uri = f"mongodb://{db.USER}:{db.PASSWORD}@127.0.0.1:{port}/stop_tests?authSource=admin"
+        report = await consume_until_stopped(MongoDbEventSink(uri, SystemClock(), "mongodb"))
+        with mongo_client(port) as client:
+            stored = [d["payload"]["n"] for d in client["stop_tests"][STOP_PROBE].find({}, {"_id": 0}).sort("_id", 1)]
+        assert stored == list(range(1, report.events + 1))
+
     async def test_a_wrong_password_and_no_server(self, port: int, monkeypatch: pytest.MonkeyPatch) -> None:
         wrong = f"mongodb://{db.USER}:wrong@127.0.0.1:{port}/?authSource=admin"
         await refused(MongoDbEventSink(wrong, SystemClock(), "mongodb://here"), "^output mongodb://here failed: OperationFailure")
@@ -167,6 +175,16 @@ class TestCassandra:
                 assert {str(r.day) for r in rows} == {ms(e).date().isoformat() for e in group}
         finally:
             cluster.shutdown()
+
+    async def test_a_stopped_run_has_stored_every_event_it_reported(self, port: int) -> None:
+        sink = CassandraEventSink([("127.0.0.1", port)], "stop_tests", SystemClock(), "cassandra", "cassandra", "cassandra")
+        report = await consume_until_stopped(sink)
+        cluster, session = cassandra_session(port)
+        try:
+            stored = sorted(json.loads(r.payload)["n"] for r in session.execute(f'SELECT payload FROM stop_tests."{STOP_PROBE}"'))
+        finally:
+            cluster.shutdown()
+        assert stored == list(range(1, report.events + 1))
 
     async def test_a_wrong_password(self, port: int) -> None:
         sink = CassandraEventSink([("127.0.0.1", port)], "ks", SystemClock(), "cassandra://here", "cassandra", "wrong")
@@ -222,6 +240,24 @@ class TestRedis:
         with pytest.raises(redis_sync.exceptions.RedisClusterException):
             SyncRedisCluster(startup_nodes=nodes, password=db.PASSWORD).get_nodes()
 
+    async def test_a_stopped_run_has_stored_every_event_it_reported(self, ports: tuple[int, list[int]]) -> None:
+        port, cluster_ports = ports
+        report = await consume_until_stopped(RedisEventSink([("127.0.0.1", port)], SystemClock(), "redis", db=5, password=db.PASSWORD))
+        entries = redis_sync.Redis(port=port, db=5, password=db.PASSWORD).xrange(f"stream_consumers:{STOP_PROBE}")
+        assert [json.loads(fields[b"payload"])["n"] for _, fields in entries] == list(range(1, report.events + 1))
+        hosts = [("127.0.0.1", p) for p in cluster_ports]
+        report = await consume_until_stopped(RedisEventSink(hosts, SystemClock(), "redis+cluster", cluster=True, password=db.PASSWORD))
+        client = SyncRedisCluster(
+            startup_nodes=[ClusterNode("127.0.0.1", p) for p in cluster_ports],
+            password=db.PASSWORD,
+            address_remap=lambda a: ("127.0.0.1", a[1]),
+        )
+        try:
+            entries = client.xrange(f"stream_consumers:{STOP_PROBE}")
+        finally:
+            client.close()
+        assert [json.loads(fields[b"payload"])["n"] for _, fields in entries] == list(range(1, report.events + 1))
+
     async def test_a_wrong_password(self, ports: tuple[int, list[int]]) -> None:
         port, cluster_ports = ports
         await refused(RedisEventSink([("127.0.0.1", port)], SystemClock(), "redis://here", password="wrong"), "AuthenticationError")
@@ -261,6 +297,14 @@ class TestNeo4j:
             c.data() for c in constraints
         ]
 
+    async def test_a_stopped_run_has_stored_every_event_it_reported(self, uri: str) -> None:
+        report = await consume_until_stopped(Neo4jEventSink(uri, SystemClock(), "neo4j", None, "neo4j", db.PASSWORD))
+        with GraphDatabase.driver(uri, auth=("neo4j", db.PASSWORD)) as driver:
+            records, _, _ = driver.execute_query(
+                "MATCH (:StreamSource {id: $id})-[:EMITTED]->(e:StreamEvent) RETURN e.payload AS payload", id=STOP_PROBE
+            )
+        assert sorted(json.loads(r["payload"])["n"] for r in records) == list(range(1, report.events + 1))
+
     async def test_an_unknown_database_and_a_wrong_password(self, uri: str) -> None:
         await refused(Neo4jEventSink(uri, SystemClock(), "neo4j://here", "nope", "neo4j", db.PASSWORD), "^output neo4j://here failed")
         await refused(Neo4jEventSink(uri, SystemClock(), "n", None, "neo4j", "wrong-password"), "AuthError")
@@ -298,6 +342,15 @@ class TestOpenSearch:
             hits = client.search(index=index, body={"size": 1000, "sort": [{"received_at": "asc"}]})["hits"]["hits"]
             assert [h["_source"]["payload"] for h in hits] == [plain(e.payload) for e in group], source_id
             assert [h["_source"]["received_at"] for h in hits] == [datetime.fromtimestamp(e.received_at, UTC).isoformat() for e in group]
+
+    async def test_a_stopped_run_has_stored_every_event_it_reported(self, port: int) -> None:
+        sink = OpenSearchEventSink([("127.0.0.1", port)], SystemClock(), "opensearch", True, False, "admin", db.PASSWORD)
+        report = await consume_until_stopped(sink)
+        client = opensearch_client(port)
+        index = f"stream_consumers-{STOP_PROBE}"
+        client.indices.refresh(index=index)
+        hits = client.search(index=index, body={"size": 1000})["hits"]["hits"]
+        assert sorted(h["_source"]["payload"]["n"] for h in hits) == list(range(1, report.events + 1))
 
     async def test_refused_documents_an_invalid_index_and_a_wrong_password(self, port: int) -> None:
         client = opensearch_client(port)

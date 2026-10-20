@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.scripts]
-stream-consumers = "stream_consumers.adapters.inbound.cli:main"
+stream-consumers = "stream_consumers.adapters.inbound.cli:run"
 
 [dependency-groups]
 dev = [

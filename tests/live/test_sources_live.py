@@ -24,7 +24,7 @@ from stream_consumers.application.check_service import CheckService
 from stream_consumers.application.consume_service import ConsumeService
 from stream_consumers.domain.models import RunReport, RunStatus
 from stream_consumers.ports.outbound.providers import SourceDependencies
-from tests.support import MemoryReports
+from tests.support import ManualStop, MemoryReports
 
 pytestmark = pytest.mark.live
 SECONDS = float(os.environ.get("LIVE_SECONDS", "60"))
@@ -38,7 +38,7 @@ async def results() -> Mapping[str, RunReport]:
     try:
         registry = FactoryRegistry(FACTORIES, deps)
         service = CheckService(ConsumeService(registry, clock), NullEventSink(), MemoryReports(), concurrency=len(FACTORIES))
-        reports = await service.check([f.descriptor.id for f in FACTORIES], SECONDS)
+        reports = await service.check([f.descriptor.id for f in FACTORIES], SECONDS, stop=ManualStop())
     finally:
         await http.close()
     return {r.source_id: r for r in reports}

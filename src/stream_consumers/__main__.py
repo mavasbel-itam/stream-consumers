@@ -1,3 +1,3 @@
-from stream_consumers.adapters.inbound.cli import main
+from stream_consumers.adapters.inbound.cli import run
 
-raise SystemExit(main())
+run()

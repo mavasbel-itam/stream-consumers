@@ -6,11 +6,13 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
+import threading
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 
 import nats
+import paho.mqtt.client as mqtt
 import pytest
 import zmq
 import zmq.asyncio
@@ -24,7 +26,8 @@ from stream_consumers.adapters.outbound.system.clock import SystemClock
 from stream_consumers.domain.errors import OutputError
 from stream_consumers.domain.models import Event
 from stream_consumers.ports.outbound.outputs import EventSinkPort
-from tests.servers import MqttBroker, kafka_broker, nats_server, tcp_server
+from tests.servers import MqttBroker, kafka_broker, mosquitto_broker, nats_server, tcp_server
+from tests.support import STOP_PROBE, consume_until_stopped
 from tests.unit.test_outputs import real_events
 
 EVENTS = [*real_events("wikimedia")[:3], *real_events("coinbase")[:2]]
@@ -83,6 +86,19 @@ class TestKafka:
         assert read["stream_consumers.coinbase"] == [("coinbase", d) for d in expected(EVENTS[3:])]
         assert read["all_events"] == [(e.source_id, d) for e, d in zip(EVENTS, expected(EVENTS), strict=True)]
 
+    async def test_a_stopped_run_has_published_every_event_it_reported(self) -> None:
+        async with kafka_broker() as bootstrap:
+            report = await consume_until_stopped(KafkaEventSink([bootstrap], "stopped", SystemClock(), "kafka"))
+            consumer = AIOKafkaConsumer("stopped", bootstrap_servers=bootstrap, auto_offset_reset="earliest", group_id="t-stopped")
+            await consumer.start()
+            try:
+                records = []
+                while batch := await consumer.getmany(timeout_ms=3_000):
+                    records += [r for rs in batch.values() for r in rs]
+            finally:
+                await consumer.stop()
+        assert [document(r.value)["payload"]["n"] for r in records] == list(range(1, report.events + 1))
+
     async def test_an_unreachable_broker_is_an_output_error(self) -> None:
         sink = KafkaEventSink([f"127.0.0.1:{free_port()}"], "t", SystemClock(), "kafka://here")
         with pytest.raises(OutputError, match=r"^output kafka://here failed: KafkaConnectionError"):
@@ -116,6 +132,28 @@ class TestMqtt:
                 received.append((delivered.topic, document(bytes(delivered.data))))
             await reader.disconnect()
         assert received == [(f"stream_consumers/{e.source_id}", d) for e, d in zip(EVENTS, expected(EVENTS), strict=True)]
+
+    async def test_a_stopped_run_has_published_every_event_it_reported(self) -> None:
+        async with mosquitto_broker() as port:  # amqtt forwards only part of a burst (tests/servers.py)
+            received: list[bytes] = []
+            subscribed = threading.Event()
+            reader = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+            reader.on_message = lambda client, userdata, msg: received.append(msg.payload)
+            reader.on_subscribe = lambda *args: subscribed.set()
+            reader.connect("127.0.0.1", port)
+            reader.loop_start()
+            try:
+                reader.subscribe("stopped", qos=1)
+                assert await asyncio.to_thread(subscribed.wait, 10)
+                report = await consume_until_stopped(MqttEventSink("127.0.0.1", port, "stopped", SystemClock(), "mqtt"))
+                deadline = asyncio.get_running_loop().time() + 10
+                while len(received) < report.events and asyncio.get_running_loop().time() < deadline:
+                    await asyncio.sleep(0.05)
+                await asyncio.sleep(1)  # nothing more than reported arrives
+            finally:
+                reader.disconnect()
+                reader.loop_stop()
+        assert [document(m)["payload"]["n"] for m in received] == list(range(1, report.events + 1))
 
     async def test_a_refused_connection(self) -> None:
         refusing = MqttBroker(connack_code=5)  # 5 = not authorised
@@ -173,6 +211,18 @@ class TestNats:
                 await NatsEventSink([f"nats://{address}"], "t", SystemClock(), "nats://here", "ana", "wrong").open()
         assert received == [(f"stream_consumers.{e.source_id}", d) for e, d in zip(EVENTS, expected(EVENTS), strict=True)]
 
+    async def test_a_stopped_run_has_published_every_event_it_reported(self) -> None:
+        async with nats_server() as address:
+            reader = await nats.connect(f"nats://{address}")
+            subscription = await reader.subscribe("stopped")
+            await reader.flush()
+            report = await consume_until_stopped(NatsEventSink([f"nats://{address}"], "stopped", SystemClock(), "nats"))
+            received = [document((await subscription.next_msg(timeout=10)).data) for _ in range(report.events)]
+            with pytest.raises(nats.errors.TimeoutError):
+                await subscription.next_msg(timeout=1)
+            await reader.close()
+        assert [d["payload"]["n"] for d in received] == list(range(1, report.events + 1))
+
     async def test_no_server_is_an_output_error_quickly(self) -> None:
         sink = NatsEventSink([f"nats://127.0.0.1:{free_port()}"], "t", SystemClock(), "nats://here")
         with pytest.raises(OutputError, match=r"^output nats://here failed: NoServersError"):
@@ -199,6 +249,28 @@ class TestZeroMq:
             subscriber.close(0)
             context.term()
         assert [(s.decode(), document(d)) for s, d in received] == [(e.source_id, d) for e, d in zip(EVENTS, expected(EVENTS), strict=True)]
+
+    async def test_a_stopped_run_has_sent_every_event_it_reported_to_a_connected_subscriber(self) -> None:
+        port = free_port()
+        context = zmq.asyncio.Context()
+        subscriber = context.socket(zmq.SUB)
+        subscriber.connect(f"tcp://127.0.0.1:{port}")
+        subscriber.setsockopt(zmq.SUBSCRIBE, STOP_PROBE.encode())
+        try:
+
+            class SubscribedFirst(ZeroMqEventSink):
+                async def open(self) -> None:
+                    await super().open()
+                    await asyncio.sleep(0.5)  # the subscription reaches the PUB socket before the first event
+
+            report = await consume_until_stopped(SubscribedFirst(f"tcp://127.0.0.1:{port}", "zmq"))
+            received = [document((await asyncio.wait_for(subscriber.recv_multipart(), 10))[1]) for _ in range(report.events)]
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(subscriber.recv_multipart(), 1)
+        finally:
+            subscriber.close(0)
+            context.term()
+        assert [d["payload"]["n"] for d in received] == list(range(1, report.events + 1))
 
     async def test_an_address_in_use_and_a_closed_socket(self) -> None:
         port = free_port()

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 from stream_consumers.domain.errors import MissingCredentialError, UnknownSourceError
 from stream_consumers.domain.models import Event, RateBasis, RunReport, RunStatus
 from stream_consumers.domain.policy import PersonalDataMasker, attribute_count, median, rate
-from stream_consumers.ports.inbound import ConsumeStreamUseCase
+from stream_consumers.ports.inbound import ConsumeStreamUseCase, StopRequestPort
 from stream_consumers.ports.outbound.outputs import EventSinkPort
 from stream_consumers.ports.outbound.providers import SourceRegistryPort
 from stream_consumers.ports.outbound.system import ClockPort
@@ -28,6 +29,8 @@ class ConsumeService(ConsumeStreamUseCase):
         sink: EventSinkPort,
         max_events: int | None = None,
         mask: bool = True,
+        *,
+        stop: StopRequestPort,
     ) -> RunReport:
         if seconds <= 0:
             raise ValueError("seconds must be positive")
@@ -52,14 +55,22 @@ class ConsumeService(ConsumeStreamUseCase):
         first: float | None = None
         detail = ""
         failed = False
+        reason: str | None = None
         iterator = source.events()
+        waiting: list[asyncio.Timeout] = []  # the wait for the next event, while one is in progress
+        watcher = asyncio.create_task(self._end_waits_on_stop(stop, waiting))
         try:
             while max_events is None or events < max_events:
                 remaining = start + seconds - self._clock.monotonic()
-                if remaining <= 0:
+                if remaining <= 0 or stop.reason() is not None:
                     break
                 try:
-                    payload = await asyncio.wait_for(anext(iterator), remaining)
+                    async with asyncio.timeout(remaining) as scope:
+                        waiting.append(scope)
+                        try:
+                            payload = await anext(iterator)
+                        finally:
+                            waiting.remove(scope)
                 except (TimeoutError, StopAsyncIteration):
                     break
                 except Exception as exc:  # a provider failure is a measured result, never a crash
@@ -77,9 +88,14 @@ class ConsumeService(ConsumeStreamUseCase):
                 # A source whose next record is always ready never suspends; without this turn it would hold
                 # the event loop for its whole window and the sources consumed beside it would get nothing.
                 await asyncio.sleep(0)
+            cut = (max_events is None or events < max_events) and self._clock.monotonic() < start + seconds
+            reason = stop.reason() if cut and not failed else None
         finally:
+            watcher.cancel()
             await iterator.aclose()
         elapsed = round(self._clock.monotonic() - start, 3)
+        if reason is not None:
+            detail = f"stopped by {reason} after {elapsed:g} of {seconds:g} s"
         volume = source.published_volume()
         if volume is not None:
             value = rate(volume.events, volume.period_s)
@@ -91,3 +107,12 @@ class ConsumeService(ConsumeStreamUseCase):
         else:
             status = RunStatus.OK if events else RunStatus.NO_EVENTS
         return RunReport(source_id, status, events, elapsed, value, basis, median(counts), first, started_at, detail)
+
+    @staticmethod
+    async def _end_waits_on_stop(stop: StopRequestPort, waiting: list[asyncio.Timeout]) -> None:
+        """Expire the wait in progress as soon as a stop is requested, so a stop ends the window as its end would."""
+        await stop.wait()
+        now = asyncio.get_running_loop().time()
+        for scope in waiting:
+            with contextlib.suppress(RuntimeError):  # a window that already ran out cannot be moved, and is ending anyway
+                scope.reschedule(now)

@@ -206,6 +206,23 @@ class TestSinks:
         await sink.close()
         assert json.loads(stream.getvalue())[0]["payload"] == {"a": "ñ", "b": {"c": 1}} and not stream.closed
 
+    @pytest.mark.parametrize("flush_each", [True, False])
+    async def test_text_stream_sink_hands_each_event_on_at_once_only_when_asked(self, flush_each: bool) -> None:
+        class CountingStream(io.StringIO):
+            flushes = 0
+
+            def flush(self) -> None:
+                self.flushes += 1
+                super().flush()
+
+        stream = CountingStream()
+        sink = TextStreamEventSink(stream, JsonLinesFormat(), flush_each=flush_each)
+        await sink.write(EVENT)
+        await sink.write(EVENT)
+        assert stream.flushes == (2 if flush_each else 0)
+        await sink.close()
+        assert stream.flushes == (3 if flush_each else 1)
+
     async def test_text_file_sink_creates_directories_on_open_and_keeps_line_ends(self, tmp_path: Path) -> None:
         path = tmp_path / "x" / "s.csv"
         sink = TextFileEventSink(path, CsvFormat())

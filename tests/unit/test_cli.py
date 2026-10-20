@@ -8,14 +8,18 @@ import io
 import json
 import os
 import runpy
+import signal
 import socket
 import sqlite3
 import sys
+import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-from stream_consumers.adapters.inbound.cli import DEFAULT_CATALOG, SIGPIPE_EXIT, _parser, main
+from stream_consumers.adapters.inbound import cli as cli_module
+from stream_consumers.adapters.inbound.cli import DEFAULT_CATALOG, SIGPIPE_EXIT, _parser, _quiet_keyboard_interrupt, main
 from tests.support import FakeSecrets
 
 CATALOG = ["--catalog", "tests.catalog_scripted"]
@@ -255,6 +259,106 @@ def test_profile_writes_masked_events_and_field_statistics(tmp_path: Path) -> No
     (report,) = tmp_path.glob("profiles-*.json")
     fields = {f["name"]: f for f in json.loads(report.read_text())[0]["fields"]}
     assert fields["user"]["distinct"] == 2 and fields["user"]["example"] == "<masked>"
+
+
+def run_signalled(sig: signal.Signals, after: float, *argv: str) -> tuple[int, str, str]:
+    """`run`, with `sig` sent to this process `after` seconds in (every run below would otherwise last 30 s or more)."""
+    timer = threading.Timer(after, os.kill, (os.getpid(), sig))
+    timer.start()
+    try:
+        return run(*argv)
+    finally:
+        timer.join()
+
+
+@pytest.fixture
+def terminal_signals() -> Iterator[None]:
+    """The SIGINT handler a program started from a terminal has, whatever the test run inherited (a run
+    started with `&` or `nohup` from a script has SIGINT ignored, and the CLI rightly keeps it ignored)."""
+    saved = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    yield
+    for sig, handler in saved.items():  # a stopped run leaves its handler in place until the process ends
+        signal.signal(sig, handler)
+
+
+@pytest.mark.usefixtures("terminal_signals")
+class TestStop:
+    def test_consume_stopped_by_ctrl_c_writes_its_report_and_exits_130(self, tmp_path: Path) -> None:
+        code, out, err = run_signalled(
+            signal.SIGINT, 0.3, "consume", "alpha", "--seconds", "30", "--out", str(tmp_path / "a.json"), "--format", "json"
+        )
+        notice, line = err.splitlines()
+        assert code == 130 and out == "" and notice.startswith("stopping (SIGINT): ending the run")
+        report = json.loads(line)
+        assert report["events"] == 2 and report["detail"].startswith("stopped by SIGINT after ") and report["detail"].endswith(" of 30 s")
+        assert len(json.loads((tmp_path / "a.json").read_text(encoding="utf-8"))) == 2  # the array was closed
+
+    def test_check_stopped_by_sigterm_reports_the_sources_it_started_and_exits_143(self, tmp_path: Path) -> None:
+        argv = ("check", "alpha", "quiet", "--seconds", "30", "--concurrency", "1", "--reports", str(tmp_path))
+        code, out, err = run_signalled(signal.SIGTERM, 0.3, *argv)
+        assert code == 143 and err.splitlines()[1] == "stopped by SIGTERM: 1 of 2 sources not started"
+        assert out.splitlines()[-1] == "1 sources, 1 delivered or key pending, 0 failed" and "stopped by SIGTERM after" in out
+        (report,) = tmp_path.glob("check-*.json")
+        assert [r["source_id"] for r in json.loads(report.read_text())] == ["alpha"]
+
+    def test_sample_stopped_keeps_the_finished_rounds_and_says_how_to_resume(self, tmp_path: Path) -> None:
+        argv = ("sample", "alpha", "--rounds", "3", "--interval", "30", "--window", "0.1", "--reports", str(tmp_path))
+        code, out, err = run_signalled(signal.SIGINT, 0.5, *argv)
+        assert code == 130 and [p.name[:8] for p in tmp_path.glob("round-*.json")] == ["round-01"]
+        assert err.splitlines()[1] == (
+            f"stopped by SIGINT: 1 of 3 rounds recorded; a round cut short is not recorded; resume with --continue-from {tmp_path}"
+        )
+        assert "rounds=  1/3" in out
+
+    def test_profile_stopped_keeps_the_sample_of_the_source_it_read(self, tmp_path: Path) -> None:
+        argv = (
+            "profile",
+            "alpha",
+            "quiet",
+            "--seconds",
+            "30",
+            "--concurrency",
+            "1",
+            "--out",
+            str(tmp_path / "p"),
+            "--reports",
+            str(tmp_path),
+        )
+        code, _, err = run_signalled(signal.SIGINT, 0.3, *argv)
+        assert code == 130 and err.splitlines()[1] == "stopped by SIGINT: 1 of 2 sources not started"
+        assert [p.name for p in (tmp_path / "p").iterdir()] == ["alpha.jsonl"] and len(list(tmp_path.glob("profiles-*.json"))) == 1
+
+    def test_ctrl_c_outside_a_run_exits_130_without_a_traceback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def interrupted(*args: object) -> int:
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(cli_module, "_main", interrupted)
+        err = io.StringIO()
+        assert main(["list"], io.StringIO(), err) == 130 and err.getvalue() == "stopped (SIGINT)\n"
+
+    @pytest.mark.parametrize(("code", "ignored"), [(143, True), (0, False), (1, False)])
+    def test_the_console_entry_point_exits_with_the_status_of_main(self, monkeypatch: pytest.MonkeyPatch, code: int, ignored: bool) -> None:
+        monkeypatch.setattr(cli_module, "main", lambda: code)
+        with pytest.raises(SystemExit) as ended:
+            cli_module.run()
+        assert ended.value.code == code
+        # after a stop, a repeat of it must not cut the interpreter's last steps
+        assert (signal.getsignal(signal.SIGTERM) is signal.SIG_IGN) is ignored
+
+    def test_after_ctrl_c_the_entry_point_ends_by_sigint_without_a_traceback(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(cli_module, "main", lambda: 130)
+        monkeypatch.setattr(sys, "excepthook", sys.excepthook)  # put back after the test
+        with pytest.raises(KeyboardInterrupt):
+            cli_module.run()  # the interpreter then ends the process by SIGINT (tests/e2e checks the status)
+        assert sys.excepthook is _quiet_keyboard_interrupt
+        assert signal.getsignal(signal.SIGINT) is signal.SIG_IGN and signal.getsignal(signal.SIGTERM) is signal.SIG_IGN
+        _quiet_keyboard_interrupt(KeyboardInterrupt, KeyboardInterrupt(), None)
+        assert capsys.readouterr().err == ""
+        _quiet_keyboard_interrupt(ValueError, ValueError("other"), None)
+        assert capsys.readouterr().err.endswith("ValueError: other\n")
 
 
 def test_keys_shows_status_and_template_without_values(tmp_path: Path) -> None:

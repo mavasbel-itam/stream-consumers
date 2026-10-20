@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import gzip
 import json
 import socket
@@ -25,7 +26,7 @@ from stream_consumers.adapters.outbound.providers.transports.mqtt import MqttSou
 from stream_consumers.adapters.outbound.providers.transports.nats import NatsSource
 from stream_consumers.adapters.outbound.providers.transports.sse import SseSource
 from stream_consumers.adapters.outbound.providers.transports.tcp import TcpLineSource, TcpRecordSource
-from stream_consumers.adapters.outbound.providers.transports.websocket import WebSocketSource
+from stream_consumers.adapters.outbound.providers.transports.websocket import CLOSE_TIMEOUT_S, WebSocketSource
 from stream_consumers.adapters.outbound.providers.transports.zeromq import ZmqSubSource
 from stream_consumers.adapters.outbound.system.clock import SystemClock
 from stream_consumers.domain.errors import TransportError
@@ -108,6 +109,24 @@ class TestWebSocket:
             events = await take(source, 3)
         assert [e["line"] for e in events] == ["a", "b", "c"]
         assert received == ["t", "hello", '{"op": "sub"}', "PONG :tmi.twitch.tv", '{"op": "ping"}']
+
+    async def test_closing_while_the_server_still_streams_is_quick(self) -> None:
+        # The client stops reading the network once 16 unread frames are queued (websockets' max_queue), so
+        # the server's reply to the close is never read: the close lasts the close timeout (default 10 s).
+        async def handler(ws: websockets.ServerConnection) -> None:
+            with contextlib.suppress(websockets.ConnectionClosed):
+                while True:
+                    await ws.send('{"n": 1}')
+                    await asyncio.sleep(0.001)
+
+        async with ws_server(handler) as url:
+            events = WebSocketSource(D, JsonDecoder(), SystemClock(), url).events()
+            await anext(events)
+            await asyncio.sleep(0.5)  # the server fills the queue while nothing reads
+            started = asyncio.get_running_loop().time()
+            await events.aclose()
+            took = asyncio.get_running_loop().time() - started
+        assert took < CLOSE_TIMEOUT_S + 0.5
 
     async def test_reconnects_after_the_server_closes_then_gives_up(self) -> None:
         connections = 0

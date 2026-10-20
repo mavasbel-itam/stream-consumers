@@ -23,5 +23,17 @@ include =
     */stream_consumers/adapters/outbound/system/*
 
 [report]
+# Three paths run only where coverage cannot record them, so the unit tier gates them
+# (tests/unit/test_signals.py, tests/unit/test_cli.py::TestStop) and the e2e tier checks their effect
+# by the exit status: a signal after the first one is either a repeat of the same stop, absorbed in
+# a process that may already be past its last recorded step, or a second Ctrl+C or SIGTERM that ends
+# the process by the signal's default action (test_one_stop_delivered_twice_at_once_still_ends_the_run_cleanly,
+# test_a_second_signal_ends_a_run_stuck_in_writing_at_once); the quiet exception hook runs after
+# coverage has stopped, as the interpreter ends on KeyboardInterrupt (test_ctrl_c_on_a_terminal_...);
+# a Ctrl+C outside a run (`list`, `keys`, `verdict`) cannot be timed from outside the process.
+exclude_also =
+    if self\._signalled:
+    def _quiet_keyboard_interrupt
+    except KeyboardInterrupt:
 fail_under = 100
 show_missing = true

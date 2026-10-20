@@ -43,14 +43,23 @@ class NullEventSink(BaseEventSink):
 
 
 class TextStreamEventSink(BaseEventSink):
-    """Events in a text format on an already-open text stream (the caller owns the stream)."""
+    """Events in a text format on an already-open text stream (the caller owns the stream).
 
-    def __init__(self, stream: TextIO, event_format: EventFormatPort) -> None:
+    With `flush_each` every event is handed to the operating system as soon as it is written, so a program
+    reading standard output through a pipe (`| jq`, `| grep`) sees each event when it arrives instead of
+    once a buffer of several kilobytes has filled."""
+
+    _flush_each = False
+
+    def __init__(self, stream: TextIO, event_format: EventFormatPort, flush_each: bool = False) -> None:
         self._stream: TextIO = stream
         self._encoder = event_format.encoder()
+        self._flush_each = flush_each
 
     async def write(self, event: Event) -> None:
         self._stream.write(self._encoder.encode(event))
+        if self._flush_each:
+            self._stream.flush()
 
     async def close(self) -> None:
         self._stream.write(self._encoder.finish())
