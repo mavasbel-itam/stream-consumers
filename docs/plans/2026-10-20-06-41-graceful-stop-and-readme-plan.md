@@ -345,3 +345,123 @@ maximum 1.38 s.
   alone it read 1,000 events in 60 s and in each of two 30-s checks
   (17:00 UTC), its 16.4-MB first answer taking 5.2 s. The final live run (3.2)
   decides it.
+
+## 6. Addendum 2026-10-20: stage 2 (README) done
+
+### 6.1 Where every removed README passage went (plan 2.1)
+
+| Removed passage (old section) | Where the fact is now |
+|---|---|
+| "Private, instructor-only repository … do not share" (title) | README introduction, rewritten: the repository is public (found public on 2026-10-20; the owner decided to keep it public), with the secret check before every push |
+| decision-records pointer, uv requirement, contents list (title, Quick start) | README introduction, "Requirements", "Contents" |
+| inclusion rule and `round_rate` (Inclusion rule) | README "Measurements", first paragraph |
+| GDELT kept at 0.977 (2026-10-13) and 0.772 (24 rounds) | README "Measurements" (0.772, the decision) and its `gdelt` row; `docs/reference/…sub-threshold-sources.md` §3.3 (both values, added); research record `2026-10-13-18-54-…`, decision table and source sheet (0.977) |
+| free-key providers with a keyless route (MBTA V3, TfL, FIRMS) | README "Sources" (group C: `mbta_v3` and `tfl` take the key optionally, their Key column says `optional`; `firms` reads keyless public files) and "API keys" ("NASA FIRMS needs no key"); API-key page, Table 1 rows 12 and 14 |
+| candidates (group D) and the 7 accepted on 2026-10-19 | README "Sources" (definition of D); API-key page, Table 1 ("Accepted 2026-10-19" in each row) |
+| ENTSO-E token and 0.010 events/s | README "Measurements" `entsoe` row; sub-threshold page §2.3 |
+| streams excluded below 1 event/s (Nostr … zKillboard) | sub-threshold page §3.1 |
+| Lasair, Fink, Bitstamp, npm, Digitraffic trains, GFW, ndbc evidence (removals list and "Sources Below 1 Event/s" table) | README "Measurements" rows (measurement and one-line reason); sub-threshold page §2.1–§2.8 |
+| Bytewax additions and AirNow, Yahoo Finance, GitHub REST not added | README "Sources" (the six sources are in it); sub-threshold page §3.2 (AirNow); research record `2026-10-19-02-46-…` (Yahoo Finance, GitHub REST events) |
+| Vélib' re-added on 2026-10-17 (0.983 → 4.4) | sub-threshold page §3.3 (added); research record `2026-10-13-18-54-…`, table at line 976 and the finding after it |
+| group E paragraph (kept, tested, run only when named) | README "Sources" (definition of E) and the group E recipe; AGENTS.md |
+| "Sources (65)" table and "Reference links" table | README "Sources": one 73-row table with the same documentation, terms and sign-up links, checked against the catalog |
+| "Sampling results" text and table | README "Measurements" (text kept; table extended to 73 rows) |
+| examples block (Running the consumers) | README "Recipes" (run on 2026-10-20) and "Options and defaults" |
+| configuration prose, settings name list, held-keys prose | README "Configuration": where values come from, API keys, Settings table (defaults), Held keys table; the Binance probe's trade/withdraw check is in the API-key page §13 |
+| "Branch protection is not available …" (Known behaviour) | research record `2026-10-13-18-54-…`, line 1941 (same statement) |
+| link check of 2026-10-19 23:18 UTC and the earlier ones | README "Decision records", link check paragraph (new check, earlier results summarised) |
+
+Inconsistency found in a historical record (not rewritten): the research
+record `2026-10-13-18-54-…` gives Vélib's 15-round median as 4.396 events/s in
+its table (line 976) and as "3.3" in a later summary line (1733); the README
+and the sub-threshold page use the table's value.
+
+### 6.2 Repository found public, and the audit
+
+The link check found `github.com/mavasbel-itam/stream-consumers` answering
+HTTP 200 without signing in; the API answered `private: false`,
+`visibility: public` (2026-10-20 ~17:06 UTC). The README's link check of
+2026-10-19 23:18 UTC had recorded 404. The organisation audit log is not
+available (HTTP 404) and the events API lists one `PublicEvent`, at
+2026-10-13 06:34:58 UTC, so when the visibility changed is not established.
+The owner decided to keep the repository public. Audit of everything published
+and everything local (`/tmp/opencode/audit/audit.py`, then made permanent as
+`tests/live/test_secrets_live.py`):
+
+- every object git holds: 671 blobs, 315 trees, 36 commits, 34 unreachable
+  objects, all refs and reflogs, plus the pull request ref `refs/pull/1/head`
+  fetched from GitHub; GitHub's activity log shows only fast-forward pushes, and
+  every commit it lists is in local `main`;
+- GitHub: 1 branch, 0 tags, 0 releases, 1 pull request (body, comments,
+  reviews, commits), 0 Actions secrets or variables, 0 deployments, no wiki or
+  Pages, 20 Actions runs (all logs downloaded) and 2 artifacts (downloaded);
+- result: none of the 41 secret values of `.env` (every credential, held key
+  and the output password that has a value), nor any 12-character piece of one,
+  in any of them; no private key, AWS, GitHub, Slack, Google or Stripe token,
+  or JSON Web Token; the credential-like assignments are code, empty template
+  entries and the fixed password of the disposable test containers on
+  127.0.0.1;
+- personal data: the owner's institutional e-mail address in two lines of
+  `docs/research/2026-10-12-22-41-…` (masked as `<masked>` with an addendum;
+  the earlier commits still hold it), and the owner's personal e-mail address
+  as the author and committer of every commit. Removing them from published history
+  would need a history rewrite and a forced push, which only the owner can
+  decide.
+
+### 6.3 Found by the sampling recipe and fixed test-first (commit 2)
+
+The recipe's second segment (`--reports data/reports/sampling-20261020/segment-2
+--continue-from data/reports/sampling-20261020`), stopped with `kill`, advised
+`resume with --continue-from data/reports/sampling-20261020/segment-2`: that
+directory holds only the second segment's rounds, so resuming from it would
+have dropped round 1 (`--continue-from` reads `round-*.json` recursively). The
+message now names the directory that holds every round: the reports directory
+of a first segment, the `--continue-from` directory when the new reports are
+inside it, and otherwise it says the rounds are in two places and must be put
+under one directory. Tests: a unit test for both cases, and the e2e sampling
+test now continues once inside and once outside the first segment.
+
+### 6.4 Final live run and measurements on the final code (3.2, 1.16)
+
+| Run (2026-10-20, UTC) | Code | Result |
+|---|---|---|
+| `check` of the 65 active sources, 17:53:53–18:11:54 | `8dd4e60` (the final code differs only in `sample`'s resume message) | 64 delivered or key pending; `eth_logs` no events in its 30-s window, then 3,534 events in a 60-s `consume` at 18:14 (provider behaviour already in "Known behaviour") |
+| live source test, 73 sources, 18:48–19:04 | final | 73 passed |
+| live key suite and `keys`, 18:29–18:31 | final | 35 passed, 2 skipped (Fink, Lasair: no credentials); `keys` exit 0 |
+| secret check (`test_secrets_live.py`) | final | 3 passed |
+| all 65 active sources stopped with SIGTERM at once after 8 s, 19:05 | final | 65 of 65 exit 143 with their report; 0.31–1.46 s, median 1.01 s |
+
+The 1.2 table on the final code (finished 19:06 UTC):
+
+|---|---|---|---|---|
+| `consume wikimedia --seconds 30 --out file.jsonl` | Ctrl+C at 5 s | 0.11 s | 130 | no traceback; run report `stopped by SIGINT after 4.563 of 30 s`, events=146; 146 lines in the file |
+| `consume coinbase --format json --out file.json` | Ctrl+C at 4 s | 0.23 s | 130 | no traceback; report events=34; array closed, parses: 34 objects |
+| `consume coinbase --out sqlite:…` | Ctrl+C at 4 s | 0.27 s | 130 | no traceback; report events=31; 31 rows |
+| `check wikimedia coinbase bitso --seconds 30` | Ctrl+C at 8 s | 1.14 s | 130 | no traceback; summary `3 sources, 3 delivered or key pending, 0 failed`; `check-*.json` with 3 sources |
+| `profile coinbase --seconds 30` | Ctrl+C at 8 s | 0.33 s | 130 | no traceback; sample file 38 lines; `profiles-*.json` written (38 events inspected) |
+| `sample … --rounds 3 --interval 20 --window 5` | Ctrl+C at 8 s | 0.13 s | 130 | no traceback; ['round-01'] kept; `stopped by SIGINT: 1 of 3 rounds recorded; a round cut short is not recorded; resume with --continue-from <dir>` |
+| `uv run stream-consumers consume wikimedia` | Ctrl+C at 6 s | 0.16 s | 130 | no traceback; run report present, events=186 |
+| `consume wikimedia`, 3 presses 1 s apart | Ctrl+C ×3 | 0.13 s | 130 | no traceback; ended after the first press (report events=122); the later presses found no process |
+| `consume coinbase --format json --out file.json` | `kill -TERM` at 4 s | 0.23 s | 143 | no traceback; array closed, parses: 12 objects = report events 12 |
+| `consume coinbase --out sqlite:…` | `kill -TERM` at 4 s | 0.23 s | 143 | no traceback; 15 rows = report events 15; the waiting batch was written |
+| `consume coinbase --format csv --out file.csv` | `kill -TERM` at 4 s | 0.24 s | 143 | no traceback; 75 rows = report events 75; every row [20] columns |
+| `consume …` started with `&` from a non-interactive shell | `kill -INT`, then `kill -TERM` | 0.12 s after TERM | 143 | SIGINT ignored (still running 2 s later: True); SIGTERM: report `stopped by SIGTERM after 5.615 of 30 s`; no traceback |
+
+
+The README recipes were run between 17:21 and 18:46 UTC from the main
+checkout's root with `UV_PROJECT` pointing at this work's checkout, so each
+command ran exactly as written, with the main checkout's `.env`, on the code of
+this work; the sampling recipe was run again from 18:14 on the final code after
+the resume-message fix (6.3). The output examples of "Outputs" are kept from
+their runs of 2026-10-20 00:53–02:05 UTC: the output adapters did not change
+since, except that standard output is now handed on per event.
+
+### 6.5 Guards (2.3) shown failing on broken copies
+
+`tests/unit/test_documentation.py` has 18 tests. Each of 15 broken copies of the
+README was caught by the guard written for it: a setting's default changed; a
+setting row, a held-key row, a test variable or a measurement row removed; a
+source listed twice, with the wrong group, or with a changed terms link; an old
+group name; a broken `#anchor`; a `docs/` page not linked; the stop
+announcement reworded in the prose; the `uv run … || break` advice removed;
+exit code 141 removed; the `unknown` key state removed.

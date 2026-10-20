@@ -871,21 +871,26 @@ async def test_check_and_profile_stopped_report_the_sources_they_started(tmp_pat
 
 
 async def test_sample_stopped_keeps_its_finished_rounds_and_resumes_from_them(tmp_path: Path) -> None:
-    first, second = tmp_path / "segment-1", tmp_path / "segment-2"
+    first = tmp_path / "sampling"
+    second, elsewhere = first / "segment-2", tmp_path / "elsewhere"  # a continuation inside the first, and one outside
     async with environment() as addresses:
         process = await spawn(addresses, "sample", "ws_ok", "--rounds", "3", "--interval", "120", "--window", "1", "--reports", str(first))
         await until(lambda: any(first.glob("round-01-*.json")))  # round 1 done: now waiting for round 2
         code, out, err, took = await stop_and_finish(process, signal.SIGINT)
         assert code == -signal.SIGINT and took < STOP_WITHIN_S and "rounds=  1/3" in out
         assert f"stopped by SIGINT: 1 of 3 rounds recorded; a round cut short is not recorded; resume with --continue-from {first}" in err
-        async with watched_silent_server(addresses) as connected:
-            argv = ("tcp_silent", "--rounds", "3", "--interval", "120", "--window", "60", "--reports", str(second))
-            process = await spawn(addresses, "sample", *argv, "--continue-from", str(first))
-            await asyncio.wait_for(connected.wait(), 60)  # round 2 is reading
-            code, _, err, took = await stop_and_finish(process, signal.SIGTERM)
-        assert code == 143 and took < STOP_WITHIN_S and "1 of 3 rounds recorded" in err
-        assert not list(second.glob("round-*.json"))  # the round cut short was not written
-        code, out, _ = await cli(addresses, "verdict", str(tmp_path), "--planned", "3")
+        for reports, advice in (
+            (second, f"resume with --continue-from {first}"),
+            (elsewhere, f"the rounds are in {first} and {elsewhere}: move them under one directory"),
+        ):
+            async with watched_silent_server(addresses) as connected:
+                argv = ("tcp_silent", "--rounds", "3", "--interval", "120", "--window", "60", "--reports", str(reports))
+                process = await spawn(addresses, "sample", *argv, "--continue-from", str(first))
+                await asyncio.wait_for(connected.wait(), 60)  # round 2 is reading
+                code, _, err, took = await stop_and_finish(process, signal.SIGTERM)
+            assert code == 143 and took < STOP_WITHIN_S and f"1 of 3 rounds recorded; a round cut short is not recorded; {advice}" in err
+            assert not list(reports.glob("round-*.json"))  # the round cut short was not written
+        code, out, _ = await cli(addresses, "verdict", str(first), "--planned", "3")
         assert code == 0 and "rounds=  1/3" in out
 
 

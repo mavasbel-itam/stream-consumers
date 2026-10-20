@@ -338,6 +338,18 @@ def _event_sink(destination: str, format_name: str | None, out: TextIO, clock: C
     return TextFileEventSink(Path(target.location), event_format)
 
 
+def _how_to_resume(reports: Path, continue_from: Path | None) -> str:
+    """`--continue-from` reads every round under one directory: the reports directory, or the one it continued
+    from when the new reports were written inside it."""
+    if continue_from is None:
+        return f"resume with --continue-from {reports}"
+    if reports.resolve().is_relative_to(continue_from.resolve()):
+        return f"resume with --continue-from {continue_from}"
+    return (
+        f"the rounds are in {continue_from} and {reports}: move them under one directory and resume with --continue-from <that directory>"
+    )
+
+
 def _not_started(stop: StopRequestPort, started: int, planned: int, err: TextIO) -> None:
     reason = stop.reason()
     if reason is not None:
@@ -383,10 +395,8 @@ async def _run(
         rounds = [*prior, *await sampler.sample(ids, args.rounds, args.interval, args.window, prior, args.stop_when_settled, stop=stop)]
         reason = stop.reason()
         if reason is not None:
-            err.write(
-                f"stopped by {reason}: {len(rounds)} of {args.rounds} rounds recorded; a round cut short is not recorded; "
-                f"resume with --continue-from {args.reports}\n"
-            )
+            err.write(f"stopped by {reason}: {len(rounds)} of {args.rounds} rounds recorded; a round cut short is not recorded; ")
+            err.write(_how_to_resume(args.reports, args.continue_from) + "\n")
         latest = {r.source_id: r for sampling_round in rounds for r in sampling_round.reports}
         code = _summary([latest[s] for s in ids if s in latest], out)
         _verdicts(VerdictService().verdicts(rounds, args.rounds, ids), out)
