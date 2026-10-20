@@ -363,7 +363,7 @@ or `grep -m` cause) when the program reading its output closes the pipe early.
 | `keys` | `--template` | off | Print the `.env` template instead of the status |
 | `consume` | `--seconds` | 60 | Reading time, extended to the source's minimum window |
 | `consume` | `--max-events` | no limit | Stop after this many events |
-| `consume` | `--out` | `-` (standard output) | Where events go: `-`, a file path, or a destination: `sqlite:`, `kafka://`, `mqtt://`, `nats://`, `zmq+tcp://` ([Outputs](#outputs)) |
+| `consume` | `--out` | `-` (standard output) | Where events go: `-`, a file path, or a destination: `sqlite:`, `kafka://`, `mqtt://`, `nats://`, `zmq+tcp://`, `mongodb://`, `cassandra://`, `redis://`, `redis+cluster://`, `neo4j://`, `bolt://`, `opensearch://` ([Outputs](#outputs)) |
 | `consume` | `--format` | `jsonl` | Text format for standard output and files: `jsonl`, `csv`, `tsv`, `json`, `pretty`; not accepted with a database destination |
 | `consume` | `--raw` | off | Do not mask personal fields |
 | `check` | `--seconds` | 30 | Reading time per source, extended to its minimum window |
@@ -501,18 +501,28 @@ coinbase,1792457636.1208763,ticker,104123319944,ETH-USD,2394.89,2411.12,80994.31
 | `mqtt://[user[:password]@]host[:port][/<topic>]` | An MQTT topic, default `stream_consumers/{source}`, port 1883 ([below](#mqtt)) |
 | `nats://[user[:password]@]host[:port][,host[:port]…][/<subject>]` | A NATS subject, default `stream_consumers.{source}`, port 4222 ([below](#nats)) |
 | `zmq+tcp://<interface>:<port>` | A ZeroMQ PUB socket bound on that address, e.g. `zmq+tcp://*:5556` ([below](#zeromq)) |
+| `mongodb://…` (any MongoDB connection string) | Collection `<source>` in the database of the URI path, default `stream_consumers` ([below](#mongodb)) |
+| `cassandra://[user[:password]@]host[:port][,host[:port]…][/<keyspace>]` | Table `<source>` in the keyspace, default `stream_consumers`, port 9042 ([below](#cassandra)) |
+| `redis://[[user]:password@]host[:port][/<db>]` | Stream `stream_consumers:<source>` on one server, port 6379, database 0 ([below](#redis)) |
+| `redis+cluster://[[user]:password@]host[:port][,host[:port]…]` | The same streams in a Redis cluster ([below](#redis)) |
+| `bolt://[user[:password]@]host[:port][/<database>]` | Nodes `StreamSource` and `StreamEvent` on one Neo4j server, port 7687, the server's default database ([below](#neo4j)) |
+| `neo4j://[user[:password]@]host[:port][/<database>]` | The same with Neo4j's routing (clusters) ([below](#neo4j)) |
+| `opensearch://[user[:password]@]host[:port][,host[:port]…][?tls=1&verify=0]` | Index `stream_consumers-<source>`, port 9200 ([below](#opensearch)) |
 
 `{source}` in a topic or subject is replaced by the source id. A destination
 whose scheme is not one of these (`something://…`) is refused with exit code 2
 instead of being taken for a file name, and so is anything a destination does
 not use (a user for Kafka or ZeroMQ, several hosts for MQTT or ZeroMQ, any
-`?option`). The run report shows a password as `***`; a password given in
-`--out` is visible to other users of the machine in its process list, so use
-it only for local and lab servers.
+`?option` other than OpenSearch's `tls` and `verify` and MongoDB's own
+connection-string options). The run report shows a password as `***`. A
+password given in `--out` is visible to other users of the machine in its
+process list: write the user without a password (`cassandra://cassandra@…`)
+and put the password in `STREAM_CONSUMERS_OUTPUT_PASSWORD` (environment or
+`.env`, listed by `keys`) instead; a password in the URI wins.
 
-Brokers and databases receive the event document `{"source", "received_at",
-"payload"}` as compact UTF-8 JSON (one JSON-lines line without its line
-break). They are written in batches: every 500 events, when the oldest waiting
+Brokers receive the event document `{"source", "received_at", "payload"}` as
+compact UTF-8 JSON (one JSON-lines line without its line break); databases
+store it as described for each. Both are written in batches: every 500 events, when the oldest waiting
 event has waited 1 s, and when the run ends (`BatchingEventSink`); ZeroMQ sends
 each event at once. An output that cannot be opened or written ends the run
 with `error: output <destination> failed: <reason>` and exit code 1; it is
@@ -580,6 +590,110 @@ publish/subscribe delivers only to subscribers already connected: events sent
 before a subscriber connects, or while none is, are dropped by design. When the
 run ends the socket stays up to 1 s to deliver what is queued.
 
+#### Course databases
+
+Every database keeps each source apart under the name `stream_consumers`, so
+nothing else in a shared lab database is touched. The adapters
+(`outputs/databases.py`) use the client libraries and versions labs-setup
+locks (`pymongo` 4.17.0, `cassandra-driver` 3.30.1, `redis` 8.1.0, `neo4j`
+6.2.0, `opensearch-py` 3.0.0) and are tested against the images labs-setup
+runs (`tests/databases.py`). The examples below are `consume coinbase
+--max-events 3 --out <uri>` runs on 2026-10-20 at 02:05 UTC against those
+images, each read back with the database's own client (values cut here).
+
+#### MongoDB
+
+The URI is handed to pymongo as written, so replica sets, `directConnection`
+and `authSource` work as in any MongoDB client; an unknown option is refused.
+Each source is a collection in the database of the URI path (default
+`stream_consumers`); MongoDB also authenticates against that database unless
+`authSource` says otherwise (the labs' root user is in `admin`). A document is
+`{received_at, payload}`: `received_at` a BSON date (millisecond precision)
+and `payload` the event as a native document. JSON allows integers of any
+size and BSON at most 64 bits, so a larger integer is stored as its decimal
+text (`storable`); none of the 713 captured payloads nor 55,267 events read
+from 55 sources on 2026-10-20 between 01:32 and 01:34 UTC held one.
+
+```text
+$ stream-consumers consume coinbase --max-events 3 --out "mongodb://ana@127.0.0.1:<port>/?authSource=admin"   (password from STREAM_CONSUMERS_OUTPUT_PASSWORD)
+db.coinbase.find() → 2026-10-20T02:05:13.486Z {product_id: 'BTC-USD', price: '81473.59', …}
+                     2026-10-20T02:05:13.488Z {product_id: 'ETH-USD', price: '2387.39', …}
+                     2026-10-20T02:05:13.489Z {product_id: 'DOGE-USD', price: '0.07895', …}
+```
+
+#### Cassandra
+
+Table `<source>` in the keyspace: `day date, received_at timestamp, id uuid,
+payload text` with primary key `((day), received_at, id)`, one partition per
+source and UTC day; `received_at` has millisecond precision and the random
+`id` keeps events of the same millisecond apart; `payload` is JSON text. A
+missing keyspace is created with `NetworkTopologyStrategy`, in every
+datacenter the cluster reports a replication factor of its node count, at
+most 3. Every node the driver discovers is reached at the host given in the
+URI for its native port, the mapping the labs use for their published ports
+(`PortMappedEndPointFactory`). The driver logs protocol-version negotiation
+warnings to standard error.
+
+```text
+$ stream-consumers consume coinbase --max-events 3 --out "cassandra://cassandra:cassandra@127.0.0.1:<port>"
+SELECT day, received_at, id, payload FROM stream_consumers."coinbase"
+2026-10-20 | 2026-10-20 02:05:14.738 | e002d55d-… | {"type":"ticker","sequence":104125952656,"product_id":"ETH-USD","price":"2387.39",…
+2026-10-20 | 2026-10-20 02:05:14.739 | 8449a575-… | {"type":"ticker","sequence":24472960646,"product_id":"DOGE-USD","price":"0.07895",…
+2026-10-20 | 2026-10-20 02:05:14.740 | 66981baa-… | {"type":"ticker","sequence":138004980170,"product_id":"BTC-USD","price":"81477.76",…
+```
+
+#### Redis
+
+One stream per source, `stream_consumers:<source>`, one `XADD` per event with
+the fields `received_at` (Unix seconds as text) and `payload` (JSON text);
+read it with `XRANGE` or `XREAD`. Streams are not trimmed. `redis+cluster://`
+lists any of the cluster's nodes; every node address the cluster advertises is
+mapped to the host given in the URI for its port, as the labs do.
+
+```text
+$ stream-consumers consume coinbase --max-events 3 --out "redis://:<password>@127.0.0.1:<port>/0"
+XRANGE stream_consumers:coinbase - +
+1792461916246-0  received_at 1792461916.1605077  payload {"type":"ticker","sequence":24472961140,"product_id":"DOGE-USD",…
+1792461916246-1  received_at 1792461916.1668031  payload {"type":"ticker","sequence":33225438333,"product_id":"SOL-USD",…
+1792461916246-2  received_at 1792461916.1704757  payload {"type":"ticker","sequence":138004981752,"product_id":"BTC-USD",…
+```
+
+#### Neo4j
+
+`(:StreamSource {id})-[:EMITTED]->(:StreamEvent {received_at, payload})`,
+`received_at` a `DateTime` and `payload` JSON text, in the database of the URI
+path (default: the server's default database). The labels carry the project's
+name because Neo4j Community has a single user database shared with other
+data; a uniqueness constraint `stream_consumers_source_id` keeps one
+`StreamSource` per source. `neo4j://` uses routing, `bolt://` one server.
+
+```text
+$ stream-consumers consume coinbase --max-events 3 --out "bolt://neo4j:<password>@127.0.0.1:<port>"
+MATCH (s:StreamSource)-[:EMITTED]->(e:StreamEvent) RETURN s.id, e.received_at, e.payload ORDER BY e.received_at
+coinbase | 2026-10-20T02:05:18.791489000Z | {"type":"ticker","sequence":138004985901,"product_id":"BTC-USD",…
+coinbase | 2026-10-20T02:05:18.794228000Z | {"type":"ticker","sequence":33225438924,"product_id":"SOL-USD",…
+coinbase | 2026-10-20T02:05:18.801934000Z | {"type":"ticker","sequence":23055443324,"product_id":"XRP-USD",…
+```
+
+#### OpenSearch
+
+Index `stream_consumers-<source>` with the mapping `received_at: date`,
+`payload: flat_object`: OpenSearch stores the payload as a single field whose
+inner values are indexed as keywords, so a field whose type changes between
+events never gets a document refused (search it with dotted paths, e.g.
+`{"term": {"payload.product_id": "ETH-USD"}}`). `tls=1` connects over HTTPS;
+`verify=0` accepts a certificate that cannot be verified, which the labs need
+for OpenSearch's demonstration certificate. A document refused by OpenSearch
+ends the run with `OutputRefusedError` and the first reason.
+
+```text
+$ stream-consumers consume coinbase --max-events 3 --out "opensearch://admin:<password>@127.0.0.1:<port>?tls=1&verify=0"
+GET stream_consumers-coinbase/_search (sorted by received_at)
+2026-10-20T02:05:20.662544+00:00  XRP-USD  1.296
+2026-10-20T02:05:20.662628+00:00  ETH-USD  2387.76
+2026-10-20T02:05:20.662675+00:00  SOL-USD  104.35
+```
+
 ## API keys and configuration
 
 Credentials and settings are read from the process environment, then from a
@@ -638,6 +752,11 @@ Settings with defaults: `AISSTREAM_BOUNDING_BOXES`, `CROSSREF_MAILTO`,
 `LASAIR_GROUP_ID`, `LASAIR_KAFKA_SERVER`, `MASTODON_INSTANCE`,
 `OPENSKY_POLL_SECONDS` (each described, with its default, in `.env.example`). NASA FIRMS needs no key:
 it reads the public 24 h files.
+
+One variable belongs to the outputs rather than to a source:
+`STREAM_CONSUMERS_OUTPUT_PASSWORD`, the password of an `--out` destination
+whose URI names a user but no password ([Outputs](#destinations)); `keys` lists
+it as `--out`.
 
 Terms worth reading before use: OpenSky requires a written agreement for
 "operational" REST API use, including automated systems, even non-profit ones;
@@ -718,6 +837,7 @@ src/stream_consumers/
         sqlite.py      BatchingEventSink → SqliteEventSink
         brokers.py     BatchingEventSink → BrokerEventSink → Kafka / Mqtt / Nats EventSink;
                        BaseEventSink → ZeroMqEventSink
+        databases.py   BatchingEventSink → MongoDb / Cassandra / Redis / Neo4j / OpenSearch EventSink
         history.py     SamplingHistoryPort → JsonSamplingHistory (reads round-*.json for `verdict` and `--continue-from`)
       system/
         clock.py       ClockPort → SystemClock
@@ -744,12 +864,13 @@ another, and the provider ports and output ports do not depend on each other.
 | Tier | What | Command | Coverage |
 |---|---|---|---|
 | unit | domain, decoders against real captured messages (`tests/fixtures/raw`), factories, sinks, CLI in-process, architecture rules | `uv run pytest --cov` (with component) | 100 % gated |
-| component | services with scripted sources; every transport against a local server, Kafka against a real broker; sources with their own fetching logic against captured answers | (same run) | (same gate) |
+| component | services with scripted sources; every transport against a local server, Kafka against a real broker; sources with their own fetching logic against captured answers; every broker and database output writing into a real server and read back with that server's own client (database tests marked `databases`) | (same run) | (same gate) |
 | e2e | the CLI as a subprocess against local servers for every transport (Kafka included), working and failing | see below | 100 % gated on the CLI, services, ports and infrastructure adapters (`.coveragerc.e2e`) |
 | live | every source against its real provider, 60 s; every key in `.env` accepted, a damaged copy refused (`test_keys_live.py`) | see below | reported only (`.coveragerc.live`) |
 
 ```bash
 uv run pytest --cov                                   # unit + component, fails under 100 %
+uv run pytest -m databases                            # only the database outputs (about 2 min, five databases in Docker)
 uv run coverage erase --rcfile=.coveragerc.e2e
 uv run pytest tests/e2e
 uv run coverage combine --rcfile=.coveragerc.e2e && uv run coverage report --rcfile=.coveragerc.e2e
@@ -757,8 +878,16 @@ uv run coverage run --rcfile=.coveragerc.live -m pytest tests/live -m live   # n
 uv run ruff check src tests && uv run ruff format --check src tests
 ```
 
-The component and e2e tiers start a single-node Kafka broker with Docker
-(`apache/kafka:3.9.1`, published on 127.0.0.1 only); Docker is required.
+The component and e2e tiers start servers with Docker, published on 127.0.0.1
+only; Docker is required: a single-node Kafka broker (`apache/kafka:3.9.1`), a
+NATS server (`nats:2.15.1`) and, for the database outputs, the images
+labs-setup runs, pinned to the releases their tags carried on 2026-10-20
+(`tests/databases.py`: `mongo:7.0.43`, `cassandra:5.0.9`,
+`redis:8.4.0-bookworm` as one server and as a three-master cluster,
+`neo4j:2026.04.0-community-ubi9`, `opensearchproject/opensearch:3.4.0` with
+TLS). An MQTT broker (`amqtt`) runs inside the test process. CI runs the
+database tests in their own job, in parallel with the others, and gates the
+100 % on the combined coverage of both jobs.
 
 Fixtures are real messages captured on 2026-10-13 (`velib` and `cta_bus` on
 2026-10-17; `cta_train`, `nta`, `mta_bustime`, `wmata`, `mastodon`, `aisstream`

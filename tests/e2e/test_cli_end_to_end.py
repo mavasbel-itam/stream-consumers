@@ -15,11 +15,14 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
+from typing import ClassVar
 
 import fastavro
 import pytest
 import websockets
 from aiohttp import web
+from amqtt.plugins.authentication import BaseAuthPlugin
+from amqtt.session import Session
 
 from stream_consumers.application.consume_service import ATTRIBUTE_SAMPLE
 from tests.servers import (
@@ -343,14 +346,26 @@ async def test_consume_into_every_text_format_and_sqlite(tmp_path: Path) -> None
         assert [json.loads(p) for (p,) in db.execute("SELECT payload FROM sse_ok ORDER BY seq")] == expected
 
 
-async def test_consume_into_a_real_mqtt_broker() -> None:
+class RecordingAuth(BaseAuthPlugin):
+    """Lets every client in and records the user name and password each one presented."""
+
+    seen: ClassVar[list[tuple[str | None, str | None]]] = []
+
+    async def authenticate(self, *, session: Session) -> bool:
+        RecordingAuth.seen.append((session.username, session.password))
+        return True
+
+
+async def test_consume_into_a_real_mqtt_broker_with_the_password_from_the_env_file(tmp_path: Path) -> None:
     from amqtt.broker import Broker
     from amqtt.client import MQTTClient
 
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    plugins = {"amqtt.plugins.authentication.AnonymousAuthPlugin": {"allow_anonymous": True}}
+    env_file = tmp_path / ".env"
+    env_file.write_text("STREAM_CONSUMERS_OUTPUT_PASSWORD=pw-from-env\n", encoding="utf-8")
+    plugins = {f"{__name__}.RecordingAuth": {}}
     broker = Broker({"listeners": {"default": {"type": "tcp", "bind": f"127.0.0.1:{port}"}}, "plugins": plugins})
     await broker.start()
     try:
@@ -358,10 +373,11 @@ async def test_consume_into_a_real_mqtt_broker() -> None:
         await reader.connect(f"mqtt://127.0.0.1:{port}/")
         await reader.subscribe([("e2e/#", 1)])
         async with environment() as addresses:
-            code, out, err = await cli(
-                addresses, "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--out", f"mqtt://127.0.0.1:{port}/e2e/{{source}}"
-            )
-        assert code == 0 and out == "" and json.loads(err)["events"] == 2
+            destination = f"mqtt://e2e@127.0.0.1:{port}/e2e/{{source}}"
+            argv = ("--env-file", str(env_file), "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--out", destination)
+            code, out, err = await cli(addresses, *argv)
+        assert code == 0 and out == "" and json.loads(err)["events"] == 2 and "pw-from-env" not in err
+        assert ("e2e", "pw-from-env") in RecordingAuth.seen
         received = [await asyncio.wait_for(reader.deliver_message(), 10) for _ in range(2)]
         assert [(m.topic, json.loads(bytes(m.data))["payload"]) for m in received] == [
             ("e2e/sse_ok", {"user": "<masked>", "n": 1}),
@@ -436,6 +452,59 @@ async def test_consume_into_kafka_nats_and_zeromq_and_an_unreachable_output() ->
         assert (code, out) == (1, "") and err.endswith(
             f"error: output {unreachable} failed: NoServersError: nats: no servers available for connection\n"
         )
+
+
+async def test_every_database_destination_that_nobody_answers_ends_the_run_with_exit_1() -> None:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]  # closed again: nothing listens there
+    destinations = [
+        f"mongodb://127.0.0.1:{port}/",
+        f"cassandra://127.0.0.1:{port}",
+        f"redis://127.0.0.1:{port}",
+        f"redis+cluster://127.0.0.1:{port}",
+        f"bolt://127.0.0.1:{port}",
+        f"neo4j://127.0.0.1:{port}",
+        f"opensearch://127.0.0.1:{port}",
+        f"opensearch://127.0.0.1:{port}?tls=1&verify=0",
+    ]
+    async with environment() as addresses:
+        started = time.monotonic()
+        runs = await asyncio.gather(*(cli(addresses, "consume", "sse_ok", "--seconds", "3", "--out", d) for d in destinations))
+        elapsed = time.monotonic() - started
+    for destination, (code, out, err) in zip(destinations, runs, strict=True):
+        assert code == 1 and out == "" and f"error: output {destination} failed: " in err, (destination, err)
+    assert elapsed < 60  # MongoDB waits its 10 s server selection; the others give up within seconds
+
+
+@pytest.mark.databases
+async def test_consume_into_mongodb_and_redis_with_the_password_from_the_env_file(tmp_path: Path) -> None:
+    import redis
+    from pymongo import MongoClient
+
+    from tests import databases as db
+
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"STREAM_CONSUMERS_OUTPUT_PASSWORD={db.PASSWORD}\n", encoding="utf-8")
+    mongo, store = db.mongo(), db.redis()
+    with db.running([mongo, store]):
+        mongo_port, redis_port = db.host_port(mongo), db.host_port(store)
+        uri = f"mongodb://{db.USER}:{db.PASSWORD}@127.0.0.1:{mongo_port}/?authSource=admin"
+        db.wait(mongo, lambda: MongoClient(uri, serverSelectionTimeoutMS=2000).admin.command("ping"), 120)
+        db.wait(store, lambda: redis.Redis(port=redis_port, password=db.PASSWORD).ping(), 60)
+        async with environment() as addresses:
+            for out in (f"mongodb://{db.USER}@127.0.0.1:{mongo_port}/e2e?authSource=admin", f"redis://default@127.0.0.1:{redis_port}/1"):
+                code, stdout, err = await cli(
+                    addresses, "--env-file", str(env_file), "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--out", out
+                )
+                assert code == 0 and stdout == "" and json.loads(err.splitlines()[-1])["events"] == 2 and db.PASSWORD not in err
+            code, _, err = await cli(addresses, "consume", "sse_ok", "--seconds", "1", "--out", f"redis://default@127.0.0.1:{redis_port}")
+            assert code == 1 and "error: output redis://default@127.0.0.1:" in err and "AuthenticationError" in err
+        with MongoClient(uri) as client:
+            stored = [d["payload"] for d in client["e2e"]["sse_ok"].find({}, {"_id": 0}).sort("_id", 1)]
+        entries = redis.Redis(port=redis_port, db=1, password=db.PASSWORD).xrange("stream_consumers:sse_ok")
+    expected = [{"user": "<masked>", "n": 1}, {"user": "<masked>", "n": 2}]
+    assert stored == expected and [json.loads(f[b"payload"]) for _, f in entries] == expected
 
 
 async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
@@ -562,6 +631,12 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
             (["consume", "sse_ok", "--out", "amqp://h:5672/q"], "unknown output scheme 'amqp'"),
             (["consume", "sse_ok", "--out", "zmq+tcp://*"], "zmq+tcp output is zmq+tcp://<interface>:<port>"),
             (["consume", "sse_ok", "--out", "kafka://u:secret@h"], "kafka output takes no user or password: kafka://u:***@h"),
+            (["consume", "sse_ok", "--out", "mongodb://u:secret@h/db?bogus=1"], "invalid MongoDB URI mongodb://u:***@h/db?bogus=1"),
+            (["consume", "sse_ok", "--out", "cassandra://h/bad-name"], "a Cassandra keyspace is 1 to 48 letters"),
+            (["consume", "sse_ok", "--out", "redis://h/zero"], "the path of a redis:// output is a database number"),
+            (["consume", "sse_ok", "--out", "redis+cluster://h/1"], "a Redis cluster has no databases to choose"),
+            (["consume", "sse_ok", "--out", "opensearch://h?tls=yes"], "option tls is 0 or 1"),
+            (["consume", "sse_ok", "--out", "opensearch://h/idx"], "opensearch output takes no path"),
             (["check", "sse_ok", "--concurrency", "0", "--reports", str(tmp_path)], "concurrency"),
             (["sample", "sse_ok", "--concurrency", "0", "--reports", str(tmp_path)], "concurrency"),
             (["sample", "sse_ok", "--rounds", "0", "--reports", str(tmp_path)], "rounds"),
@@ -582,6 +657,7 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
             ["configured", "E2E_REGION", "setting", "optional", "default", "default='eu'"],
             ["keyed", "E2E_KEY", "secret", "required", "set", "https://sign.up/e2e"],
             ["settings_only", "E2E_CONTACT", "setting", "optional", "default", "default=''"],
+            ["--out", "STREAM_CONSUMERS_OUTPUT_PASSWORD", "secret", "optional", "not-set", "README.md#outputs"],
             ["keyed", "E2E_SPARE_KEY", "held", "-", "set", "https://sign.up/e2e"],
             ["-", "OTHER", "-", "-", "unknown", "not", "read", "by", "any", "source", "and", "not", "held"],
         ]
@@ -595,9 +671,16 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
         assert "spare-456" not in out
         assert "E2E_KEY=\n" in out and "# Contact e-mail. Default: (empty)\n# E2E_CONTACT=\n" in out
         code, out, _ = await cli(addresses, "--catalog", "tests.e2e.no_held_catalog", "keys", "--template")
-        assert code == 0 and out.endswith("E2E_KEY=\n") and "Held keys" not in out
+        assert code == 0 and "Held keys" not in out
+        assert out.endswith(
+            "E2E_KEY=\n\n# --- --out: credentials of output destinations (README.md#outputs)\n# How: Password of an --out "
+            "destination whose URI names a user but no password (keeps it out of the process list).\n"
+            "STREAM_CONSUMERS_OUTPUT_PASSWORD=\n"
+        )
         code, _, err = await cli(addresses, "--catalog", "tests.e2e.held_clash_catalog", "keys")
         assert code == 2 and "held keys must not be variables a source reads: E2E_KEY" in err
+        code, _, err = await cli(addresses, "--catalog", "tests.e2e.output_clash_catalog", "keys")
+        assert code == 2 and "output credentials must not be variables a source reads or held keys: STREAM_CONSUMERS_OUTPUT_PASSWORD" in err
 
 
 async def test_a_reader_that_closes_the_pipe_early_gets_no_traceback() -> None:

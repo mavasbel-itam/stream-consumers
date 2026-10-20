@@ -41,6 +41,12 @@
   is tested by writing into a real server and reading back with that server's
   own client. The event loop is never blocked: blocking drivers run in a
   worker thread.
+- Database outputs write only under the name `stream_consumers` (database,
+  keyspace, key prefix, index prefix, `Stream*` labels), use the client
+  versions labs-setup locks and are tested (`-m databases`, their own CI job)
+  against the labs-setup images pinned in `tests/databases.py`. A class that
+  plugs into a client library through the library's own abstraction instead of
+  a port is listed in `LIBRARY_EXTENSIONS` of `tests/unit/test_architecture.py`.
 - Inclusion rule: median measured rate of at least 1 event/s (GDELT is the
   documented exception). A source that needs a key nobody has configured is a
   candidate (`Group.CANDIDATE`): built and tested, but accepted only after its

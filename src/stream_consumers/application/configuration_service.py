@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from stream_consumers.domain.models import ConfigKind, ConfigStatus, SourceDescriptor
+from stream_consumers.domain.models import ConfigKind, ConfigStatus, Credential, SourceDescriptor
 from stream_consumers.ports.inbound import DescribeConfigurationUseCase
 from stream_consumers.ports.outbound.providers import HeldKeyCatalogPort, SourceRegistryPort
 from stream_consumers.ports.outbound.system import SecretProviderPort
@@ -24,14 +24,30 @@ HELD_HEADER = """\
 """
 
 
+OUTPUTS = "--out"
+"""The `source_id` of the rows for credentials read by output destinations rather than by a source."""
+
+
 class ConfigurationService(DescribeConfigurationUseCase):
-    def __init__(self, registry: SourceRegistryPort, environment: SecretProviderPort, held: HeldKeyCatalogPort) -> None:
+    """`outputs` are credentials the output destinations read (e.g. a database password)."""
+
+    def __init__(
+        self, registry: SourceRegistryPort, environment: SecretProviderPort, held: HeldKeyCatalogPort, outputs: Sequence[Credential] = ()
+    ) -> None:
         self._registry = registry
         self._environment = environment
         self._held = held
-        clash = sorted(self._source_variables() & {n for k in held.held_keys() for n in k.env_vars})
+        self._outputs = tuple(outputs)
+        held_names = {n for k in held.held_keys() for n in k.env_vars}
+        clash = sorted(self._source_variables() & held_names)
         if clash:
             raise ValueError(f"held keys must not be variables a source reads: {', '.join(clash)}")
+        clash = sorted(self._output_variables() & (self._source_variables() | held_names))
+        if clash:
+            raise ValueError(f"output credentials must not be variables a source reads or held keys: {', '.join(clash)}")
+
+    def _output_variables(self) -> set[str]:
+        return {n for c in self._outputs for n in c.env_vars}
 
     def _source_variables(self) -> set[str]:
         declared = {s.env_var for d in self._registry.descriptors() for s in d.settings}
@@ -70,6 +86,19 @@ class ConfigurationService(DescribeConfigurationUseCase):
             ]
         out += [
             ConfigStatus(
+                OUTPUTS,
+                name,
+                ConfigKind.SECRET,
+                False,
+                self._environment.get(name) is not None,
+                sign_up_url=c.sign_up_url,
+                description=c.how_to_get,
+            )
+            for c in self._outputs
+            for name in c.env_vars
+        ]
+        out += [
+            ConfigStatus(
                 k.owner,
                 name,
                 ConfigKind.HELD,
@@ -84,7 +113,7 @@ class ConfigurationService(DescribeConfigurationUseCase):
         return out
 
     def unknown_variables(self) -> Sequence[str]:
-        declared = self._source_variables() | {n for k in self._held.held_keys() for n in k.env_vars}
+        declared = self._source_variables() | self._output_variables() | {n for k in self._held.held_keys() for n in k.env_vars}
         return [name for name in self._environment.file_names() if name not in declared]
 
     def env_template(self) -> str:
@@ -101,6 +130,9 @@ class ConfigurationService(DescribeConfigurationUseCase):
                 lines.append(f"# {s.description} Default: {s.default or '(empty)'}")
                 lines.append(f"# {s.env_var}={s.default}")
             blocks.append("\n".join(lines) + "\n")
+        for c in self._outputs:
+            lines = [f"# --- {OUTPUTS}: credentials of output destinations ({c.sign_up_url})", f"# How: {c.how_to_get}"]
+            blocks.append("\n".join(lines + [f"{name}=" for name in c.env_vars]) + "\n")
         if self._held.held_keys():
             blocks.append(HELD_HEADER)
         for k in self._held.held_keys():

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from stream_consumers.adapters.inbound.cli import OUTPUT_PASSWORD
 from stream_consumers.adapters.outbound.providers.held_keys import HELD_KEYS, StaticHeldKeyCatalog
 from stream_consumers.adapters.outbound.providers.registry import FactoryRegistry
 from stream_consumers.adapters.outbound.providers.sources import FACTORIES
@@ -94,9 +95,14 @@ class TestResolution:
 SPARE = HeldKey("pair", ("PAIR_SPARE_USER", "PAIR_SPARE_PASSWORD"), "Pair provider", "Second account.", "https://sign.up/pair")
 
 
-def service(file_names: tuple[str, ...] = (), held: tuple[HeldKey, ...] = (), **env: str) -> ConfigurationService:
+def service(
+    file_names: tuple[str, ...] = (), held: tuple[HeldKey, ...] = (), outputs: tuple[Credential, ...] = (), **env: str
+) -> ConfigurationService:
     registry = FactoryRegistry([Plain(), Pair(), Optional(), SettingsOnly()], deps())
-    return ConfigurationService(registry, FakeSecrets(env, file_names), StaticHeldKeyCatalog(held))
+    return ConfigurationService(registry, FakeSecrets(env, file_names), StaticHeldKeyCatalog(held), outputs)
+
+
+DB_PASSWORD = Credential(("OUT_PASSWORD",), "README.md#outputs", required=False, how_to_get="Password of a destination.")
 
 
 class TestConfigurationService:
@@ -146,6 +152,28 @@ class TestConfigurationService:
             "# --- pair: Pair provider. Second account.\n# Sign-up: https://sign.up/pair\nPAIR_SPARE_USER=\nPAIR_SPARE_PASSWORD=\n"
         )
 
+    def test_output_credentials_come_between_the_sources_and_the_held_keys(self) -> None:
+        configuration = service(held=(SPARE,), outputs=(DB_PASSWORD,), OUT_PASSWORD="db-secret")
+        rows = configuration.status()
+        assert [(r.source_id, r.env_var, r.kind, r.required, r.configured) for r in rows[-3:]] == [
+            ("--out", "OUT_PASSWORD", ConfigKind.SECRET, False, True),
+            ("pair", "PAIR_SPARE_USER", ConfigKind.HELD, False, False),
+            ("pair", "PAIR_SPARE_PASSWORD", ConfigKind.HELD, False, False),
+        ]
+        assert (rows[-3].sign_up_url, rows[-3].description) == ("README.md#outputs", "Password of a destination.")
+        template = configuration.env_template()
+        assert "db-secret" not in repr(rows) + template
+        assert (
+            "# --- --out: credentials of output destinations (README.md#outputs)\n# How: Password of a destination.\nOUT_PASSWORD=\n\n"
+            "# ===== Held keys" in template
+        )
+        assert service(("OUT_PASSWORD", "OTHER"), outputs=(DB_PASSWORD,)).unknown_variables() == ["OTHER"]
+
+    def test_an_output_credential_must_not_be_a_source_variable_or_a_held_key(self) -> None:
+        for name in ("PAIR_USER", "ONLY_SETTING", "PAIR_SPARE_USER"):
+            with pytest.raises(ValueError, match=f"output credentials must not be variables a source reads or held keys: {name}"):
+                service(held=(SPARE,), outputs=(Credential((name,), "u", required=False),))
+
     def test_a_held_key_must_not_be_a_variable_a_source_reads(self) -> None:
         for name in ("PAIR_USER", "PAIR_REGION"):
             with pytest.raises(ValueError, match=f"held keys must not be variables a source reads: {name}"):
@@ -187,7 +215,8 @@ class TestHeldKeys:
 
 def test_env_example_is_the_generated_template() -> None:
     """`.env.example` must name exactly what the sources read; regenerate it with `stream-consumers keys --template`."""
-    generated = ConfigurationService(FactoryRegistry(FACTORIES, deps()), FakeSecrets(), StaticHeldKeyCatalog()).env_template()
+    configuration = ConfigurationService(FactoryRegistry(FACTORIES, deps()), FakeSecrets(), StaticHeldKeyCatalog(), (OUTPUT_PASSWORD,))
+    generated = configuration.env_template()
     assert (ROOT / ".env.example").read_text(encoding="utf-8") == generated
 
 
@@ -195,13 +224,13 @@ def test_env_example_defines_only_known_variables() -> None:
     from stream_consumers.adapters.outbound.system.environment import EnvSecretProvider
 
     example = EnvSecretProvider({}, ROOT / ".env.example")
-    configuration = ConfigurationService(FactoryRegistry(FACTORIES, deps()), example, StaticHeldKeyCatalog())
+    configuration = ConfigurationService(FactoryRegistry(FACTORIES, deps()), example, StaticHeldKeyCatalog(), (OUTPUT_PASSWORD,))
     assert example.file_names() and configuration.unknown_variables() == []
 
 
 def test_every_declared_variable_is_unique_and_upper_case() -> None:
     names = [n for f in FACTORIES if f.descriptor.credential for n in f.descriptor.credential.env_vars]
     names += [s.env_var for f in FACTORIES for s in f.descriptor.settings]
-    names += [n for k in HELD_KEYS for n in k.env_vars]
+    names += [n for k in HELD_KEYS for n in k.env_vars] + list(OUTPUT_PASSWORD.env_vars)
     assert len(names) == len(set(names)) and all(n.isupper() for n in names)
     assert {k.owner for k in HELD_KEYS} - {f.descriptor.id for f in FACTORIES} == set()  # every held key belongs to a known source

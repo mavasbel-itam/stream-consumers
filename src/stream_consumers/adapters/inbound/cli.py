@@ -7,13 +7,24 @@ import asyncio
 import importlib
 import json
 import os
+import re
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
 from typing import TextIO
 
+from pymongo import uri_parser
+from pymongo.errors import ConfigurationError, InvalidURI
+
 from stream_consumers.adapters.outbound.outputs.brokers import KafkaEventSink, MqttEventSink, NatsEventSink, ZeroMqEventSink
+from stream_consumers.adapters.outbound.outputs.databases import (
+    CassandraEventSink,
+    MongoDbEventSink,
+    Neo4jEventSink,
+    OpenSearchEventSink,
+    RedisEventSink,
+)
 from stream_consumers.adapters.outbound.outputs.formats import (
     CsvFormat,
     JsonArrayFormat,
@@ -43,8 +54,8 @@ from stream_consumers.application.profile_service import ProfileService
 from stream_consumers.application.sample_service import SampleService
 from stream_consumers.application.verdict_service import VerdictService
 from stream_consumers.domain.errors import OutputError, OutputTargetError, StreamConsumersError
-from stream_consumers.domain.models import ConfigKind, RateVerdict, RunReport, RunStatus, Verdict
-from stream_consumers.domain.outputs import TERMINAL, OutputTarget, check_target, endpoints, parse_target
+from stream_consumers.domain.models import ConfigKind, Credential, RateVerdict, RunReport, RunStatus, Verdict
+from stream_consumers.domain.outputs import NAMESPACE, TERMINAL, OutputTarget, check_target, endpoints, parse_target
 from stream_consumers.ports.outbound.outputs import EventFormatPort, EventSinkPort
 from stream_consumers.ports.outbound.providers import (
     HeldKeyCatalogPort,
@@ -53,7 +64,7 @@ from stream_consumers.ports.outbound.providers import (
     SourceFactoryPort,
     SourceRegistryPort,
 )
-from stream_consumers.ports.outbound.system import ClockPort
+from stream_consumers.ports.outbound.system import ClockPort, SecretProviderPort
 
 USER_AGENT = "stream-consumers/0.1 (ITAM COM-22102 course research; non-commercial)"
 DEFAULT_CATALOG = "stream_consumers.adapters.outbound.providers.sources"
@@ -104,6 +115,87 @@ SINKS: Mapping[str, Callable[[OutputTarget, ClockPort], EventSinkPort]] = {
     "nats": _nats,
     "zmq+tcp": _zeromq,
 }
+
+
+def _mongodb(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    try:  # pymongo reads the whole URI (replica set, authSource, ...); unknown options are refused
+        uri_parser.parse_uri(target.text, warn=False)
+    except (InvalidURI, ConfigurationError, ValueError) as exc:
+        detail = str(exc) if target.password is None else str(exc).replace(target.password, "***")
+        raise OutputTargetError(f"invalid MongoDB URI {target.display}: {detail}") from exc
+    return MongoDbEventSink(target.text, clock, target.display, target.password if target.password_from_env else None)
+
+
+CASSANDRA_KEYSPACE = re.compile(r"[A-Za-z0-9_]{1,48}")
+
+
+def _cassandra(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, credentials=True)
+    keyspace = target.path or NAMESPACE
+    if not CASSANDRA_KEYSPACE.fullmatch(keyspace):
+        raise OutputTargetError(f"a Cassandra keyspace is 1 to 48 letters, digits or _, got {keyspace!r}")
+    return CassandraEventSink(endpoints(target, 9042), keyspace, clock, target.display, target.user, target.password)
+
+
+def _redis(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, credentials=True, one_host=True)
+    if target.path and not target.path.isdigit():
+        raise OutputTargetError(f"the path of a redis:// output is a database number, got {target.path!r}")
+    db = int(target.path or "0")
+    return RedisEventSink(endpoints(target, 6379), clock, target.display, db=db, user=target.user, password=target.password)
+
+
+def _redis_cluster(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, credentials=True)
+    if target.path:
+        raise OutputTargetError(f"a Redis cluster has no databases to choose: remove {target.path!r} from {target.display}")
+    return RedisEventSink(endpoints(target, 6379), clock, target.display, cluster=True, user=target.user, password=target.password)
+
+
+def _neo4j(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, credentials=True, one_host=True)
+    ((host, port),) = endpoints(target, 7687)
+    uri = f"{target.scheme}://{_host_port(host, port)}"
+    return Neo4jEventSink(uri, clock, target.display, target.path or None, target.user, target.password)
+
+
+def _switch(target: OutputTarget, name: str, default: bool) -> bool:
+    value = target.options.get(name)
+    if value is None:
+        return default
+    if value not in ("0", "1"):
+        raise OutputTargetError(f"option {name} is 0 or 1, got {value!r} in {target.display}")
+    return value == "1"
+
+
+def _opensearch(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, credentials=True, options=("tls", "verify"))
+    if target.path:
+        raise OutputTargetError(f"opensearch output takes no path (indices are stream_consumers-<source>): {target.display}")
+    tls = _switch(target, "tls", False)
+    return OpenSearchEventSink(
+        endpoints(target, 9200), clock, target.display, tls, _switch(target, "verify", True), target.user, target.password
+    )
+
+
+SINKS.update(
+    {
+        "mongodb": _mongodb,
+        "cassandra": _cassandra,
+        "redis": _redis,
+        "redis+cluster": _redis_cluster,
+        "neo4j": _neo4j,
+        "bolt": _neo4j,
+        "opensearch": _opensearch,
+    }
+)
+
+OUTPUT_PASSWORD = Credential(
+    ("STREAM_CONSUMERS_OUTPUT_PASSWORD",),
+    "README.md#outputs",
+    required=False,
+    how_to_get="Password of an --out destination whose URI names a user but no password (keeps it out of the process list).",
+)
 """Destinations of `consume --out` other than the terminal and files, by URI scheme."""
 DEFAULT_SOURCES_HELP = "source ids (default: every source outside the low-rate group E; name a low-rate source to run it)"
 
@@ -128,7 +220,7 @@ def _parser() -> argparse.ArgumentParser:
     consume.add_argument(
         "--out",
         default="-",
-        help="where events go: - for standard output, a file path, or a destination (sqlite:, kafka://, mqtt://, nats://, zmq+tcp://; README 'Outputs') (default: -)",
+        help="where events go: - for standard output, a file path, or a destination (sqlite:, kafka://, mqtt://, nats://, zmq+tcp://, mongodb://, cassandra://, redis://, redis+cluster://, neo4j://, bolt://, opensearch://; README 'Outputs') (default: -)",
     )
     consume.add_argument(
         "--format",
@@ -226,23 +318,28 @@ def _verdicts(verdicts: Sequence[RateVerdict], stream: TextIO) -> None:
     stream.write(", ".join(f"{n} {kind.value}" for kind, n in counts.items()) + "\n")
 
 
-def _event_sink(destination: str, format_name: str | None, out: TextIO, clock: ClockPort) -> EventSinkPort:
+def _event_sink(destination: str, format_name: str | None, out: TextIO, clock: ClockPort, secrets: SecretProviderPort) -> EventSinkPort:
     target = parse_target(destination, SINKS)
     if target.scheme in SINKS:
         if format_name is not None:
             raise OutputTargetError(f"--format applies to standard output and files, not to {target.scheme}")
+        if target.user is not None and target.password is None:
+            (name,) = OUTPUT_PASSWORD.env_vars
+            target = target.with_password(secrets.get(name))
         return SINKS[target.scheme](target, clock)
     event_format = FORMATS[format_name or DEFAULT_FORMAT]
     return TextStreamEventSink(out, event_format) if target.scheme == TERMINAL else TextFileEventSink(Path(target.location), event_format)
 
 
-async def _run(args: argparse.Namespace, registry: SourceRegistryPort, clock: ClockPort, out: TextIO, err: TextIO) -> int:
+async def _run(
+    args: argparse.Namespace, registry: SourceRegistryPort, clock: ClockPort, secrets: SecretProviderPort, out: TextIO, err: TextIO
+) -> int:
     consume = ConsumeService(registry, clock)
     ids = list(getattr(args, "sources", None) or [d.id for d in ListService(registry).default_sources()])
     for source_id in ids:
         registry.descriptor(source_id)
     if args.command == "consume":
-        sink = _event_sink(args.out, args.format, out, clock)
+        sink = _event_sink(args.out, args.format, out, clock, secrets)
         await sink.open()
         try:
             report = await consume.consume(args.source, args.seconds, sink, args.max_events, mask=not args.raw)
@@ -299,7 +396,7 @@ def _main(argv: Sequence[str] | None, out: TextIO, err: TextIO) -> int:
             _verdicts(VerdictService().verdicts(JsonSamplingHistory(args.reports_dir).read_rounds(), args.planned, args.sources), out)
             return 0
         if args.command == "keys":
-            configuration = ConfigurationService(registry, deps.secrets, _held_keys(args.catalog))
+            configuration = ConfigurationService(registry, deps.secrets, _held_keys(args.catalog), (OUTPUT_PASSWORD,))
             if args.template:
                 out.write(configuration.env_template())
                 return 0
@@ -325,7 +422,7 @@ def _main(argv: Sequence[str] | None, out: TextIO, err: TextIO) -> int:
 
         async def run_and_close() -> int:
             try:
-                return await _run(args, registry, clock, out, err)
+                return await _run(args, registry, clock, deps.secrets, out, err)
             finally:
                 await http.close()
 

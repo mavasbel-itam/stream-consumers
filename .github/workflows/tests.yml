@@ -8,14 +8,54 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    env:
+      COVERAGE_FILE: .coverage.main
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync --locked
       - run: uv run ruff check src tests
       - run: uv run ruff format --check src tests
-      - run: uv run pytest --cov
+      # the database tests run in the job below; coverage is gated once both are combined
+      - run: uv run pytest -m "not databases" --cov --cov-fail-under=0
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-main
+          path: .coverage.main
+          include-hidden-files: true
+          if-no-files-found: error
       - run: uv run coverage erase --rcfile=.coveragerc.e2e
-      - run: uv run pytest tests/e2e
+      - run: uv run pytest tests/e2e -m "not databases"
       - run: uv run coverage combine --rcfile=.coveragerc.e2e
       - run: uv run coverage report --rcfile=.coveragerc.e2e
+
+  databases:
+    runs-on: ubuntu-24.04
+    env:
+      COVERAGE_FILE: .coverage.databases
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --locked
+      - run: uv run pytest -m databases --cov --cov-fail-under=0
+      - run: uv run pytest -m databases tests/e2e
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-databases
+          path: .coverage.databases
+          include-hidden-files: true
+          if-no-files-found: error
+
+  coverage:
+    needs: [test, databases]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --locked
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - run: uv run coverage combine .coverage.main .coverage.databases
+      - run: uv run coverage report

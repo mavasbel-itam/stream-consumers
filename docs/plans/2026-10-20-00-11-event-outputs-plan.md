@@ -152,3 +152,25 @@ Decisions (2026-10-19, both as recommended):
   passwords (section 4) is deferred to stage 3, where the lab databases need it.
   nats-py retries a first connection forever when `max_reconnect_attempts=0`
   (`_select_next_server` only gives up when the limit is above 0), so the output uses 1.
+- 2026-10-20, stage 3 (databases), deviations from sections 4–6:
+  - Neo4j labels are `StreamSource` / `StreamEvent` instead of `Source` / `Event`: Neo4j
+    Community has one user database, and the lab rule "write only into `stream_consumers`
+    namespaces" needs names that cannot be mistaken for other data there.
+  - The 64-bit rule is kept, but its stated reason ("found in blockchain payloads") was not
+    confirmed: none of the 713 captured payloads, nor 55,267 events read from 55 sources on
+    2026-10-20 between 01:32 and 01:34 UTC, held an integer outside 64 bits. It stays because
+    JSON allows any size and pymongo refuses the whole batch (`OverflowError`, shown in the
+    component test).
+  - Image tags are pinned to the releases the labs-setup tags carried on 2026-10-20:
+    `mongo:7.0.43` and `neo4j:2026.04.0-community-ubi9` have the same image ids as `mongo:7.0`
+    and `neo4j:ubi9` on this machine; `cassandra:5.0` and `cassandra:5.0.9` both report
+    Cassandra 5.0.9 but are different image builds.
+  - Cassandra keyspaces are created with `NetworkTopologyStrategy`, replication factor
+    min(3, nodes) in every datacenter the cluster reports (the lab notebook uses the same
+    strategy with all its nodes).
+  - `STREAM_CONSUMERS_OUTPUT_PASSWORD` (deferred from stage 2) applies to every destination
+    whose URI names a user without a password; `keys` lists it as `--out`.
+  - `PortMappedEndPointFactory` extends the Cassandra driver's `EndPointFactory`, not a port;
+    the architecture test names such classes in `LIBRARY_EXTENSIONS`.
+  - CI: the `databases` job runs in parallel and a `coverage` job gates 100 % on the combined
+    data of both jobs.
