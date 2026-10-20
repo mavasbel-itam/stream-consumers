@@ -4,13 +4,14 @@ Status page, updated in place (change log at the end). Created 2026-10-19
 18:27 UTC; corrected 2026-10-19 (see the change log).
 
 The inclusion rule is a median measured rate of at least 1 event/s
-(`policy.MINIMUM_RATE = 1.0`, README "Inclusion rule"). This page holds:
+(`policy.MINIMUM_RATE = 1.0`, README "Measurements"). This page holds:
 
 1. the 8 sources of **group E** (`Group.LOW_RATE`, value `"E"`): built,
    measured below 1 event/s and kept in the code;
 2. the evidence behind each of them;
 3. every other stream measured or screened below 1 event/s that was never
-   built, with the record it comes from.
+   built, with the record it comes from, and the two built sources outside
+   group E that were measured below 1 event/s at some point.
 
 Every number below is copied from a report under the git-ignored `data/`
 directory, from the source's descriptor, or from a research record in
@@ -182,10 +183,18 @@ From `docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md`
 | 15 | DexPaprika | 6.21 events/s measured over 60.06 s, but each delivered event costs 1 credit against 10,000 (keyless) or 100,000 (free key) credits per 30 days = **0.004 / 0.039** events/s sustained; 6 fields | fails |
 | 30 | Transport for NSW | documented, not measured: 5 requests/s throttle and 60,000 requests/day (**0.69** requests/s on average); vehicles per response not documented | undetermined: needs a free key to measure |
 
+### 3.3 Built sources outside group E measured below 1 event/s at some point
+
+| Source | Group | Below 1 event/s | Now | Where |
+|---|---|---|---|---|
+| `gdelt` | B (project document) | median 0.977 events/s at the decision of 2026-10-13; median 0.772 over the 24 rounds of `sampling-20261017` (2 rounds at ≥ 1/s, 2026-10-17 21:00 – 2026-10-18 19:44 UTC) | kept by the decision of 2026-10-13: the project document lists it | `docs/research/2026-10-13-18-54-stream-consumers-and-api-keys-record.md` (decision table and source sheet); README "Measurements" |
+| `velib` | A (keyless) | median 0.983 events/s from the cross-check rounds available on the morning of 2026-10-13, so it was excluded | re-added on 2026-10-17 (`bc3a7fb`): over all 15 cross-check rounds its median was 4.396 events/s (11 of 15 at ≥ 1/s); 24-round median 4.578 in `sampling-20261017`, passes | same record, recomputed table and finding after it (its later summary line says "3.3"; the table gives 4.396) |
+
 ## 4. Change log
 
 | Date (UTC) | Change |
 |---|---|
+| 2026-10-20 | Section 3.3 added (GDELT and Vélib', moved from the README's former "Inclusion rule" section, which the README rewrite replaced by "Measurements"); the README reference in the introduction follows the new section name. |
 | 2026-10-19 23:35 | Source modules moved to `src/stream_consumers/adapters/outbound/providers/sources/` (outbound adapters regrouped by purpose); nothing else changed. |
 | 2026-10-19 (correction) | Page rewritten from the records. The first version had: invented figures for CoinCheck ("30 trades in 600 s"), DexPaprika ("14 swaps in 360 s"), USGS ("100–300 earthquakes a day") and Transport for NSW ("5 requests per minute, burst 10 per 15 s", and called it rejected); rounds at ≥ 1 event/s of 4 for `bitstamp` (3) and 6 for `npm` (9); Bitstamp as two pairs (five are subscribed); "no Lasair alerts in 90 days" (the record says 0 objects in 30 days); cause statements without evidence for `dt_rail_trains` and `npm`; and `lasair` reading `LASAIR_API_TOKEN` with a default topic `lasair_all` (the source reads `LASAIR_KAFKA_TOPIC` and has no default). Added: the group value `"E"`, the exclusion of group E from bulk commands, the 22 GFW readings, the ENTSO-E evidence now under `data/reports/entsoe-20261019/`, and section 3.1. |
 | 2026-10-19 18:27 | Page created with the 8 group E sources (stream-consumers `e32490d`). |

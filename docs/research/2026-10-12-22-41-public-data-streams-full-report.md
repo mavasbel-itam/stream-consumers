@@ -5993,3 +5993,9 @@ print("non-200 links:", json.dumps(bad, indent=1))
 print("no evidence:", [sid for sid, m in M.items() if not evidence(m)])
 ````
 
+
+## Addendum 2026-10-20: personal value masked
+
+The repository became public. The contact e-mail address that the measurement
+code sent to Crossref as `mailto=` (twice, in `p_crossref` of Appendix A, `sampler.py`) is a
+personal value and is shown as `<masked>`; nothing else in this record changed.

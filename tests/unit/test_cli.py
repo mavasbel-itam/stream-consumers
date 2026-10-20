@@ -311,6 +311,22 @@ class TestStop:
         )
         assert "rounds=  1/3" in out
 
+    @pytest.mark.parametrize("inside", [True, False])
+    def test_a_stopped_continued_sample_says_to_resume_from_the_directory_holding_every_round(self, tmp_path: Path, inside: bool) -> None:
+        first = tmp_path / "sampling"
+        assert run("sample", "alpha", "--rounds", "1", "--interval", "0.05", "--window", "0.05", "--reports", str(first))[0] == 0
+        reports = first / "segment-2" if inside else tmp_path / "elsewhere"
+        argv = ("sample", "alpha", "--rounds", "3", "--interval", "30", "--window", "0.1", "--continue-from", str(first))
+        code, _, err = run_signalled(signal.SIGINT, 0.5, *argv, "--reports", str(reports))
+        advice = (
+            f"resume with --continue-from {first}"
+            if inside
+            else f"the rounds are in {first} and {reports}: move them under one directory and resume with --continue-from <that directory>"
+        )
+        assert (
+            code == 130 and err.splitlines()[1] == f"stopped by SIGINT: 2 of 3 rounds recorded; a round cut short is not recorded; {advice}"
+        )
+
     def test_profile_stopped_keeps_the_sample_of_the_source_it_read(self, tmp_path: Path) -> None:
         argv = (
             "profile",

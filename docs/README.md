@@ -25,7 +25,8 @@ File names follow `YYYY-MM-DD-HH-MM-<name>.md` (UTC time of writing).
 
 These files were written in the course repository and moved here on
 2026-10-19 15:00 UTC, unchanged except for the key page's status update, the
-dated addendum of the Bytewax screening and the course repository's current name
+dated addendum of the Bytewax screening, the contact e-mail address masked in the
+full report on 2026-10-20 (its addendum), and the course repository's current name
 (`non-relational-dbs`, renamed from `2026-02-non-relational-dbs` on 2026-10-18)
 in the stream-consumers record. Paths inside them that name the course
 repository, its worktree or branch `claude-course-streams` (deleted on

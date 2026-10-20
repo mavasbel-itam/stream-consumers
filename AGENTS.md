@@ -22,14 +22,32 @@
   yet uses the provider's official documentation examples instead, with
   `origin`, `documentation_url` and `corrections` recorded in the fixture, and
   is replaced by a capture (`captured_at`, key not stored) once the key works.
-- A source's credentials get a row in the README key table and its settings a
-  place in the README settings list (`tests/unit/test_documentation.py`); a CLI
-  option with a default states it in its help (`tests/unit/test_cli.py`).
-- The README's "Reference links" section lists every source's documentation,
-  terms and sign-up link and links every page under `docs/`; "Running the
-  consumers" documents every command and every option with its default. The
-  same `tests/unit/test_documentation.py` fails when one is missing; a new
-  source, `docs/` page or CLI option adds its row in the same change.
+- The README states each fact once. Every source has exactly one row in the
+  "Sources" table (documentation, terms and sign-up links, group, transport,
+  key) and one in the "Measurements" table; groups are written one way only:
+  `A · keyless`, `B · project document`, `C · free key`, `D · candidate`,
+  `E · low rate`. Under "Configuration", a source's credentials get a row in the
+  "API keys" table, each setting a row in the "Settings" table with its source
+  and its default exactly as the descriptor has it, and each held key a row in
+  "Held keys". "Running the consumers" documents every command and every option
+  with its default, "Decision records" links every page under `docs/`, and every
+  `#anchor` link resolves to a heading. `tests/unit/test_documentation.py` fails
+  when one is missing or differs; a new source, setting, key, `docs/` page or
+  CLI option adds its rows in the same change. A CLI option with a default
+  states it in its help (`tests/unit/test_cli.py`).
+- Every command shown in the README with its output was run on the code it
+  documents, with the date and time of the run next to the output; personal
+  values are masked.
+- Every use case that reads sources takes the operator's `StopRequestPort`
+  (`ports/inbound.py`; `adapters/inbound/signals.py` turns SIGINT and SIGTERM
+  into it). After a stop the run ends as if its window had ended: the event
+  being written is finished, every output is closed (batches written, documents
+  completed), reports and summaries are written, `sample` drops the round cut
+  short, and the process ends by the signal (130 / 143). A repeat within
+  `REPEAT_WINDOW_S` is the same stop; a later one quits at once. Tests that send
+  signals reset SIGINT to its default first, because a run started with `&` or
+  `nohup` inherits it ignored; the e2e tier stops every transport with SIGINT
+  and SIGTERM, and every broker and database output is read back after a stop.
 - An output is a text format (`EventFormatPort`, in `outputs/formats.py`) or a
   destination (`EventSinkPort`, registered by URI scheme in the CLI's `SINKS`).
   Databases and brokers extend `BatchingEventSink`; a destination that cannot
@@ -52,19 +70,25 @@
   candidate (`Group.CANDIDATE`): built and tested, but accepted only after its
   measured median reaches 1 event/s, and moved to group E (`Group.LOW_RATE`)
   otherwise. A source measured below 1 event/s is not deleted: it goes to group
-  E, keeps its tests, gets a row in the README section "Sources Below 1
-  Event/s" and in `docs/reference/2026-10-19-18-27-sub-threshold-sources.md`
-  with the evidence, and is left out of `check`, `sample` and `profile` unless
-  named (`Group.active`).
+  E, keeps its tests, gets its measurement and one-line reason in the README
+  "Measurements" table and its evidence in
+  `docs/reference/2026-10-19-18-27-sub-threshold-sources.md`, and is left out of
+  `check`, `sample` and `profile` unless named (`Group.active`). The live source
+  test accepts `no-events` from group E only.
 - Every number or cause written in a document comes from a report under
   `data/`, a descriptor, a research record or a live check, cited next to it;
   never write an estimate or an explanation that no record supports.
 - Credentials and settings are declared in the descriptor (`Credential`,
   `Setting`); `.env.example` is generated with `stream-consumers keys --template`.
-- Never commit `.env`, API keys, or anything under `data/`.
+- Never commit `.env`, API keys, or anything under `data/`. The GitHub
+  repository is public: before every push run
+  `uv run pytest tests/live/test_secrets_live.py -m live`, which fails when a
+  secret of `.env` (whole or a 12-character piece) or a known token format is
+  in any object git holds or in the files to publish, or when those files hold
+  a personal e-mail address; mask a personal value as `<masked>`.
 - Before every commit: `uv run ruff check src tests`, `uv run ruff format --check
   src tests`, `uv run pytest --cov` (100 %), and the e2e tier (100 %). Both
-  tiers need Docker for the Kafka broker.
+  tiers need Docker (Kafka, NATS, Mosquitto and the databases).
 - Documentation in English.
 - Decision records go in `docs/plans/`, `docs/research/` and `docs/reference/`,
   named `YYYY-MM-DD-HH-MM-<name>.md` from the system clock (UTC), and are listed
