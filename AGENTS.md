@@ -32,7 +32,10 @@
   source, `docs/` page or CLI option adds its row in the same change.
 - An output is a text format (`EventFormatPort`, in `outputs/formats.py`) or a
   destination (`EventSinkPort`, registered by URI scheme in the CLI's `SINKS`).
-  Databases extend `BatchingEventSink`. Every format and scheme is documented
+  Databases and brokers extend `BatchingEventSink`; a destination that cannot
+  be opened or written raises `OutputError` (exit code 1, never a source
+  failure) and refuses every `--out` part it does not use
+  (`domain.outputs.check_target`). Every format and scheme is documented
   in the README section "Outputs" (enforced by `test_documentation.py`), is
   unit-tested on the real captured payloads of every source, and a destination
   is tested by writing into a real server and reading back with that server's

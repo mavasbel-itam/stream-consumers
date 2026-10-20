@@ -138,3 +138,17 @@ Decisions (2026-10-19, both as recommended):
 2. CI layout — **separate parallel job for the database tests**: the database containers lengthen every CI run (by an amount measured once they
    exist; the current run takes 1 min 36 s, CI `39343946894`). Either they run in the existing
    job, or in a separate parallel job for the database tests so the main job keeps its time.
+
+## 8. Progress and deviations (addendum, dated)
+
+- 2026-10-20, stage 1 (`68f8225`, CI `39351045612` green): as planned, plus
+  `TextFileSinkFactory` replacing `JsonlFileSinkFactory`, `EventSinkFactoryPort.create`
+  (sinks are opened by the caller) and `pretty` written with the `.txt` extension, because
+  its output is a stream of JSON documents rather than one JSON document.
+- 2026-10-20, stage 2 (brokers): `OutputError` added — an output that cannot be opened or
+  written ends `consume` with exit code 1 and `error: output <destination> failed: …`.
+  Kafka and ZeroMQ refuse credentials (no SASL/TLS: nothing to test them against here);
+  MQTT and NATS take user and password from the URI. The environment variable for
+  passwords (section 4) is deferred to stage 3, where the lab databases need it.
+  nats-py retries a first connection forever when `max_reconnect_attempts=0`
+  (`_select_next_server` only gives up when the limit is above 0), so the output uses 1.

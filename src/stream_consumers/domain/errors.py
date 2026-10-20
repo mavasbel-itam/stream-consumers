@@ -30,3 +30,12 @@ class TransportError(StreamConsumersError):
 
 class OutputTargetError(StreamConsumersError):
     """An output destination (`--out`) that cannot be used as written."""
+
+
+class OutputError(StreamConsumersError):
+    """An output could not be opened or written (a database or broker that refused or went away)."""
+
+    def __init__(self, output: str, cause: BaseException) -> None:
+        name, detail = type(cause).__name__, str(cause)
+        super().__init__(f"output {output} failed: {detail if detail.startswith(name) else f'{name}: {detail}'}")
+        self.output = output

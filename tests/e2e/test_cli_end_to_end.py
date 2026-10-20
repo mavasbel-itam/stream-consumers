@@ -8,6 +8,7 @@ import csv
 import io
 import json
 import os
+import socket
 import sqlite3
 import sys
 import time
@@ -21,7 +22,17 @@ import websockets
 from aiohttp import web
 
 from stream_consumers.application.consume_service import ATTRIBUTE_SAMPLE
-from tests.servers import MqttBroker, NatsServer, http_server, kafka_broker, kafka_produce, tcp_server, ws_server, zmq_publisher
+from tests.servers import (
+    MqttBroker,
+    NatsServer,
+    http_server,
+    kafka_broker,
+    kafka_produce,
+    nats_server,
+    tcp_server,
+    ws_server,
+    zmq_publisher,
+)
 
 AVRO_SCHEMA = {"type": "record", "name": "alert", "fields": [{"name": "objectId", "type": "string"}, {"name": "cutout", "type": "bytes"}]}
 
@@ -224,6 +235,7 @@ EXPECTED = {
     "mqtt_tls": "error",
     "nats_ok": "ok",
     "nats_silent": "error",
+    "nats_refused": "error",
     "zmq_ok": "ok",
     "zmq_silent": "error",
     "tcp_lines": "ok",
@@ -329,6 +341,101 @@ async def test_consume_into_every_text_format_and_sqlite(tmp_path: Path) -> None
         assert [(r["payload.user"], r["payload.n"]) for r in rows] == [("<masked>", "1"), ("<masked>", "2")]
     with contextlib.closing(sqlite3.connect(tmp_path / "events.db")) as db:
         assert [json.loads(p) for (p,) in db.execute("SELECT payload FROM sse_ok ORDER BY seq")] == expected
+
+
+async def test_consume_into_a_real_mqtt_broker() -> None:
+    from amqtt.broker import Broker
+    from amqtt.client import MQTTClient
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    plugins = {"amqtt.plugins.authentication.AnonymousAuthPlugin": {"allow_anonymous": True}}
+    broker = Broker({"listeners": {"default": {"type": "tcp", "bind": f"127.0.0.1:{port}"}}, "plugins": plugins})
+    await broker.start()
+    try:
+        reader = MQTTClient()
+        await reader.connect(f"mqtt://127.0.0.1:{port}/")
+        await reader.subscribe([("e2e/#", 1)])
+        async with environment() as addresses:
+            code, out, err = await cli(
+                addresses, "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--out", f"mqtt://127.0.0.1:{port}/e2e/{{source}}"
+            )
+        assert code == 0 and out == "" and json.loads(err)["events"] == 2
+        received = [await asyncio.wait_for(reader.deliver_message(), 10) for _ in range(2)]
+        assert [(m.topic, json.loads(bytes(m.data))["payload"]) for m in received] == [
+            ("e2e/sse_ok", {"user": "<masked>", "n": 1}),
+            ("e2e/sse_ok", {"user": "<masked>", "n": 2}),
+        ]
+        await reader.disconnect()
+    finally:
+        await broker.shutdown()
+
+
+async def test_consume_into_kafka_nats_and_zeromq_and_an_unreachable_output() -> None:
+    import nats
+    import zmq
+    import zmq.asyncio
+    from aiokafka import AIOKafkaConsumer
+
+    def free_port() -> int:
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            return int(s.getsockname()[1])
+
+    async with environment() as addresses, nats_server() as nats_address:
+        bootstrap = str(addresses["kafka"])
+        code, out, err = await cli(addresses, "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--out", f"kafka://{bootstrap}")
+        assert code == 0 and out == "" and json.loads(err.splitlines()[-1])["events"] == 2
+        consumer = AIOKafkaConsumer(
+            "stream_consumers.sse_ok", bootstrap_servers=bootstrap, auto_offset_reset="earliest", group_id="e2e_out"
+        )
+        await consumer.start()
+        try:
+            records: list[object] = []
+            while len(records) < 2:
+                batch = await consumer.getmany(timeout_ms=10_000)
+                assert batch, "nothing arrived in Kafka"
+                records += [r for rs in batch.values() for r in rs]
+        finally:
+            await consumer.stop()
+        assert [(r.key, json.loads(r.value)["payload"]) for r in records] == [  # type: ignore[attr-defined]
+            (b"sse_ok", {"user": "<masked>", "n": 1}),
+            (b"sse_ok", {"user": "<masked>", "n": 2}),
+        ]
+
+        reader = await nats.connect(f"nats://{nats_address}")
+        subscription = await reader.subscribe("e2e.>")
+        await reader.flush()
+        code, out, err = await cli(
+            addresses, "consume", "sse_ok", "--seconds", "3", "--max-events", "2", "--out", f"nats://{nats_address}/e2e.{{source}}"
+        )
+        assert code == 0 and out == ""
+        delivered = [await subscription.next_msg(timeout=10) for _ in range(2)]
+        assert [(m.subject, json.loads(m.data)["payload"]["n"]) for m in delivered] == [("e2e.sse_ok", 1), ("e2e.sse_ok", 2)]
+        await reader.close()
+
+        # ZeroMQ drops what is sent before a subscriber is connected: the subscriber connects first
+        # (ZeroMQ retries until the CLI binds) and a source that never pauses keeps sending
+        port = free_port()
+        context = zmq.asyncio.Context()
+        subscriber = context.socket(zmq.SUB)
+        subscriber.connect(f"tcp://127.0.0.1:{port}")
+        subscriber.setsockopt(zmq.SUBSCRIBE, b"zmq_fast")
+        try:
+            run = asyncio.create_task(cli(addresses, "consume", "zmq_fast", "--seconds", "3", "--out", f"zmq+tcp://127.0.0.1:{port}"))
+            frames = await asyncio.wait_for(subscriber.recv_multipart(), 15)
+            code, out, err = await run
+        finally:
+            subscriber.close(0)
+            context.term()
+        assert code == 0 and out == "" and frames[0] == b"zmq_fast" and json.loads(frames[1])["source"] == "zmq_fast"
+
+        unreachable = f"nats://127.0.0.1:{free_port()}"
+        code, out, err = await cli(addresses, "consume", "sse_ok", "--seconds", "1", "--out", unreachable)
+        assert (code, out) == (1, "") and err.endswith(
+            f"error: output {unreachable} failed: NoServersError: nats: no servers available for connection\n"
+        )
 
 
 async def test_list_consume_sample_profile_and_errors(tmp_path: Path) -> None:
@@ -452,7 +559,9 @@ async def test_keys_from_an_env_file_and_rejected_arguments(tmp_path: Path) -> N
                 ["consume", "sse_ok", "--format", "csv", "--out", "sqlite:never.db"],
                 "--format applies to standard output and files, not to sqlite",
             ),
-            (["consume", "sse_ok", "--out", "kafka://h:9092/t"], "unknown output scheme 'kafka'"),
+            (["consume", "sse_ok", "--out", "amqp://h:5672/q"], "unknown output scheme 'amqp'"),
+            (["consume", "sse_ok", "--out", "zmq+tcp://*"], "zmq+tcp output is zmq+tcp://<interface>:<port>"),
+            (["consume", "sse_ok", "--out", "kafka://u:secret@h"], "kafka output takes no user or password: kafka://u:***@h"),
             (["check", "sse_ok", "--concurrency", "0", "--reports", str(tmp_path)], "concurrency"),
             (["sample", "sse_ok", "--concurrency", "0", "--reports", str(tmp_path)], "concurrency"),
             (["sample", "sse_ok", "--rounds", "0", "--reports", str(tmp_path)], "rounds"),

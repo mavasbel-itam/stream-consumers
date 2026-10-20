@@ -13,6 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TextIO
 
+from stream_consumers.adapters.outbound.outputs.brokers import KafkaEventSink, MqttEventSink, NatsEventSink, ZeroMqEventSink
 from stream_consumers.adapters.outbound.outputs.formats import (
     CsvFormat,
     JsonArrayFormat,
@@ -41,9 +42,9 @@ from stream_consumers.application.list_service import ListService
 from stream_consumers.application.profile_service import ProfileService
 from stream_consumers.application.sample_service import SampleService
 from stream_consumers.application.verdict_service import VerdictService
-from stream_consumers.domain.errors import OutputTargetError, StreamConsumersError
+from stream_consumers.domain.errors import OutputError, OutputTargetError, StreamConsumersError
 from stream_consumers.domain.models import ConfigKind, RateVerdict, RunReport, RunStatus, Verdict
-from stream_consumers.domain.outputs import TERMINAL, OutputTarget, parse_target
+from stream_consumers.domain.outputs import TERMINAL, OutputTarget, check_target, endpoints, parse_target
 from stream_consumers.ports.outbound.outputs import EventFormatPort, EventSinkPort
 from stream_consumers.ports.outbound.providers import (
     HeldKeyCatalogPort,
@@ -61,8 +62,47 @@ FORMATS: Mapping[str, EventFormatPort] = {
     f.name: f for f in (JsonLinesFormat(), CsvFormat(), TsvFormat(), JsonArrayFormat(), PrettyJsonFormat())
 }
 DEFAULT_FORMAT = "jsonl"
+DEFAULT_TOPIC = "stream_consumers.{source}"
+"""Kafka topic and NATS subject when `--out` names none; MQTT uses `stream_consumers/{source}`."""
+
+
+def _host_port(host: str, port: int) -> str:
+    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+
+
+def _kafka(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target)
+    bootstrap = [_host_port(h, p) for h, p in endpoints(target, 9092)]
+    return KafkaEventSink(bootstrap, target.path or DEFAULT_TOPIC, clock, target.display)
+
+
+def _mqtt(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, credentials=True, one_host=True)
+    ((host, port),) = endpoints(target, 1883)
+    topic = target.path or "stream_consumers/{source}"
+    return MqttEventSink(host, port, topic, clock, target.display, target.user, target.password)
+
+
+def _nats(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, credentials=True)
+    servers = [f"nats://{_host_port(h, p)}" for h, p in endpoints(target, 4222)]
+    return NatsEventSink(servers, target.path or DEFAULT_TOPIC, clock, target.display, target.user, target.password)
+
+
+def _zeromq(target: OutputTarget, clock: ClockPort) -> EventSinkPort:
+    check_target(target, one_host=True)
+    ((host, port),) = target.hosts
+    if port is None or target.path:
+        raise OutputTargetError(f"zmq+tcp output is zmq+tcp://<interface>:<port> (the address it binds), got {target.display}")
+    return ZeroMqEventSink(f"tcp://{_host_port(host, port)}", target.display)
+
+
 SINKS: Mapping[str, Callable[[OutputTarget, ClockPort], EventSinkPort]] = {
     "sqlite": lambda target, clock: SqliteEventSink(Path(target.location), clock),
+    "kafka": _kafka,
+    "mqtt": _mqtt,
+    "nats": _nats,
+    "zmq+tcp": _zeromq,
 }
 """Destinations of `consume --out` other than the terminal and files, by URI scheme."""
 DEFAULT_SOURCES_HELP = "source ids (default: every source outside the low-rate group E; name a low-rate source to run it)"
@@ -85,7 +125,11 @@ def _parser() -> argparse.ArgumentParser:
         "--seconds", type=float, default=60.0, help="seconds to consume, at least the source's minimum window (default: 60)"
     )
     consume.add_argument("--max-events", type=int, help="stop after this many events (default: no limit)")
-    consume.add_argument("--out", default="-", help="where events go: - for standard output, a file path, or sqlite:<path> (default: -)")
+    consume.add_argument(
+        "--out",
+        default="-",
+        help="where events go: - for standard output, a file path, or a destination (sqlite:, kafka://, mqtt://, nats://, zmq+tcp://; README 'Outputs') (default: -)",
+    )
     consume.add_argument(
         "--format",
         choices=list(FORMATS),
@@ -286,6 +330,9 @@ def _main(argv: Sequence[str] | None, out: TextIO, err: TextIO) -> int:
                 await http.close()
 
         return asyncio.run(run_and_close())
+    except OutputError as exc:  # the destination refused or went away: the run did not complete
+        err.write(f"error: {exc}\n")
+        return 1
     except (StreamConsumersError, ValueError) as exc:
         err.write(f"error: {exc}\n")
         return 2
