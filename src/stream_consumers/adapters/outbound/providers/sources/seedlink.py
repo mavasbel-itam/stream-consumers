@@ -91,12 +91,12 @@ class SeedlinkFactory(BaseSourceFactory):
         group=Group.KEYLESS,
         delivery=Delivery.PUSH,
         transport=Transport.TCP,
-        endpoint="seedlink://rtserve.iris.washington.edu:18000",
+        endpoint="seedlink://rtserve.earthscope.org:18000",
         docs_url="https://ds.iris.edu/ds/nodes/dmc/services/seedlink/",
         terms_url="https://ds.iris.edu/ds/nodes/dmc/services/seedlink/",
         notes="12 IU stations, vertical broadband channel BHZ; the rate grows with the stations selected.",
     )
-    HOST = "rtserve.iris.washington.edu"
+    HOST = "rtserve.earthscope.org"
     STATIONS = tuple(("IU", s) for s in ("ANMO", "TEIG", "HRV", "COLA", "KONO", "MAJO", "PET", "SNZO", "CTAO", "TATO", "PAB", "RSSD"))
 
     def _build(self, deps: SourceDependencies, credentials: Credentials | None) -> EventSourcePort:
