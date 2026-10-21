@@ -595,10 +595,20 @@ topic exists on the server but is not on that list, `fink_unknowns_ztf`
 its alerts return, set `FINK_KAFKA_SERVERS` to the LSST address of the e-mail
 and `FINK_TOPICS` to LSST topics (https://lsst.fink-portal.org/schemas).
 
+Run on the night of 2026-10-21, with the stored keys and the default topics:
+the default topics received their first new alerts of the night between 03:30
+and 03:35 UTC (3 by 03:35, 16 by 03:45, 439 by 04:16; readings every 5 min); `check fink --seconds 60` at 04:21
+UTC read 82 events (1.359 events/s, exit 0); `consume fink --max-events 50`
+at 04:23 UTC wrote 50 alerts that `jq -e .` read as valid JSON, with the NaN
+features written as `null` (69 per alert); the live source test of all 73
+sources passed at 05:32–05:48 UTC, and the key tests passed 37, skipped 1
+(`lasair`, no topic) at 05:49 UTC.
+
 ## 15. Change log
 
 | Date (UTC) | Change |
 |---|---|
+| 2026-10-21 05:52 | Fink measured during the ZTF night (end of section 14): `check fink` ok, valid JSON with NaN as `null`, live tests passed. |
 | 2026-10-21 00:25 | Fink credentials set (`FINK_KAFKA_SERVERS` = the ZTF address, `FINK_GROUP_ID`; the username as a comment) and tested (section 14, Tables 19 and 20). The `fink` source reads ZTF by default (topics `fink_sso_ztf_candidates_ztf`, `fink_vra_ztf`, `fink_blazar_ztf`); its key probe now damages the server address, because Fink does not check the group id, and a separate live test records that. Captured fixture of three ZTF alerts. NaN numbers in events are written as `null` in every output. |
 | 2026-10-19 23:35 | Source descriptors and the held-key catalog moved with the outbound-adapter regrouping: `src/stream_consumers/adapters/outbound/sources/` → `adapters/outbound/providers/sources/`, `adapters/outbound/held_keys.py` → `adapters/outbound/providers/held_keys.py`. No key, source or behaviour changed. |
 | 2026-10-19 20:36 | Test fixtures of `entsoe` and `gfw` replaced by answers captured with the keys (2026-10-19 20:35:45 and 20:35:58 UTC, HTTP 200): ENTSO-E actual generation for Germany, 15:00–21:00 UTC, trimmed to 3 of 16 TimeSeries; GFW fishing events 2026-10-12 to 2026-10-20, first page trimmed to 3 of 100 entries (total 175,697; dataset `public-global-fishing-events:v4.0`, the documentation example was v3.0). Both decoders read the captures without change; neither key is stored in the fixtures. `lasair` keeps its documentation example until a filter topic exists. |
