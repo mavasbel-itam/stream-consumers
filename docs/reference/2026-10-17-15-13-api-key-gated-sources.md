@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Last updated | 2026-10-19 (group E correction; see the change log) |
-| Repository | `/home/mavasbel/Dev/repos/ITAM/stream-consumers` (private, GitHub `mavasbel-itam/stream-consumers`, named `non-relational-dbs/stream-consumers` until 2026-10-19; branch `main`) |
+| Last updated | 2026-10-21 (Fink credentials received and tested, section 14; see the change log) |
+| Repository | `/home/mavasbel/Dev/repos/ITAM/stream-consumers` (GitHub `mavasbel-itam/stream-consumers`, public since 2026-10-19 by the owner's decision of 2026-10-20, named `non-relational-dbs/stream-consumers` until 2026-10-19; branch `main`) |
 | This page | `docs/reference/2026-10-17-15-13-api-key-gated-sources.md` in this repository since 2026-10-19 15:00 UTC (before: the course repository, where it was created) |
 | Key file | `/home/mavasbel/Dev/repos/ITAM/stream-consumers/.env` (git-ignored, permissions `600`) |
 | Sources of this page | `uv run stream-consumers keys` (key state), the source descriptors in `src/stream_consumers/adapters/outbound/providers/sources/` (endpoints, poll intervals, links), the repository `README.md` (sign-up steps, limits, terms), the sampling reports under `data/reports/` (rates) |
@@ -32,9 +32,9 @@ never fails a run. A required-key source joins the catalog only when its own
 
 | Group | Sources | Key set | Key missing / not set |
 |---|---|---|---|
-| Key required | 11: 7 accepted 2026-10-19; 4 in group E, below 1 event/s (`entsoe`, `fink`, `gfw`, `lasair`) | 9 read by their source (`aisstream`, `cta_bus`, `cta_train`, `entsoe`, `gfw`, `mastodon`, `mta_bustime`, `nta`, `wmata`) | 2 (`fink`, `lasair`; both group E) |
+| Key required | 11: 7 accepted 2026-10-19; 4 in group E, below 1 event/s (`entsoe`, `fink`, `gfw`, `lasair`) | 10 read by their source (`aisstream`, `cta_bus`, `cta_train`, `entsoe`, `fink`, `gfw`, `mastodon`, `mta_bustime`, `nta`, `wmata`) | 1 (`lasair`; group E) |
 | Key optional (work without one; a key raises limits) | 3 | 3 (`mbta_v3`, `opensky`, `tfl`) | 0 |
-| **Total** | **14** | **12** | **2** |
+| **Total** | **14** | **13** | **1** |
 
 Four more keys are stored and verified but are **not read by any stream**: the
 Coinbase CDP key (section 3), the Lasair REST API token (section 4), the Bitso
@@ -57,7 +57,7 @@ which are a cross-check only.
 | 2 | `aisstream` | aisstream.io — global AIS ship positions | aisstream.io | required | `AISSTREAM_API_KEY` | **set** (2026-10-18 17:15 UTC) | `check` 60 s: 4,047 events, 57.81/s at 17:17 UTC (section 9, Table 13) | key-pending (key added after the run started) | — (no key then) | **Accepted 2026-10-19** (group B, project document; `e0ab8dd`): `sampling-aisstream-20261018` stopped by early stop 04:25 UTC, 12/24 rounds, all ≥ 1/s, median 74.209/s — certain |
 | 3 | `cta_train` | CTA Train Tracker — train positions | Chicago Transit Authority | required | `CTA_TRAIN_KEY` | **set** (2026-10-18 03:20 UTC) | `check` 60 s: 1.54/s at 03:22 UTC (22:22 in Chicago, evening service), 17 fields per train; 51 trains on 8 lines | key-pending (key added after the run started) | — (no key then) | **Accepted 2026-10-19** (group C; `e0ab8dd`): `sampling-keyed-20261018`, 22/24 rounds, 17 at ≥ 1/s, median 1.424/s — certain |
 | 4 | `entsoe` | ENTSO-E Transparency Platform — European electricity | ENTSO-E | required | `ENTSOE_TOKEN` | **set** (2026-10-19 15:18 UTC, `.env` modification time) | `check` 600 s, 15:25:40–15:35:40 UTC, default areas (Germany, France, Spain): 744 events, rate 0.010/s; all 59 areas with data: 7,372 events, rate unmeasured (one round of requests takes about 380 s) | — | — | **Group E since 2026-10-19** (below 1 event/s: at most 0.38 points/s over every area; `docs/reference/2026-10-19-18-27-sub-threshold-sources.md` §2.3) |
-| 5 | `fink` | Fink alert broker (LSST) — Kafka stream | Fink | required | `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` | missing | — | key-pending | — | Removed 2026-10-18 (no LSST alerts since 2026-07-14); **group E since 2026-10-19** |
+| 5 | `fink` | Fink alert broker (ZTF; LSST with other settings) — Kafka stream | Fink | required | `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` | **set** (2026-10-21 00:25 UTC; ZTF server, section 14) | ZTF, default topics: 24-h rates 0.031, 0.595, 0.582, 0.625 events/s on 2026-10-17..20 (broker offsets, section 14) | — | — | Removed 2026-10-18 (no LSST alerts since 2026-07-14); **group E since 2026-10-19**; reads ZTF since 2026-10-21 |
 | 6 | `gfw` | Global Fishing Watch — fishing events | Global Fishing Watch | required | `GFW_API_TOKEN` | **set** (2026-10-18 03:20 UTC) | `check` 60 s: ok, 500 events from the first read but rate unmeasured (one read per 15 min, so a 60-s round has no second read); 0 events for 2026-10-15/16/17 in every dataset (published about 3 days late) | key-pending (key added after the run started) | — (no key then) | **Removed 2026-10-18** (stream-consumers commit `908953b`): the totals of all four datasets did not grow in 18 hourly readings (2026-10-18 03:24–21:24 UTC), so the median growth of the 24 readings is 0 whatever the last 6 show (section 10). The token stays valid in `.env`. **Group E since 2026-10-19**: the source reads the token again, so it is no longer a held key; all 22 readings up to 2026-10-19 00:24 UTC were unchanged |
 | 7 | `lasair` | Lasair alert broker (LSST) — Kafka stream | Lasair | required | `LASAIR_KAFKA_TOPIC` | missing (the account and its REST API token exist, section 4; the topic needs a saved filter) | 0 new alerts: the latest detection in Lasair is 2026-07-14 10:03 UTC (section 4) | key-pending | — | Removed 2026-10-18 (no LSST alerts since 2026-07-14); **group E since 2026-10-19**, still needing a saved filter's topic |
 | 8 | `mastodon` | Mastodon public timeline (streaming) | social.vivaldi.net (since 2026-10-18 15:34 UTC; before: mastodon.social) | required | `MASTODON_ACCESS_TOKEN`, `MASTODON_INSTANCE` | **set** (2026-10-18 15:34 UTC; account on social.vivaldi.net; `MASTODON_INSTANCE=social.vivaldi.net`) | `check` 60 s: 234 events, 3.90/s at 15:35 UTC (section 7, Table 11) | key-pending (key added after the run started) | — (no key then) | **Accepted 2026-10-19** (group C; default instance now social.vivaldi.net; `e0ab8dd`): `sampling-mastodon-vivaldi-20261018` stopped by early stop, 13/24 rounds, all ≥ 1/s, median 2.383/s — certain. mastodon.world (second option, held token): `sampling-mastodon-world-20261018` stopped 2026-10-19 05:38 UTC by the owner's decision, 7/24 rounds, median 1.633/s, not decided (open); social.vivaldi.net stays the default. The mastodon.social round 1 (0.85/s, deletions only) stays as evidence only |
@@ -78,7 +78,7 @@ The sign-up links were fetched on 2026-10-17 at 21:14 UTC; every one returned HT
 | 2 | `aisstream` | https://aisstream.io/account | Sign in with GitHub, create a key (shown once) | not stated |
 | 3 | `cta_train` | https://www.transitchicago.com/developers/traintrackerapply/ | Application form; CTA reviews it | not stated (review) |
 | 4 | `entsoe` | https://transparency.entsoe.eu/ | Register, then e-mail transparency@entsoe.eu asking for RESTful API access | "within 3 working days" |
-| 5 | `fink` | https://forms.gle/2td4jysT4e9pkf889 | Fink subscription form; the team e-mails the server address and group id | not stated |
+| 5 | `fink` | https://forms.gle/2td4jysT4e9pkf889 | Fink subscription form; the team e-mails one server address per survey (ZTF, LSST), a username and a group id (**done**; credentials set 2026-10-21) | not stated |
 | 6 | `gfw` | https://globalfishingwatch.org/our-apis/ | Account, then request a token (non-commercial use) | not stated |
 | 7 | `lasair` | https://lasair.lsst.ac.uk/ | Account (e-mail), save a filter with Kafka streaming; its topic is `lasair_<user id><filter name>` | not stated |
 | 8 | `mastodon` | https://social.vivaldi.net/auth/sign_up (used); any instance with open live feeds | Account on the instance, then Preferences → Development → New application, scope `read:statuses` only, copy "Your access token" | not stated |
@@ -99,7 +99,7 @@ The sign-up links were fetched on 2026-10-17 at 21:14 UTC; every one returned HT
 | 2 | `aisstream` | `wss://stream.aisstream.io/v0/stream` | `APIKey` in the first WebSocket message | 3 connections per account and per IP; frames dropped for slow readers | push |
 | 3 | `cta_train` | `https://lapi.transitchicago.com/api/1.0/ttpositions.aspx?key=<CTA_TRAIN_KEY>&rt=<line>&outputType=JSON` | query `key` | 50,000 requests/day | 30 s (8 lines) |
 | 4 | `entsoe` | `https://web-api.tp.entsoe.eu/api?securityToken=<ENTSOE_TOKEN>&documentType=A75&processType=A16&in_Domain=<EIC>…` | query `securityToken` | 400 requests/min | 300 s |
-| 5 | `fink` | `kafka://<FINK_KAFKA_SERVERS>/<FINK_TOPICS>` | Kafka bootstrap servers and `group.id` | none documented | push |
+| 5 | `fink` | `kafka://<FINK_KAFKA_SERVERS>/<FINK_TOPICS>` (default topics `fink_sso_ztf_candidates_ztf`, `fink_vra_ztf`, `fink_blazar_ztf`) | Kafka bootstrap servers and `group.id`, plaintext without SASL; the group id is not checked | none documented; alerts kept 4 days | push |
 | 6 | `gfw` | `https://gateway.api.globalfishingwatch.org/v3/events?datasets[0]=public-global-fishing-events:latest…` | header `Authorization: Bearer` | 50,000 requests/day, 1,500,000/month | 900 s |
 | 7 | `lasair` | `kafka://lasair-lsst-kafka.lsst.ac.uk:9092/<LASAIR_KAFKA_TOPIC>` | Kafka topic (the server needs no password) | none documented for Kafka | push |
 | 8 | `mastodon` | `https://social.vivaldi.net/api/v1/streaming/public` (host from `configuration.urls.streaming` = `wss://social.vivaldi.net`) | header `Authorization: Bearer` | 300 REST calls per 5 min; streaming not stated | push |
@@ -127,7 +127,7 @@ is summarised in the 2026-10-13 stream-consumers record.
 | 2 | `aisstream` | https://aisstream.io/documentation | https://aisstream.io/privacypolicy | Publishes no terms of use, only a privacy policy |
 | 3 | `cta_train` | https://www.transitchicago.com/developers/traintracker/ | https://www.transitchicago.com/developers/terms/ | Application reviewed by CTA |
 | 4 | `entsoe` | https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API (403) | https://transparencyplatform.zendesk.com/hc/en-us/articles/40921911218961-Legal-Terms-and-Conditions (403) | Actual load, actual generation and day-ahead prices are not in the CC BY 4.0 free re-use list; they fall under §3.1 of the Terms of Use |
-| 5 | `fink` | https://doc.lsst.fink-broker.org/services/livestream/ | https://github.com/astrolabsoftware/fink-client | The form says access is open "to any scientists" |
+| 5 | `fink` | https://doc.ztf.fink-broker.org/services/livestream/ (LSST: https://doc.lsst.fink-broker.org/services/livestream/) | https://github.com/astrolabsoftware/fink-client | The form says access is open "to any scientists" |
 | 6 | `gfw` | https://globalfishingwatch.org/our-apis/documentation | https://globalfishingwatch.org/our-apis/documentation/docs/license-rate-limits | Non-commercial only (CC BY-NC 4.0); the token must not be shared; register on behalf of the course/ITAM |
 | 7 | `lasair` | https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html | https://lasair.lsst.ac.uk/privacy | Publishes no terms of use, only a privacy statement |
 | 8 | `mastodon` | https://docs.joinmastodon.org/methods/streaming/ | https://social.vivaldi.net/terms-of-service (HTTP 200; `/api/v2/instance` gives no terms URL) and the server rules (`/api/v1/instance/rules`: last rule "Follow the Terms of Use and Code of Conduct of Vivaldi.net") | Posts are personal data; they are masked in every stored sample |
@@ -552,10 +552,54 @@ a full WireGuard tunnel (`wg0`, all traffic, public address 149.56.13.232);
 when the tunnel came up was not recorded. The stored key has no IP restriction
 (`ipRestrict` false), so the address does not affect it.
 
-## 14. Change log
+## 14. Fink — tests of 2026-10-20/21
+
+The Fink team answered the subscription form by e-mail with three values: a
+username, a group id, and one Kafka server address per survey (ZTF/ELASTICC
+and LSST, both on port 24499), for `fink-client>=12`. The ZTF address and the
+group id are in `.env` as `FINK_KAFKA_SERVERS` and `FINK_GROUP_ID` since
+2026-10-21 00:25 UTC. Neither address is written in this repository: Fink
+hands them out on registration only, and `tests/live/test_secrets_live.py`
+treats them as secrets. The username is kept in `.env` as a comment, not as a
+variable: no request carries it (row 5), so no probe could test it, and a held
+key needs a probe (section 11).
+
+### Table 19 — Test results (2026-10-20 23:40 – 2026-10-21 00:40 UTC)
+
+| # | Test | Result |
+|---|---|---|
+| 1 | LSST server, plaintext, the issued group id | connected; 2,777 topics; the 11 `fink_*_lsst` livestream topics have 10 partitions each and hold 0 messages |
+| 2 | `consume fink --seconds 60` against the LSST server with the then-default topic `fink_extragalactic_lt20mag_candidate_lsst` (started 23:42:20 UTC) | `no-events`, 0 events, exit 1 |
+| 3 | Fink statistics API (`api.lsst.fink-portal.org/api/v1/statistics`, no key) | the last LSST night is still 2026-07-14 (473,344 alerts), as in section 4 |
+| 4 | ZTF server, plaintext, the issued group id | connected; 3,387 topics; 20 of the 21 `fink_*_ztf` livestream topics hold messages (`fink_yso_spicy_candidates_ztf` is empty), the newest published 2026-10-20 14:40 UTC |
+| 5 | Oldest retained message of `fink_sn_candidates_ztf` and `fink_sso_ztf_candidates_ztf` | 2026-10-16 09:35 and 11:10 UTC: about 4 days, as the Fink livestream page states ("Processed alerts are stored 4 days on our servers") |
+| 6 | The same ZTF connection with a changed group id, and with none | both connect and read; the broker does not check the group id, which only stores the read position |
+| 7 | SASL (SCRAM-SHA-512) with the issued username and a dummy password, and with a made-up username | both refused alike (`KafkaConnectionError`, unable to bootstrap): the listener does not speak SASL; Fink's livestream page says the client configuration must contain no password |
+| 8 | The newest retained alert of each default topic, decoded with `AvroSchemaInKeyDecoder` (fixture `tests/fixtures/raw/fink.json`, captured 2026-10-21 00:35:25 UTC) | 3 alerts of 66 top-level fields each (`objectId`, `candid`, `candidate`, `prv_candidates`, three cutouts as base64 text, …); 20, 9 and 0 NaN values (features not computed), which every output writes as `null` |
+
+### Table 20 — ZTF alerts per UTC day on the default topics (broker offsets per hour, read 2026-10-21 00:39:41 UTC; `data/fink-ztf-20261021/hourly.json`)
+
+| Day | `fink_sso_ztf_candidates_ztf` | `fink_vra_ztf` | `fink_blazar_ztf` | Total | 24-h rate (events/s) | Hours with alerts (UTC) | Busiest hour (events/s) | Hours ≥ 1/s |
+|---|---|---|---|---|---|---|---|---|
+| 2026-10-17 | 2,545 | 131 | 39 | 2,715 | 0.031 | 5 (02–06) | 0.34 | 0 |
+| 2026-10-18 | 43,703 | 7,374 | 333 | 51,410 | 0.595 | 13 (02–14) | 4.23 | 6 |
+| 2026-10-19 | 45,032 | 4,942 | 271 | 50,245 | 0.582 | 13 (02–15) | 3.38 | 6 |
+| 2026-10-20 | 45,973 | 7,724 | 314 | 54,011 | 0.625 | 12 (03–14) | 2.43 | 7 |
+
+The median of the four days is 0.588 events/s, so `fink` stays in group E.
+The default topics are the busiest ones on Fink's published filter list
+(https://doc.ztf.fink-broker.org/broker/filters/, read 2026-10-21). One busier
+topic exists on the server but is not on that list, `fink_unknowns_ztf`
+(24,217, 27,160 and 25,748 alerts on the nights ending 2026-10-18, -19 and
+-20); it is not a default but can be set in `FINK_TOPICS`. To read LSST when
+its alerts return, set `FINK_KAFKA_SERVERS` to the LSST address of the e-mail
+and `FINK_TOPICS` to LSST topics (https://lsst.fink-portal.org/schemas).
+
+## 15. Change log
 
 | Date (UTC) | Change |
 |---|---|
+| 2026-10-21 00:25 | Fink credentials set (`FINK_KAFKA_SERVERS` = the ZTF address, `FINK_GROUP_ID`; the username as a comment) and tested (section 14, Tables 19 and 20). The `fink` source reads ZTF by default (topics `fink_sso_ztf_candidates_ztf`, `fink_vra_ztf`, `fink_blazar_ztf`); its key probe now damages the server address, because Fink does not check the group id, and a separate live test records that. Captured fixture of three ZTF alerts. NaN numbers in events are written as `null` in every output. |
 | 2026-10-19 23:35 | Source descriptors and the held-key catalog moved with the outbound-adapter regrouping: `src/stream_consumers/adapters/outbound/sources/` → `adapters/outbound/providers/sources/`, `adapters/outbound/held_keys.py` → `adapters/outbound/providers/held_keys.py`. No key, source or behaviour changed. |
 | 2026-10-19 20:36 | Test fixtures of `entsoe` and `gfw` replaced by answers captured with the keys (2026-10-19 20:35:45 and 20:35:58 UTC, HTTP 200): ENTSO-E actual generation for Germany, 15:00–21:00 UTC, trimmed to 3 of 16 TimeSeries; GFW fishing events 2026-10-12 to 2026-10-20, first page trimmed to 3 of 100 entries (total 175,697; dataset `public-global-fishing-events:v4.0`, the documentation example was v3.0). Both decoders read the captures without change; neither key is stored in the fixtures. `lasair` keeps its documentation example until a filter topic exists. |
 | 2026-10-19 (correction) | Corrections to the 18:27 change: `LASAIR_KAFKA_TOPIC` is again the `lasair` source's required key (the 18:27 change had made the source require `LASAIR_API_TOKEN`, which it never reads, with an unverified default topic); `LASAIR_API_TOKEN` is again a held key; `GFW_API_TOKEN` is read by the `gfw` source and no longer held (Tables 1, 2 and 15 updated); the ENTSO-E all-area bound is 0.38 points/s (0.33 over the full 6-hour window). New live probe for the Kafka keys: joins the consumer group on the topic and is accepted only when partitions are assigned; an invented Lasair topic is refused with `TopicAuthorizationFailedError`. Re-test of all keys: 35 passed, 2 skipped (`LASAIR_KAFKA_TOPIC`; `FINK_KAFKA_SERVERS` + `FINK_GROUP_ID`, not set). Repository on GitHub: `mavasbel-itam/stream-consumers`. |

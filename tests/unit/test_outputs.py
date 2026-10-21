@@ -34,7 +34,7 @@ from stream_consumers.adapters.outbound.outputs.sqlite import SqliteEventSink
 from stream_consumers.domain.errors import OutputError, OutputTargetError
 from stream_consumers.domain.models import Event
 from stream_consumers.domain.outputs import FILE, TERMINAL, parse_target
-from stream_consumers.domain.policy import flatten
+from stream_consumers.domain.policy import finite_numbers, flatten
 from stream_consumers.ports.outbound.outputs import EventFormatPort
 from tests.support import FakeClock, messages
 from tests.unit.test_sources import EXPECTED, decoder_of
@@ -46,9 +46,10 @@ WITH_FIXTURES = sorted(EXPECTED)
 
 
 def real_events(source_id: str) -> list[Event]:
-    """The payloads a source decodes from its captured real messages."""
+    """The payloads a source decodes from its captured real messages, as ConsumeService hands them to a sink."""
     decoder = decoder_of(source_id)
-    return [Event(source_id, 1_760_000_000.0 + i, p) for i, p in enumerate(e for m in messages(source_id) for e in decoder.decode(m))]
+    payloads = (finite_numbers(e) for m in messages(source_id) for e in decoder.decode(m))
+    return [Event(source_id, 1_760_000_000.0 + i, p) for i, p in enumerate(payloads)]  # type: ignore[arg-type]
 
 
 def encode(event_format: EventFormatPort, events: Sequence[Event]) -> str:

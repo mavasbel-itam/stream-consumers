@@ -38,6 +38,18 @@ def flatten(payload: Mapping[str, object], prefix: str = "") -> dict[str, object
     return out
 
 
+def finite_numbers(value: object) -> object:
+    """`value` with every NaN or infinite float written as None: JSON has no such numbers (RFC 8259 section 6),
+    and the null JavaScript's JSON.stringify writes for them keeps every output valid JSON. Tuples become lists."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, Mapping):
+        return {key: finite_numbers(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [finite_numbers(item) for item in value]
+    return value
+
+
 def attribute_count(payload: Mapping[str, object]) -> int:
     return len(flatten(payload))
 

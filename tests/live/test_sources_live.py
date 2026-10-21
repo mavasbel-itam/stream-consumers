@@ -28,6 +28,7 @@ from tests.support import ManualStop, MemoryReports
 
 pytestmark = pytest.mark.live
 SECONDS = float(os.environ.get("LIVE_SECONDS", "60"))
+DESCRIPTORS = {f.descriptor.id: f.descriptor for f in FACTORIES}
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
@@ -48,6 +49,9 @@ async def results() -> Mapping[str, RunReport]:
 @pytest.mark.parametrize("source_id", sorted(f.descriptor.id for f in FACTORIES))
 async def test_source_delivers_events(results: Mapping[str, RunReport], source_id: str) -> None:
     report = results[source_id]
-    assert report.status in (RunStatus.OK, RunStatus.KEY_PENDING), f"{report.status.value}: {report.detail}"
+    accepted = {RunStatus.OK, RunStatus.KEY_PENDING}
+    if not DESCRIPTORS[source_id].group.active:
+        accepted.add(RunStatus.NO_EVENTS)  # group E: a window without events is its measured state
+    assert report.status in accepted, f"{report.status.value}: {report.detail}"
     if report.status is RunStatus.OK:
         assert report.events >= 1 and report.attributes_median >= 1

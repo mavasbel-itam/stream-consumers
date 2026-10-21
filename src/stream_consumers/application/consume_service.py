@@ -7,7 +7,7 @@ import contextlib
 
 from stream_consumers.domain.errors import MissingCredentialError, UnknownSourceError
 from stream_consumers.domain.models import Event, RateBasis, RunReport, RunStatus
-from stream_consumers.domain.policy import PersonalDataMasker, attribute_count, median, rate
+from stream_consumers.domain.policy import PersonalDataMasker, attribute_count, finite_numbers, median, rate
 from stream_consumers.ports.inbound import ConsumeStreamUseCase, StopRequestPort
 from stream_consumers.ports.outbound.outputs import EventSinkPort
 from stream_consumers.ports.outbound.providers import SourceRegistryPort
@@ -78,6 +78,7 @@ class ConsumeService(ConsumeStreamUseCase):
                     break
                 if first is None:
                     first = round(self._clock.monotonic() - start, 3)
+                payload = finite_numbers(payload)  # type: ignore[assignment]  # a mapping stays a mapping
                 if masker is not None:
                     payload = masker.mask(payload)
                 # a failing sink (a closed pipe, a full disk) is not the provider's failure: it ends the run
