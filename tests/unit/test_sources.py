@@ -430,6 +430,13 @@ class TestDecoderBranches:
     def test_rbn_ignores_non_spot_lines(self) -> None:
         assert decode("rbn", "Please enter your call:") == []
 
+    def test_seedlink_reads_the_service_host_earthscope_moved_to(self) -> None:
+        # EarthScope moved SeedLink to rtserve.earthscope.org (news of 2026-05-14); the old host had no DNS record on 2026-10-21
+        from stream_consumers.adapters.outbound.providers.sources.seedlink import SeedlinkFactory
+
+        assert SeedlinkFactory.HOST == "rtserve.earthscope.org"
+        assert SeedlinkFactory.DESCRIPTOR.endpoint == "seedlink://rtserve.earthscope.org:18000"
+
     def test_seedlink_ignores_info_and_short_packets(self) -> None:
         d = decoder_of("seedlink")
         assert d.decode(RawMessage(b"SLINFO" + b"\x00" * 514)) == []
