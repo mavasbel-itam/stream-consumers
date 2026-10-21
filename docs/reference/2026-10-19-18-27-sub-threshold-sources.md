@@ -21,10 +21,10 @@ directory, from the source's descriptor, or from a research record in
 
 - **Kept and tested like every other source.** Each has its module in
   `src/stream_consumers/adapters/outbound/providers/sources/`, a row in
-  `tests/unit/test_sources.py::EXPECTED` (fink has no captured message: its
-  Kafka transport and Avro decoder are tested against a local broker in the
-  component tier, its factory in the unit tier), and is inside the 100 %
-  coverage gate.
+  `tests/unit/test_sources.py::EXPECTED` (fink since 2026-10-21, with three
+  ZTF alerts captured with the key; before that its Kafka transport and Avro
+  decoder were tested only against a local broker in the component tier), and
+  is inside the 100 % coverage gate.
 - **Left out of bulk commands.** With no source id, `check`, `sample` and
   `profile` run the sources whose group is active (`Group.active`, false only
   for group E; `ListService.default_sources`). Naming a group E source runs it:
@@ -42,7 +42,7 @@ directory, from the source's descriptor, or from a research record in
 | `bitstamp` | Bitstamp live trades | websocket / push | — | median **0.515** events/s | `data/reports/sampling-20261017/` |
 | `dt_rail_trains` | Digitraffic Finland train timetables/actuals | mqtt / push | — | median **0.865** | `data/reports/sampling-20261017/` |
 | `entsoe` | ENTSO-E Transparency Platform — actual electricity generation per production type | http / poll | `ENTSOE_TOKEN` (required, set) | **0.010** (default areas, 600 s) | `data/reports/entsoe-20261019/` |
-| `fink` | Fink — Rubin Observatory LSST and ZTF alert livestream | kafka / push | `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` (required, not set) | not measured; no alerts to deliver | README, decision of 2026-10-18 |
+| `fink` | Fink — ZTF alert livestream (LSST with other settings) | kafka / push | `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` (required, set 2026-10-21) | median **0.588** over 4 UTC days (ZTF, default topics; broker offsets) | `data/fink-ztf-20261021/hourly.json` |
 | `gfw` | Global Fishing Watch events API — fishing, encounter, loitering and port-visit events | http / poll | `GFW_API_TOKEN` (required, set) | **0** growth in 22 hourly readings | `data/gfw-growth-20261018/snapshots.jsonl` |
 | `lasair` | Lasair — Rubin Observatory LSST alerts that pass your saved filter | kafka / push | `LASAIR_KAFKA_TOPIC` (required, not set) | not measured; no alerts to deliver | README, decision of 2026-10-18 |
 | `ndbc` | NOAA National Data Buoy Center — latest observation of every buoy and coastal station | http / poll | — | median **0.268** (3 rounds) | `data/reports/sampling-bytewax-20261019/` |
@@ -99,12 +99,22 @@ first and the last poll of a window, divided by the time between them
 
 ### 2.4 `fink`
 
-- Kafka topics of the Fink broker (`FINK_TOPICS`, default
-  `fink_extragalactic_lt20mag_candidate_lsst`); credentials come from the
-  Fink subscription form and are not configured.
-- Removed 2026-10-18 (`908953b`): Fink's last alert night was 2026-07-14
+- Kafka topics of the Fink broker (`FINK_TOPICS`, default since 2026-10-21
+  `fink_sso_ztf_candidates_ztf,fink_vra_ztf,fink_blazar_ztf`; before:
+  `fink_extragalactic_lt20mag_candidate_lsst`); the server address and group
+  id came from the Fink subscription form and are set since 2026-10-21 (key
+  status page, section 14).
+- Removed 2026-10-18 (`908953b`): Fink's last LSST alert night was 2026-07-14
   (README; key status page, change log 2026-10-18 05:10). Group E since
-  2026-10-19.
+  2026-10-19. The LSST server still held no alert on 2026-10-20 (key status
+  page, Table 19), so the source reads Fink's ZTF stream since 2026-10-21.
+- ZTF alerts arrive only during the observing night, about 02:00–15:00 UTC.
+  Per UTC day on the default topics (broker offsets per hour, read
+  2026-10-21 00:39:41 UTC, `data/fink-ztf-20261021/hourly.json`): 2,715
+  alerts on 2026-10-17 (0.031 events/s over 24 h), 51,410 on 10-18 (0.595),
+  50,245 on 10-19 (0.582) and 54,011 on 10-20 (0.625); median **0.588**. The
+  busiest hour reached 4.23 events/s; 19 of the 96 hours were at or above
+  1 event/s.
 
 ### 2.5 `gfw`
 
@@ -194,6 +204,7 @@ From `docs/research/2026-10-19-02-46-bytewax-real-time-list-screening.md`
 
 | Date (UTC) | Change |
 |---|---|
+| 2026-10-21 | `fink`: credentials set; reads ZTF (the LSST server still has no alert); measured from broker offsets, median 0.588 events/s over 2026-10-17..20; captured fixture (sections 1, 2.4 and the table). |
 | 2026-10-20 | Section 3.3 added (GDELT and Vélib', moved from the README's former "Inclusion rule" section, which the README rewrite replaced by "Measurements"); the README reference in the introduction follows the new section name. |
 | 2026-10-19 23:35 | Source modules moved to `src/stream_consumers/adapters/outbound/providers/sources/` (outbound adapters regrouped by purpose); nothing else changed. |
 | 2026-10-19 (correction) | Page rewritten from the records. The first version had: invented figures for CoinCheck ("30 trades in 600 s"), DexPaprika ("14 swaps in 360 s"), USGS ("100–300 earthquakes a day") and Transport for NSW ("5 requests per minute, burst 10 per 15 s", and called it rejected); rounds at ≥ 1 event/s of 4 for `bitstamp` (3) and 6 for `npm` (9); Bitstamp as two pairs (five are subscribed); "no Lasair alerts in 90 days" (the record says 0 objects in 30 days); cause statements without evidence for `dt_rail_trains` and `npm`; and `lasair` reading `LASAIR_API_TOKEN` with a default topic `lasair_all` (the source reads `LASAIR_KAFKA_TOPIC` and has no default). Added: the group value `"E"`, the exclusion of group E from bulk commands, the 22 GFW readings, the ENTSO-E evidence now under `data/reports/entsoe-20261019/`, and section 3.1. |

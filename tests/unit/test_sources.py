@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import importlib
 import json
+import math
 import struct
 from collections.abc import Mapping
 from datetime import datetime
@@ -23,7 +25,7 @@ from stream_consumers.adapters.outbound.providers.transports.kafka import KafkaS
 from stream_consumers.adapters.outbound.providers.transports.sse import SseSource
 from stream_consumers.domain.errors import DecodeError, MissingCredentialError, TransportError
 from stream_consumers.domain.models import Credential, Group, RawMessage
-from stream_consumers.domain.policy import PersonalDataMasker
+from stream_consumers.domain.policy import PersonalDataMasker, finite_numbers, flatten
 from stream_consumers.ports.outbound.providers import Credentials, DecoderPort, EventSourcePort, SourceDependencies
 from tests.support import ScriptedSource, deps, descriptor, messages
 
@@ -219,6 +221,11 @@ class TestCredentials:
         fink = BY_ID["fink"].create(deps(secrets={"FINK_KAFKA_SERVERS": "h:9092", "FINK_GROUP_ID": "g", "FINK_TOPICS": "a, b,"}))
         assert isinstance(fink, KafkaSource) and (fink._servers, fink._topics, fink._group_id) == ("h:9092", ("a", "b"), "g")
 
+    def test_fink_reads_the_three_busiest_documented_ztf_topics_by_default(self) -> None:
+        # LSST topics have held no alert since 2026-07-14; these are the busiest documented ZTF topics of 2026-10-16..20
+        fink = BY_ID["fink"].create(deps(secrets={"FINK_KAFKA_SERVERS": "h:9092", "FINK_GROUP_ID": "g"}))
+        assert fink._topics == ("fink_sso_ztf_candidates_ztf", "fink_vra_ztf", "fink_blazar_ztf")  # type: ignore[attr-defined]
+
     def test_tfl_key_goes_in_the_query(self) -> None:
         assert BY_ID["tfl"].create(deps())._urls == ("https://api.tfl.gov.uk/Mode/tube/Arrivals",)  # type: ignore[attr-defined]
         assert BY_ID["tfl"].create(deps(secrets={"TFL_APP_KEY": "k"}))._urls == (  # type: ignore[attr-defined]
@@ -265,6 +272,7 @@ EXPECTED = {
     "eth_logs": [0, 1, 1, 1, 1],
     "firms": [3, 3, 3, 3],
     "gemini": [5, 1, 1, 1],
+    "fink": [1, 1, 1],
     "gfw": [3],
     "hsl": [1, 1, 1, 1],
     "hyperliquid": [0, 30, 30, 30, 1],
@@ -593,7 +601,7 @@ def test_documentation_fixtures_say_where_they_come_from(source_id: str) -> None
 
 
 @pytest.mark.parametrize(
-    "source_id", ["aisstream", "cta_bus", "cta_train", "entsoe", "gfw", "mastodon", "mbta_v3_stream", "mta_bustime", "nta", "wmata"]
+    "source_id", ["aisstream", "cta_bus", "cta_train", "entsoe", "fink", "gfw", "mastodon", "mbta_v3_stream", "mta_bustime", "nta", "wmata"]
 )
 def test_fixtures_captured_with_a_key_say_when_and_that_the_key_is_not_stored(source_id: str) -> None:
     fixture = doc_fixture(source_id)
@@ -619,6 +627,18 @@ def test_only_sources_that_need_a_longer_window_declare_one() -> None:
 
 
 class TestKeyGatedDecoders:
+    def test_fink_ztf_alerts_decode_with_their_own_schema_and_cutouts_as_text(self) -> None:
+        captured = messages("fink")  # newest alert of each default topic, captured 2026-10-21 with the key
+        events = [e for m in captured for e in decoder_of("fink").decode(m)]
+        assert [m.attributes["topic"] for m in captured] == ["fink_sso_ztf_candidates_ztf", "fink_vra_ztf", "fink_blazar_ztf"]
+        assert [e["objectId"] for e in events] == ["ZTF26accplyh", "ZTF20aairsri", "ZTF18acqzgsg"]
+        assert all(e["publisher"] == "Fink" and len(e) == 66 and isinstance(e["candidate"], Mapping) for e in events)
+        stamp = events[0]["cutoutScience"]["stampData"]
+        assert isinstance(stamp, str) and base64.b64decode(stamp)[:2] == b"\x1f\x8b"  # gzipped FITS, as base64 text
+        not_computed = [sum(1 for v in flatten(e).values() if isinstance(v, float) and math.isnan(v)) for e in events]
+        assert not_computed == [20, 9, 0]  # NaN for features Fink did not compute; ConsumeService writes them as null
+        assert all(json.loads(json.dumps(finite_numbers(e), allow_nan=False)) == finite_numbers(e) for e in events)
+
     def test_mbta_stream_events_keep_their_type_and_the_opening_reset_is_not_an_event(self) -> None:
         decoder = MbtaStreamDecoder()
         decoded = [decoder.decode(m) for m in messages("mbta_v3_stream")]  # captured 2026-10-18 with a key

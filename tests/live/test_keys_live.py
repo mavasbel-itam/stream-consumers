@@ -336,8 +336,9 @@ PROBES: tuple[KeyProbe, ...] = (
             setting_default("lasair", "LASAIR_GROUP_ID"),
         ),
     ),
+    # The server address is damaged, not the group id: Fink does not check the group id (test below).
     KafkaProbe(
-        ("FINK_KAFKA_SERVERS", "FINK_GROUP_ID"),
+        ("FINK_GROUP_ID", "FINK_KAFKA_SERVERS"),
         lambda v: (v["FINK_KAFKA_SERVERS"], setting_default("fink", "FINK_TOPICS").split(",")[0].strip(), v["FINK_GROUP_ID"]),
     ),
 )
@@ -385,3 +386,14 @@ async def test_key_is_accepted_and_a_damaged_copy_refused(probe: KeyProbe) -> No
     assert not broken.accepted, f"damaged value accepted: {broken.evidence}"
     missing = await run(probe, None)
     assert missing.accepted is not probe.key_required, f"without the key: {missing.evidence}"
+
+
+async def test_fink_accepts_any_group_id_which_only_keeps_the_read_position() -> None:
+    """Measured 2026-10-20: a changed group id joins the topic as well; the address is what Fink hands out."""
+    stored = {name: ENV.get(name) for name in ("FINK_KAFKA_SERVERS", "FINK_GROUP_ID")}
+    if any(v is None for v in stored.values()):
+        pytest.skip("not set: FINK_KAFKA_SERVERS, FINK_GROUP_ID")
+    probe = next(p for p in PROBES if "FINK_GROUP_ID" in p.env_vars)
+    values = {n: str(v) for n, v in stored.items()}
+    other = await run(probe, {**values, "FINK_GROUP_ID": damaged(values["FINK_GROUP_ID"])})
+    assert other.accepted, f"a changed group id was refused: {other.evidence}"

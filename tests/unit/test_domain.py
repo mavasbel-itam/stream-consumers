@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from stream_consumers.domain.errors import MissingCredentialError, UnknownSourceError
@@ -15,6 +17,7 @@ from stream_consumers.domain.policy import (
     attribute_count,
     category_limit,
     classify_field,
+    finite_numbers,
     flatten,
     median,
     median_rate,
@@ -109,6 +112,16 @@ class TestBackoff:
     def test_attempts_are_one_based(self) -> None:
         with pytest.raises(ValueError):
             Backoff().delay(0)
+
+
+class TestFiniteNumbers:
+    def test_nan_and_infinities_become_null_at_any_depth(self) -> None:
+        payload = {"a": math.nan, "b": [math.inf, {"c": -math.inf}], "d": 1.5, "e": 2, "f": True, "g": "NaN", "h": None}
+        assert finite_numbers(payload) == {"a": None, "b": [None, {"c": None}], "d": 1.5, "e": 2, "f": True, "g": "NaN", "h": None}
+
+    def test_a_payload_json_can_hold_is_unchanged(self) -> None:
+        payload = {"a": [1, 2.5, {"b": "x"}], "c": (3, 4.0), "d": {}}
+        assert finite_numbers(payload) == {"a": [1, 2.5, {"b": "x"}], "c": [3, 4.0], "d": {}}
 
 
 class TestPersonalDataMasker:

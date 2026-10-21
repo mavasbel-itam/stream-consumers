@@ -79,7 +79,7 @@ provider's limits.
 | `CTA_BUS_KEY` | `cta_bus` | required | [Bus Tracker account](https://www.ctabustracker.com/bustime/login.jsp) → My Account → Developer API; e-mailed after approval | query `key` | 100,000 transactions/day |
 | `CTA_TRAIN_KEY` | `cta_train` | required | [Train Tracker application form](https://www.transitchicago.com/developers/traintrackerapply/); CTA reviews it | query `key` | 50,000 requests/day |
 | `ENTSOE_TOKEN` | `entsoe` | required | [Register](https://transparency.entsoe.eu/), then e-mail transparency@entsoe.eu for RESTful API access ("within 3 working days") | query `securityToken` | 400 requests/min |
-| `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` | `fink` (E · low rate) | required | [Fink subscription form](https://forms.gle/2td4jysT4e9pkf889); the Fink team e-mails the Kafka server address and your `group.id` | Kafka bootstrap servers and `group.id` | none documented |
+| `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` | `fink` (E · low rate) | required | [Fink subscription form](https://forms.gle/2td4jysT4e9pkf889); the Fink team e-mails one Kafka server address per survey (ZTF, LSST) and your `group.id` — use the ZTF address | Kafka bootstrap servers and `group.id` (no SASL; the broker does not check the `group.id`, which only keeps your read position) | none documented; alerts are kept 4 days |
 | `GFW_API_TOKEN` | `gfw` (E · low rate) | required | [Global Fishing Watch account](https://globalfishingwatch.org/our-apis/), then request an API token (self-service; up to 5 tokens, they do not expire); non-commercial use only | `Authorization: Bearer` | 50,000 requests/day, 1,500,000/month |
 | `LASAIR_KAFKA_TOPIC` | `lasair` (E · low rate) | required | [Lasair account](https://lasair.lsst.ac.uk/), then build and save a filter with Kafka streaming enabled; its topic is `lasair_` + your user ID + the sanitised filter name | Kafka topic (the server needs no password) | none documented for Kafka |
 | `MASTODON_ACCESS_TOKEN` | `mastodon` | required | [Account on the instance](https://social.vivaldi.net/auth/sign_up) (the default `MASTODON_INSTANCE`; a token works only on the instance that issued it), then a user token with scope `read:statuses` | `Authorization: Bearer` | 300 REST calls per 5 min; streaming not stated |
@@ -104,7 +104,7 @@ commented out with its default.
 | `AISSTREAM_BOUNDING_BOXES` | `aisstream` | `[[[-90, -180], [90, 180]]]` | JSON list of boxes, each two [latitude, longitude] corners (default: the whole world). |
 | `CROSSREF_MAILTO` | `crossref` | (empty) | Contact e-mail sent as mailto= to join Crossref's polite pool (optional). |
 | `ENTSOE_AREAS` | `entsoe` | `10Y1001A1001A83F,10YFR-RTE------C,10YES-REE------0` | Comma-separated EIC codes of the areas to read (default Germany, France, Spain; list in the platform's Area List with EIC). |
-| `FINK_TOPICS` | `fink` | `fink_extragalactic_lt20mag_candidate_lsst` | Comma-separated topics (one per Fink filter; list at https://lsst.fink-portal.org/schemas). |
+| `FINK_TOPICS` | `fink` | `fink_sso_ztf_candidates_ztf,fink_vra_ztf,fink_blazar_ztf` | Comma-separated topics, one per Fink filter (ZTF list: https://doc.ztf.fink-broker.org/broker/filters/; LSST list: https://lsst.fink-portal.org/schemas). |
 | `GFW_DATASET` | `gfw` | `public-global-fishing-events:latest` | Events dataset (fishing, encounters, loitering or port visits). |
 | `GFW_LOOKBACK_DAYS` | `gfw` | `7` | Days back from today whose events are read at every poll. |
 | `GFW_PAGES` | `gfw` | `5` | Pages of 100 events read at every poll. |
@@ -555,8 +555,10 @@ time	datetime	144
 format (`--format`); a destination URI takes no format, the database stores
 the event itself. Every output carries the same three things: `source` (the
 source id), `received_at` (Unix time in seconds when the event arrived) and
-`payload` (the event, masked unless `--raw`). `profile --format` writes its
-samples in any text format.
+`payload` (the event, masked unless `--raw`). A NaN or infinite number in an
+event (Fink's ZTF alerts carry NaN for features not computed) is written as
+`null` in every output, masked or `--raw`, because JSON has no such numbers.
+`profile --format` writes its samples in any text format.
 
 ### Text formats
 
@@ -873,7 +875,7 @@ row's links, group, transport and key are the catalog's own
 | `bitstamp` | [Bitstamp live trades](https://www.bitstamp.net/websocket/v2/) | Bitstamp | E · low rate | websocket / push | — | [terms](https://www.bitstamp.net/websocket/v2/) |
 | `dt_rail_trains` | [Digitraffic Finland train timetables/actuals](https://www.digitraffic.fi/en/railway-traffic/) | Fintraffic (Digitraffic) | E · low rate | mqtt / push | — | [terms](https://www.digitraffic.fi/en/terms-of-service/) |
 | `entsoe` | [ENTSO-E Transparency Platform — actual electricity generation per production type](https://transparencyplatform.zendesk.com/hc/en-us/sections/12783116987028-Restful-API) | European Network of Transmission System Operators for Electricity (ENTSO-E) | E · low rate | http / poll | `ENTSOE_TOKEN` (required; [sign-up](https://transparency.entsoe.eu/)) | [terms](https://transparencyplatform.zendesk.com/hc/en-us/articles/40921911218961-Legal-Terms-and-Conditions) |
-| `fink` | [Fink — Rubin Observatory LSST and ZTF alert livestream](https://doc.lsst.fink-broker.org/services/livestream/) | Fink broker (CNRS/IN2P3 and partners) | E · low rate | kafka / push | `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` (required; [sign-up](https://forms.gle/2td4jysT4e9pkf889)) | [terms](https://github.com/astrolabsoftware/fink-client) |
+| `fink` | [Fink — ZTF alert livestream (LSST with other settings)](https://doc.ztf.fink-broker.org/services/livestream/) | Fink broker (CNRS/IN2P3 and partners) | E · low rate | kafka / push | `FINK_KAFKA_SERVERS`, `FINK_GROUP_ID` (required; [sign-up](https://forms.gle/2td4jysT4e9pkf889)) | [terms](https://github.com/astrolabsoftware/fink-client) |
 | `gfw` | [Global Fishing Watch events API — fishing, encounter, loitering and port-visit events](https://globalfishingwatch.org/our-apis/documentation) | Global Fishing Watch | E · low rate | http / poll | `GFW_API_TOKEN` (required; [sign-up](https://globalfishingwatch.org/our-apis/)) | [terms](https://globalfishingwatch.org/our-apis/documentation/docs/license-rate-limits) |
 | `lasair` | [Lasair — Rubin Observatory LSST alerts that pass your saved filter](https://lasair.readthedocs.io/en/main/core_functions/alert-streams.html) | Lasair (Universities of Edinburgh and Belfast) | E · low rate | kafka / push | `LASAIR_KAFKA_TOPIC` (required; [sign-up](https://lasair.lsst.ac.uk/)) | [terms](https://lasair.lsst.ac.uk/privacy) |
 | `ndbc` | [NOAA National Data Buoy Center — latest observation of every buoy and coastal station](https://www.ndbc.noaa.gov/faq/rt_data_access.shtml) | NOAA National Data Buoy Center (NDBC) | E · low rate | http / poll | — | [terms](https://www.weather.gov/disclaimer) |
@@ -938,7 +940,7 @@ and the reason in one line; the evidence is on the sub-threshold page. Read at
 | `entsoe` | E · low rate | entsoe-20261019 | — | — | 0.010 | 10-19, one 600-s run | group E: one value per area, production type and 15–60 min period; all 59 reporting areas give under 0.4 points/s |
 | `entur` | A · keyless | 20261017 | 24/24 | 24 | 28.648 | 10-17 21:00–10-18 19:44 | passes (certain) |
 | `eth_logs` | A · keyless | 20261017 | 24/24 | 21 | 43.822 | 10-17 21:00–10-18 19:44 | passes (certain) |
-| `fink` | E · low rate | — | — | — | — | — | group E: no measurement possible without credentials; no LSST alert night after 2026-07-14 |
+| `fink` | E · low rate | fink-ztf-20261021 (broker offsets per hour) | 4 days | 0 | 0.588 | 10-17 00:00–10-21 00:00 | group E: ZTF alerts arrive only during the observing night (about 02–15 UTC); 24-h rates 0.031, 0.595, 0.582 and 0.625 events/s; no LSST alert after 2026-07-14 |
 | `firms` | C · free key | d2-20261018 | 7/24 | 4 | 3.727 | 10-18 22:35–10-19 04:35 | passes on 7 rounds (stopped early) |
 | `gdelt` | B · project document | 20261017 | 24/24 | 2 | 0.772 | 10-17 21:00–10-18 19:44 | kept below 1/s: the project document lists it |
 | `gemini` | A · keyless | 20261017 | 24/24 | 24 | 286.996 | 10-17 21:00–10-18 19:44 | passes (certain) |
@@ -1225,17 +1227,18 @@ tier checks their exit codes.
 Fixtures are real messages captured on 2026-10-13 (`velib` and `cta_bus` on
 2026-10-17; `cta_train`, `nta`, `mta_bustime`, `wmata`, `mastodon`, `aisstream`
 and the MBTA stream on 2026-10-18; `blockchain`, `citibike`, `coinpaprika`,
-`ogn`, `sharpe`, `ukflood`, `ndbc`, `entsoe` and `gfw` on 2026-10-19), trimmed,
-with personal values replaced by `<masked>`; a test checks that no fixture leaks
-a personal value or an e-mail address. Fixtures of keyed sources (`aisstream`,
-`cta_bus`, `cta_train`, `entsoe`, `gfw`, `mastodon`, `mbta_v3_stream`,
+`ogn`, `sharpe`, `ukflood`, `ndbc`, `entsoe` and `gfw` on 2026-10-19; `fink` on
+2026-10-21), trimmed, with personal values replaced by `<masked>`; a test checks
+that no fixture leaks a personal value or an e-mail address. Fixtures of keyed sources (`aisstream`,
+`cta_bus`, `cta_train`, `entsoe`, `fink`, `gfw`, `mastodon`, `mbta_v3_stream`,
 `mta_bustime`, `nta`, `wmata`) were captured with the key and stored without it;
 a test checks that they say when they were captured and that the key is not
 stored. `lasair`, whose filter topic is not set, still uses the provider's
 official documentation example, marked with `origin`, `documentation_url` and the
-`corrections` applied (a trailing comma removed), until a topic exists. `fink`
-has no fixture: its Avro decoder is tested with messages written to the local
-Kafka broker.
+`corrections` applied (a trailing comma removed), until a topic exists. The
+`fink` fixture holds three ZTF alerts exactly as delivered (Avro body, schema in
+the key), so its NaN features are kept and the tests check they are written as
+`null`.
 
 ## Decision records
 

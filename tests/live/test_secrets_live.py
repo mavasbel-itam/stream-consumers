@@ -28,6 +28,14 @@ SECRET_VARIABLES = (
 )
 FRAGMENT = 12
 """Characters of a secret that, found anywhere, count as a leak of it (a value cut or wrapped in a record)."""
+PUBLIC_ADDRESSES_OF_THE_CATALOG = tuple(
+    {u for f in FACTORIES for u in (f.descriptor.docs_url, f.descriptor.terms_url, f.descriptor.endpoint)}
+    | {f.descriptor.credential.sign_up_url for f in FACTORIES if f.descriptor.credential}
+    | {h.sign_up_url for h in HELD_KEYS}
+)
+"""What the catalog publishes about each provider. A fragment lying wholly inside one of these (a secret server
+name sharing the provider's public domain, e.g. `.fink-broker.org`) is public text, not a piece of the secret;
+the whole value and every other fragment still count."""
 TOKEN_FORMATS = {
     "private key": re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     "AWS access key id": re.compile(rb"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
@@ -68,10 +76,18 @@ def git(*args: str) -> bytes:
     return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, check=True).stdout
 
 
-def secrets() -> Mapping[str, str]:
+class Secrets(dict[str, str]):
+    """The secret values by variable; shown as the variable names only, so a failing test (pytest prints the
+    arguments of the failing function) never prints a value."""
+
+    def __repr__(self) -> str:
+        return f"Secrets({', '.join(sorted(self))})"
+
+
+def secrets() -> Secrets:
     env = EnvSecretProvider({}, ENV_FILE)
     values = {name: env.get(name) for name in SECRET_VARIABLES}
-    return {name: value for name, value in values.items() if value}
+    return Secrets({name: value for name, value in values.items() if value})
 
 
 def every_object() -> Iterator[tuple[str, bytes]]:
@@ -92,11 +108,15 @@ def files_to_publish() -> Iterator[tuple[str, bytes]]:
         yield name, (ROOT / name).read_bytes()
 
 
+def pieces_of(value: str) -> list[str]:
+    fragments = [] if len(value) < FRAGMENT else [value[i : i + FRAGMENT] for i in range(len(value) - FRAGMENT + 1)]
+    return [value, *(p for p in fragments if not any(p in public for public in PUBLIC_ADDRESSES_OF_THE_CATALOG))]
+
+
 def leaks(found: Mapping[str, str], place: str, data: bytes) -> Iterator[str]:
     text = data.decode("utf-8", "replace")
     for name, value in found.items():
-        pieces = [value] if len(value) < FRAGMENT else [value[i : i + FRAGMENT] for i in range(len(value) - FRAGMENT + 1)]
-        if any(piece in text for piece in pieces):
+        if any(piece in text for piece in pieces_of(value)):
             yield f"{name} in {place}"
     for kind, pattern in TOKEN_FORMATS.items():
         if pattern.search(data):
@@ -104,18 +124,18 @@ def leaks(found: Mapping[str, str], place: str, data: bytes) -> Iterator[str]:
 
 
 @pytest.fixture(scope="module")
-def found() -> Mapping[str, str]:
+def found() -> Secrets:
     values = secrets()
     assert values, f"no secret value in {ENV_FILE}: nothing would be checked"
     return values
 
 
-def test_no_secret_in_anything_git_holds(found: Mapping[str, str]) -> None:
+def test_no_secret_in_anything_git_holds(found: Secrets) -> None:
     problems = [p for place, data in every_object() for p in leaks(found, place, data)]
     assert problems == []
 
 
-def test_no_secret_in_the_files_to_publish(found: Mapping[str, str]) -> None:
+def test_no_secret_in_the_files_to_publish(found: Secrets) -> None:
     problems = [p for place, data in files_to_publish() for p in leaks(found, place, data)]
     assert problems == []
 

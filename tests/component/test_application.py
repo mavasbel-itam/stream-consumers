@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import AsyncGenerator, Callable, Mapping, Sequence
 
 import pytest
@@ -136,6 +137,16 @@ class TestConsume:
         await service.consume("s", 5, raw, mask=False, stop=ManualStop())
         assert masked.events[0].payload == {"user": MASK, "n": 1}
         assert raw.events[0].payload == {"user": "ana", "n": 1}
+
+    async def test_numbers_json_cannot_hold_are_written_as_null_masked_or_raw(self) -> None:
+        # JSON has no NaN or Infinity (RFC 8259 section 6); Fink's ZTF alerts carry NaN for features not computed
+        clock = FakeClock()
+        factory, _ = scripted("s", [{"x": math.nan, "y": [math.inf, -math.inf], "z": 1.5}], clock)
+        service = ConsumeService(registry(clock, factory), clock)
+        masked, raw = ListSink(), ListSink()
+        await service.consume("s", 5, masked, stop=ManualStop())
+        await service.consume("s", 5, raw, mask=False, stop=ManualStop())
+        assert masked.events[0].payload == raw.events[0].payload == {"x": None, "y": [None, None], "z": 1.5}
 
     async def test_failure_before_any_event_is_an_error(self) -> None:
         clock = FakeClock()
