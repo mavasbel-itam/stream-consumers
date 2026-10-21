@@ -173,3 +173,26 @@ def test_every_run_status_and_key_state_is_in_the_troubleshooting_table() -> Non
     text = section("Exit codes and troubleshooting", 3)
     assert all(f"status `{s}`" in text for s in ("key-pending", "no-events", "error"))
     assert "`MISSING` in `keys`" in text and "`unknown` in `keys`" in text
+
+
+def test_every_recipe_is_in_the_recipe_index() -> None:
+    text = section("Recipes", 3)
+    headings = re.findall(r"^#### (.+)$", text, flags=re.MULTILINE)
+    index = [re.match(r"\[(.+?)\]\(#(.+?)\)", r[0]).groups() for r in table_rows(text, "[")]
+    assert headings and index == [(h, slug(h)) for h in headings]
+
+
+def test_every_code_block_names_its_language() -> None:
+    fences = re.findall(r"^```(.*)$", README, flags=re.MULTILINE)
+    openings = fences[0::2]
+    assert len(fences) % 2 == 0 and all(openings), [i for i, f in enumerate(openings) if not f]
+
+
+def test_no_table_is_wider_than_six_columns() -> None:
+    widths = {len(cells) for cells in table_rows(README, "") if cells}
+    assert widths and max(widths) <= 6, max(widths)
+
+
+def test_history_is_kept_out_of_the_present_state_sections() -> None:
+    present = " ".join(README[: README.index("\n## Decision records\n")].split())
+    assert re.findall(r"\b(?:until|since) 20\d\d", present) == []

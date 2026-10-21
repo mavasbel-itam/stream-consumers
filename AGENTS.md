@@ -34,7 +34,11 @@
   `#anchor` link resolves to a heading. `tests/unit/test_documentation.py` fails
   when one is missing or differs; a new source, setting, key, `docs/` page or
   CLI option adds its rows in the same change. A CLI option with a default
-  states it in its help (`tests/unit/test_cli.py`).
+  states it in its help (`tests/unit/test_cli.py`). Every recipe is a level-4
+  heading under "Recipes" with a row in its index table, every code block names
+  its language, no table has more than 6 columns, and the sections before
+  "Decision records" describe the present only (no "until 20…"/"since 20…"
+  history; dated evidence goes to `docs/`, e.g. the known-behaviour page).
 - Every command shown in the README with its output was run on the code it
   documents, with the date and time of the run next to the output; personal
   values are masked.
