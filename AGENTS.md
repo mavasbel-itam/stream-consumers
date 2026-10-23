@@ -92,6 +92,13 @@
   personal e-mail address, or when a commit's author or committer is not
   `mavasbel <28605223+mavasbel@users.noreply.github.com>` (set it with
   `git config user.email` in every clone); mask a personal value as `<masked>`.
+  Every clone enables the versioned hook that runs it on `git push`
+  (`git config core.hooksPath .githooks`; `.githooks/pre-push`, tested by
+  `tests/e2e/test_pre_push_hook.py`); never bypass it with `--no-verify`. CI's
+  `publishing` job runs its checks that need no `.env`. On GitHub, secret
+  scanning, push protection and Dependabot security updates stay enabled, and
+  `main` refuses force pushes and deletion for everyone; a Dependabot pull
+  request is redone as an own commit, never merged as it is.
   The history was rewritten on 2026-10-20 to remove personal addresses; old
   commit IDs map to new ones in `docs/README.md`.
 - Before every commit: `uv run ruff check src tests`, `uv run ruff format --check

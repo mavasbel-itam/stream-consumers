@@ -16,6 +16,7 @@ was obtained and tested.
 | `plans/2026-10-20-00-11-event-outputs-plan.md` | plan | Plan for the event outputs: text formats, SQLite, message brokers and the course databases |
 | `plans/2026-10-20-06-41-graceful-stop-and-readme-plan.md` | plan | Plan for stopping every command cleanly on Ctrl+C or SIGTERM, a fresh live check, and the README rewrite |
 | `plans/2026-10-21-03-03-readme-regeneration-plan.md` | plan | Plan for regenerating the README from scratch, and where every passage of the previous one went |
+| `plans/2026-10-23-04-48-repository-protection-and-dependency-upgrade-plan.md` | plan | Plan for GitHub's protection of the public repository, the pre-push secret hook and the dependency upgrade, with the results |
 
 File names follow `YYYY-MM-DD-HH-MM-<name>.md` (UTC time of writing).
 
