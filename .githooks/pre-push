@@ -1,0 +1,6 @@
+#!/bin/sh
+# Refuses the push when it would publish a secret of .env, a known token format or a personal e-mail address,
+# or a commit with another identity than the no-reply address (tests/live/test_secrets_live.py, 5 tests).
+# Enabled per clone: git config core.hooksPath .githooks
+cd "$(git rev-parse --show-toplevel)" || exit 1
+exec uv run --locked pytest tests/live/test_secrets_live.py -m live -q -p no:cacheprovider

@@ -1447,7 +1447,7 @@ never stopped).
 |---|---|---|---|
 | unit | domain, decoders against real captured messages (`tests/fixtures/raw`), factories, sinks, the CLI in-process (stopped by real signals sent to the test process), the signal handling, the architecture rules, this README against the code | nothing | 100 % gated, with component |
 | component | services with scripted sources; every transport against a local server, Kafka against a real broker; sources with their own fetching logic against captured answers; every broker and database output writing into a real server and read back with that server's own client, also after a stop (every event the run report counts was stored; database tests are marked `databases`); every service stopped while waiting, between events, before starting and between rounds | Docker | (same gate) |
-| e2e | the CLI as a subprocess against local servers for every transport (Kafka included), working and failing; SIGINT and SIGTERM for each of the nine transports (stopped within 2 s, report written); every text format and SQLite complete after a stop; `check`, `profile` and `sample` stopped and resumed; a second signal; a SIGINT ignored by a background job; Ctrl+C typed on a pseudo-terminal under a shell loop | Docker | 100 % gated on the CLI, services, ports and infrastructure adapters (`.coveragerc.e2e`) |
+| e2e | the CLI as a subprocess against local servers for every transport (Kafka included), working and failing; SIGINT and SIGTERM for each of the nine transports (stopped within 2 s, report written); every text format and SQLite complete after a stop; `check`, `profile` and `sample` stopped and resumed; a second signal; a SIGINT ignored by a background job; Ctrl+C typed on a pseudo-terminal under a shell loop; the pre-push hook under a real `git push` (a clean push accepted; a secret of `.env` or a personal e-mail address refused) | Docker | 100 % gated on the CLI, services, ports and infrastructure adapters (`.coveragerc.e2e`) |
 | live | every source against its real provider for 60 s, or its longer minimum window (groups A–D must deliver or wait for their key; a group E source may also deliver nothing, its measured state); every key in `.env` accepted and a damaged copy refused (`test_keys_live.py`); the secret check (`test_secrets_live.py`, [Publishing safely](#publishing-safely)) | Internet, `.env` | reported only (`.coveragerc.live`) |
 
 ```bash
@@ -1457,13 +1457,15 @@ uv run coverage erase --rcfile=.coveragerc.e2e
 uv run pytest tests/e2e
 uv run coverage combine --rcfile=.coveragerc.e2e && uv run coverage report --rcfile=.coveragerc.e2e
 uv run coverage run --rcfile=.coveragerc.live -m pytest tests/live -m live   # needs Internet; never in CI
-uv run pytest tests/live/test_secrets_live.py -m live  # before every push: needs .env, not the Internet
+uv run pytest tests/live/test_secrets_live.py -m live  # before every push (the pre-push hook): needs .env, not the Internet
 uv run ruff check src tests && uv run ruff format --check src tests
 ```
 
 CI (`.github/workflows/tests.yml`) runs lint, the unit and component tiers,
 the database tests in their own job in parallel, and the e2e tier, and gates
-the 100 % on the combined coverage of both test jobs.
+the 100 % on the combined coverage of both test jobs; its `publishing` job
+runs the checks of the secret test that need no `.env`
+([Publishing safely](#publishing-safely)).
 
 <details>
 <summary>Test servers and images</summary>
@@ -1534,10 +1536,12 @@ so no key, password, token or personal value may ever be committed:
   `mavasbel <28605223+mavasbel@users.noreply.github.com>` (set it with
   `git config user.email` in every clone).
 
-Before every push:
+Before every push the secret check runs; the versioned pre-push hook runs it
+for you once a clone enables it:
 
 ```bash
-uv run pytest tests/live/test_secrets_live.py -m live
+git config core.hooksPath .githooks                   # once per clone: git push then runs .githooks/pre-push
+uv run pytest tests/live/test_secrets_live.py -m live # what the hook runs; also by hand at any time
 ```
 
 It fails when a secret of `.env`, whole or as a 12-character piece, or a known
@@ -1545,7 +1549,19 @@ token format is in any object git holds (every ref, reflog and unreachable
 object) or in the files to publish; when any of them holds a personal e-mail
 address; or when a commit's author or committer is not the no-reply address. A
 12-character piece that lies wholly inside a public address the catalog itself
-publishes (a documentation, terms, endpoint or sign-up URL) does not count.
+publishes (a documentation, terms, endpoint or sign-up URL) does not count. A
+failure names the variable and the place, never the value, and refuses the
+push; so do a missing `.env` (nothing to check) and a missing `uv`.
+
+GitHub guards the published side as well:
+
+| Guard | What it does |
+|---|---|
+| CI job `publishing` | runs the three checks that need no `.env` (personal e-mail addresses in any object or file, commit identities) on the full history; a pull request is checked at its own head commit |
+| Secret scanning | GitHub scans every commit, history included, for provider token formats and lists findings under the repository's security alerts |
+| Push protection | GitHub refuses a push holding a supported provider token |
+| Dependabot alerts and security updates | GitHub reports a known vulnerability in `uv.lock` and proposes the fix as a pull request by `dependabot[bot]`, which is redone as an own commit (every commit carries the no-reply identity) |
+| Protection of `main` | no force push and no deletion, administrators included; a history rewrite lifts it for its push and restores it after |
 
 ## Decision records
 
@@ -1564,6 +1580,7 @@ pages are status pages with a change log.
 | [`docs/plans/2026-10-20-00-11-event-outputs-plan.md`](docs/plans/2026-10-20-00-11-event-outputs-plan.md) | plan | Plan for the event outputs: text formats, SQLite, message brokers and the course databases |
 | [`docs/plans/2026-10-20-06-41-graceful-stop-and-readme-plan.md`](docs/plans/2026-10-20-06-41-graceful-stop-and-readme-plan.md) | plan | Plan for stopping every command cleanly on Ctrl+C or SIGTERM, a fresh live check, and the README rewrite |
 | [`docs/plans/2026-10-21-03-03-readme-regeneration-plan.md`](docs/plans/2026-10-21-03-03-readme-regeneration-plan.md) | plan | Plan for regenerating this README from scratch, and where every passage of the previous one went |
+| [`docs/plans/2026-10-23-04-48-repository-protection-and-dependency-upgrade-plan.md`](docs/plans/2026-10-23-04-48-repository-protection-and-dependency-upgrade-plan.md) | plan | Plan for GitHub's protection of the public repository, the pre-push secret hook and the dependency upgrade, with the results |
 | [`docs/reference/2026-10-17-15-13-api-key-gated-sources.md`](docs/reference/2026-10-17-15-13-api-key-gated-sources.md) | reference | Status of every API key and keyed source, how to get each key, test results, change log |
 | [`docs/reference/2026-10-19-18-27-sub-threshold-sources.md`](docs/reference/2026-10-19-18-27-sub-threshold-sources.md) | reference | Group E and every other stream measured or screened below 1 event/s, with evidence and change log |
 | [`docs/reference/2026-10-21-03-28-known-behaviour.md`](docs/reference/2026-10-21-03-28-known-behaviour.md) | reference | The dated measurements behind every line of [Known behaviour](#known-behaviour), with change log |

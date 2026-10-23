@@ -46,6 +46,19 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
 
+  publishing:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # a pull request at its own head commit, not the merge commit GitHub makes for it
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --locked
+      # the checks of the secret test that need no .env: personal e-mail addresses and commit identities
+      - run: uv run pytest tests/live/test_secrets_live.py -m live -k "e_mail or no_reply"
+
   coverage:
     needs: [test, databases]
     runs-on: ubuntu-24.04
