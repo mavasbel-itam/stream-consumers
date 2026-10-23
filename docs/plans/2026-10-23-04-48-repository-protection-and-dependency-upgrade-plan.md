@@ -120,3 +120,21 @@ Each passes the gates above before it is pushed; the hook guards both pushes.
 | Unit + component + database tests | 1,382 passed, coverage 100 % |
 | e2e three times (04:59–05:14 UTC) | 23 passed each, coverage 100 % each |
 | Secret test with the real `.env` | 5 passed |
+
+## 6. Results of §3 (2026-10-23)
+
+| Item | Result |
+|---|---|
+| `uv lock --upgrade` | certifi 2026.10.18 → 2026.10.19, coverage 7.16.2 → 7.17.0, pluggy 1.6.0 → 1.7.0, pycparser 3.11 → 3.12, python-dateutil 2.9.0.post0 → 3.0.0, ruff 0.17.0 → 0.17.2, tzdata 2026.5 added; `setup-uv` v10.3.0 → v10.3.2 in all 4 jobs |
+| websockets 17.3 | refused by the resolver: amqtt 0.12.1 (the test-only MQTT broker, latest release 2026-09-16) pins `websockets==15.0.1` exactly (its `pyproject.toml` line 33); no open amqtt issue or pull request asks to lift it. Owner's decision: `[tool.uv] override-dependencies = ["websockets==17.3"]`, to be removed once an amqtt release allows it |
+| Left at the labs-setup versions | `neo4j` 6.2.0, `opensearch-py` 3.0.0, `pymongo` 4.17.0 (§3.2) |
+| Lint and format (ruff 0.17.2) | pass |
+| Unit + component + database tests | 1,382 passed, coverage 100 % |
+| e2e three times (06:17–06:28 UTC) | 23 passed each, coverage 100 % each |
+| Live tier with the real `.env` (06:28–06:46 UTC) | 115 passed, 1 skipped (`LASAIR_KAFKA_TOPIC` not set): all 73 sources, every key, the secret test |
+| `keys` | exit 0 |
+
+One measurement note: an e2e round started while a unit `--cov` run was in
+progress in the same checkout reported 62 %, because `pytest --cov` erases
+the e2e tier's `.coverage.e2e.*` files on start; the same three rounds run
+alone reported 100 % each. Run the tiers one after the other.
